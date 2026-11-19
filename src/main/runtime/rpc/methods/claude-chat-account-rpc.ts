@@ -1,10 +1,5 @@
 // Overhedge: wires the Claude per-chat account commands into the runtime RPC surface.
 import { z } from 'zod'
-import type {
-  AgentSessionMutationResult,
-  AgentSessionSendResult
-} from '../../../../shared/agent-session/agent-session-wire'
-import type { AgentJournalCursor } from '../../../../shared/agent-session/journal/agent-session-journal-identity'
 import { getClaudeProfileRouter } from '../../../claude-accounts/claude-profile-installed-router'
 import {
   describeChatAccount,
@@ -15,6 +10,7 @@ import {
 } from '../../../claude-accounts/claude-chat-account-commands'
 import type { StructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-host'
 import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-registry'
+import { acceptedOrcaCommandReply } from '../../../native-chat/agent-session-wire/structured-agent-session-orca-notice'
 import { defineMethod, type RpcContext } from '../core'
 
 function orchestrationDb(ctx: RpcContext) {
@@ -90,25 +86,7 @@ export async function interceptClaudeAccountSlashCommand(
     `overhedge-account:${clientMessageId}`,
     text
   )
-  return notice ? acceptedAccountCommandReply(clientMessageId, notice) : null
-}
-
-/** Released clients treat a refusal as "not sent" and hand the text back to the composer. A
- *  queued-receipt answer reads as recorded; its cursor (past the notice row) retires the echo. */
-export function acceptedAccountCommandReply(
-  clientMessageId: string,
-  notice: { fence: number; cursor: AgentJournalCursor }
-): AgentSessionMutationResult<AgentSessionSendResult> {
-  return {
-    ok: true,
-    replayed: false,
-    fence: notice.fence,
-    cursor: notice.cursor,
-    value: {
-      clientMessageId,
-      queued: { messageId: clientMessageId, position: 0, state: 'withdrawn' }
-    }
-  }
+  return notice ? acceptedOrcaCommandReply(clientMessageId, notice) : null
 }
 
 const MigrateParams = z

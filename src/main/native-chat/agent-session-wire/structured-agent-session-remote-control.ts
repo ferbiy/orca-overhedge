@@ -9,12 +9,17 @@ import {
   type ClaudeRemoteControlNote,
   type ClaudeRemoteControlRegistry
 } from '../../claude/claude-remote-control'
-import type { AgentSessionMutationResult } from '../../../shared/agent-session/agent-session-wire'
+import type {
+  AgentSessionMutationResult,
+  AgentSessionSendResult
+} from '../../../shared/agent-session/agent-session-wire'
+import type { AgentJournalCursor } from '../../../shared/agent-session/journal/agent-session-journal-identity'
 import { refuseUnclassified } from '../../../shared/agent-session/failures/agent-session-wire-refusals'
 import { AGENT_JOURNAL_THREAD_SCOPE } from '../../../shared/agent-session/journal/agent-session-journal-types'
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
 import type { AgentSessionRecordStore } from '../../runtime/agent-session/records/agent-session-record-store'
 import { structuredAgentSessionConversationFence } from './structured-agent-session-provider-child'
+import { acceptedOrcaCommandReply } from './structured-agent-session-orca-notice'
 
 export const REMOTE_CONTROL_ROW_PREFIX = 'overhedge-remote-control:'
 
@@ -52,7 +57,7 @@ export function createRemoteControlNoteWriter(
 }
 
 type SendLike = {
-  envelope: { sessionId: string }
+  envelope: { sessionId: string; clientOperationId: string }
   body: { blocks: readonly unknown[] }
 }
 
@@ -69,28 +74,39 @@ export function remoteControlCommandOf(params: SendLike): ClaudeRemoteControlCom
 
 export type RemoteControlInterceptHost = {
   sessionAgent: (sessionId: string) => string | null
-  remoteControlNote?: (sessionId: string, note: ClaudeRemoteControlNote) => Promise<boolean>
+  appendOrcaNotice: (
+    sessionId: string,
+    noticeId: string,
+    text: string,
+    tone?: string
+  ) => Promise<{ fence: number; cursor: AgentJournalCursor } | null>
 }
 
 /** Null leaves the send untouched. Otherwise the toggle ran, its row is written, and the send is
- *  refused so the client knows nothing reached Claude (its draft returns to the composer). */
+ *  answered as accepted (like `/account`) so released clients neither show "not sent" nor hand the
+ *  text back to the composer. Nothing reaches Claude either way. */
 export async function interceptRemoteControlSend(
   host: RemoteControlInterceptHost,
   params: SendLike,
   registry: ClaudeRemoteControlRegistry = claudeRemoteControl
-): Promise<AgentSessionMutationResult<never> | null> {
+): Promise<AgentSessionMutationResult<AgentSessionSendResult> | null> {
   const command = remoteControlCommandOf(params)
-  const { sessionId } = params.envelope
-  if (!command || host.sessionAgent(sessionId) !== 'claude' || !host.remoteControlNote) {
+  const { sessionId, clientOperationId } = params.envelope
+  if (!command || host.sessionAgent(sessionId) !== 'claude') {
     return null
   }
   const note = await registry.run(sessionId, command)
-  await host.remoteControlNote(sessionId, note).catch(() => false)
+  const notice = await host
+    .appendOrcaNotice(sessionId, `${REMOTE_CONTROL_ROW_PREFIX}${clientOperationId}`, note.text, note.tone)
+    .catch(() => null)
+  if (notice) {
+    return acceptedOrcaCommandReply(clientOperationId, notice)
+  }
   return {
     ok: false,
     refusal: refuseUnclassified(
       'structured_agent_session_unsupported',
-      `Orca handled ${command.action} Remote Control instead of sending the message to Claude`
+      `Orca handled ${command.action} Remote Control but could not record its answer in this chat`
     )
   }
 }

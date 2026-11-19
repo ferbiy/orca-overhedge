@@ -19,7 +19,7 @@ import {
 import { orderClaudeChatMigration, planClaudeChatMigration } from './claude-chat-account-migration'
 import { applyClaudeTerminalPin, pinnedClaudeTerminalHome } from './claude-chat-account-terminal'
 import { describeChatAccount } from './claude-chat-account-commands'
-import { acceptedAccountCommandReply } from '../runtime/rpc/methods/claude-chat-account-rpc'
+import { acceptedOrcaCommandReply } from '../native-chat/agent-session-wire/structured-agent-session-orca-notice'
 import { structuredAgentSessionSendEvidence } from '../../shared/agent-session/requests/structured-agent-session-send-evidence'
 
 const account = (id: string, email: string) => ({ id, email }) as ClaudeManagedAccount
@@ -206,7 +206,7 @@ describe('slash parsing', () => {
 
 describe('accepted reply for an intercepted command', () => {
   it('reads as recorded to a released client, so nothing returns to the composer', () => {
-    const reply = acceptedAccountCommandReply('msg-1', {
+    const reply = acceptedOrcaCommandReply('msg-1', {
       fence: 3,
       cursor: { epoch: 'e', sequence: 9 } as never
     })
