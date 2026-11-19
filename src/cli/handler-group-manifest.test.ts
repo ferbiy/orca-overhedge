@@ -62,10 +62,11 @@ describe('account handler group', () => {
 describe('account migrate flags', () => {
   it('registers its switches as boolean flags, so a following value is never swallowed', () => {
     const spec = ACCOUNT_COMMAND_SPECS.find((entry) => entry.path.join(' ') === 'account migrate')
-    for (const flag of ['unpin', 'dry-run', 'now', 'pin-only']) {
+    for (const flag of ['unpin', 'dry-run', 'restart', 'yes', 'pin-only']) {
       expect(spec?.allowedFlags, flag).toContain(flag)
       expect(CLI_BOOLEAN_FLAGS.has(flag), flag).toBe(true)
     }
+    expect(spec?.allowedFlags).not.toContain('now')
     expect(spec?.allowedFlags).toContain('timeout')
     expect(CLI_BOOLEAN_FLAGS.has('timeout')).toBe(false)
   })

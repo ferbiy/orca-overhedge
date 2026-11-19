@@ -1,163 +1,41 @@
-// Overhedge: restart a terminal (TUI) Claude chat in place under another account. In the pane's own
-// shell: wait for the agent to be idle, type /exit, prove Claude left the foreground, then type the
-// resume line. The shell, terminal handle and orchestration identity stay. Every check that fails
-// before /exit leaves the pane untouched; the caller then reports the manual command instead.
-import { recognizeAgentProcess } from '../../shared/agent-status/process/agent-process-recognition'
+// Overhedge: restart a terminal (TUI) Claude chat in place under another account (opt-in, `--restart`).
+// In the pane's own shell: wait for the turn to end, take the pane's input exclusively, prove from the
+// screen that Claude sits at an empty prompt, type /exit, prove Claude left and a POSIX shell is back,
+// type the resume line, and prove Claude runs again under the same session. Every check that fails
+// before /exit leaves the pane untouched; the caller then prints the manual command instead.
 import { isShellProcess } from '../../shared/agent-status/process/shell-process-detection'
+import { claudePromptLineText } from './claude-terminal-screen-proof'
+import {
+  CANCELLED,
+  claudeInForeground,
+  claudeReadyForKeys,
+  idleState,
+  isClaudeForegroundProcess,
+  isPosixEnvPrefixShell,
+  QUESTION,
+  samePty,
+  screenTail,
+  SESSION_ID_RE,
+  until,
+  type ClaudeTerminalRestartOptions,
+  type ClaudeTerminalRestartOutcome,
+  type ClaudeTerminalRestartPort,
+  type PaneTerminal
+} from './claude-terminal-restart-checks'
 
-/** What the restart reads and writes; the runtime adapter lives next to the RPC method. */
-export type ClaudeTerminalRestartPort = {
-  /** The live terminal of a pane (handle and the shell's PTY id), or null when the pane is gone. */
-  terminalForPane(paneKey: string): { handle: string; ptyId: string } | null
-  /** The agent-status hook row of the pane (`working`, `blocked`, `waiting`, `done`), if any. */
-  hookState(paneKey: string): string | null
-  /** Title/foreground based state; `isRunningAgent` false once the agent left the pane. */
-  agentStatus(
-    handle: string
-  ): Promise<{ isRunningAgent: boolean; status: 'working' | 'permission' | 'idle' | null }>
-  /** The pane's foreground process name; null when the PTY host cannot tell (e.g. older daemon). */
-  foregroundProcess(handle: string): Promise<string | null>
-  /** Types into the pane; false when the terminal refused the input. */
-  send(handle: string, action: { text?: string; enter?: boolean }): Promise<boolean>
-  /** Throws when the resume line is not allowed in a terminal (session owned by a chat-UI chat). */
-  assertResumeAllowed?(line: string): Promise<void>
-  sleep(ms: number): Promise<void>
-  now(): number
-}
+export {
+  isClaudeForegroundProcess,
+  isPosixEnvPrefixShell,
+  type ClaudeTerminalRestartOptions,
+  type ClaudeTerminalRestartOutcome,
+  type ClaudeTerminalRestartPort
+} from './claude-terminal-restart-checks'
 
-export type ClaudeTerminalRestartOptions = {
-  /** Skip the idle wait; a running turn is interrupted first. Open questions still refuse. */
-  now: boolean
-  /** Absolute deadline (port clock) for the idle wait. */
-  idleDeadline: number
-  pollMs?: number
-  /** How long Claude may take to exit after /exit, and to show up again after the resume line. */
-  exitTimeoutMs?: number
-  startTimeoutMs?: number
-}
+/** Panes with a restart in progress in this process; a second request for one is refused. */
+const panesInRestart = new Set<string>()
 
-export type ClaudeTerminalRestartOutcome =
-  | { kind: 'restarted' | 'started-unconfirmed'; detail: string }
-  /** Nothing was typed into the pane. */
-  | { kind: 'refused'; reason: string }
-  /** /exit (or an interrupt) was typed but the restart could not finish safely. */
-  | { kind: 'stopped-midway'; reason: string }
-
-const NATIVE_CLAUDE_VERSION_NAME = /^\d+\.\d+\.\d+$/
-const ESCAPE = '\x1b'
-
-/** Claude's process, by name or as the native binary named after its version. */
-export function isClaudeForegroundProcess(name: string | null): boolean {
-  if (!name) {
-    return false
-  }
-  return (
-    recognizeAgentProcess(name)?.agent === 'claude' || NATIVE_CLAUDE_VERSION_NAME.test(name.trim())
-  )
-}
-
-type Check = { ok: true } | { ok: false; reason: string }
-
-type PaneTerminal = { handle: string; ptyId: string }
-
-/** The pane still runs the same shell (same PTY) it ran when the restart began. */
-function samePty(port: ClaudeTerminalRestartPort, paneKey: string, terminal: PaneTerminal): boolean {
-  return port.terminalForPane(paneKey)?.ptyId === terminal.ptyId
-}
-
-async function claudeInForeground(
-  port: ClaudeTerminalRestartPort,
-  paneKey: string,
-  terminal: PaneTerminal
-): Promise<Check> {
-  const handle = terminal.handle
-  if (!samePty(port, paneKey, terminal)) {
-    return { ok: false, reason: 'the pane changed its terminal' }
-  }
-  const foreground = await port.foregroundProcess(handle)
-  if (foreground === null) {
-    return {
-      ok: false,
-      reason: "the terminal host cannot report the pane's foreground process (older PTY daemon?)"
-    }
-  }
-  if (!isClaudeForegroundProcess(foreground)) {
-    return {
-      ok: false,
-      reason: isShellProcess(foreground)
-        ? 'Claude is not running in this pane (the shell is in the foreground)'
-        : `the foreground process is ${foreground}, not Claude`
-    }
-  }
-  const status = await port.agentStatus(handle)
-  if (!status.isRunningAgent) {
-    return { ok: false, reason: 'Orca does not see a running agent in this pane' }
-  }
-  return { ok: true }
-}
-
-/** Idle: the hooks say the turn ended and the title does not show work or a permission prompt. */
-async function idleState(
-  port: ClaudeTerminalRestartPort,
-  paneKey: string,
-  handle: string
-): Promise<'idle' | 'working' | 'question'> {
-  const hook = port.hookState(paneKey)
-  const { status } = await port.agentStatus(handle)
-  if (hook === 'blocked' || hook === 'waiting' || status === 'permission') {
-    return 'question'
-  }
-  return hook === 'done' && status !== 'working' ? 'idle' : 'working'
-}
-
-async function until(
-  port: ClaudeTerminalRestartPort,
-  deadline: number,
-  pollMs: number,
-  test: () => Promise<boolean>
-): Promise<boolean> {
-  while (true) {
-    if (await test()) {
-      return true
-    }
-    if (port.now() >= deadline) {
-      return false
-    }
-    await port.sleep(Math.max(1, Math.min(pollMs, deadline - port.now())))
-  }
-}
-
-/** The state once the turn ended (idle, or a question opened); null when the deadline passed. */
-async function waitForTurnEnd(
-  port: ClaudeTerminalRestartPort,
-  paneKey: string,
-  handle: string,
-  deadline: number,
-  pollMs: number
-): Promise<'idle' | 'question' | null> {
-  let last: 'idle' | 'working' | 'question' = 'working'
-  const ended = await until(port, deadline, pollMs, async () => {
-    last = await idleState(port, paneKey, handle)
-    return last !== 'working'
-  })
-  return ended && last !== 'working' ? last : null
-}
-
-/** Read-only: would an automatic restart start now (ignoring whether the agent is idle)? */
-export async function precheckClaudeTerminalRestart(
-  port: ClaudeTerminalRestartPort,
-  paneKey: string,
-  claudeSessionId: string | null
-): Promise<Check & { terminal?: PaneTerminal }> {
-  if (!claudeSessionId) {
-    return { ok: false, reason: "Orca does not know this pane's Claude session id" }
-  }
-  const terminal = port.terminalForPane(paneKey)
-  if (!terminal) {
-    return { ok: false, reason: 'the pane has no live terminal' }
-  }
-  const check = await claudeInForeground(port, paneKey, terminal)
-  return check.ok ? { ok: true, terminal } : check
+export function isClaudeTerminalRestartInProgress(paneKey: string): boolean {
+  return panesInRestart.has(paneKey)
 }
 
 export async function restartClaudeTerminalInPlace(
@@ -165,13 +43,48 @@ export async function restartClaudeTerminalInPlace(
   input: { paneKey: string; claudeSessionId: string | null; resumeLine: string },
   options: ClaudeTerminalRestartOptions
 ): Promise<ClaudeTerminalRestartOutcome> {
-  const pollMs = options.pollMs ?? 500
-  const pre = await precheckClaudeTerminalRestart(port, input.paneKey, input.claudeSessionId)
-  if (!pre.ok || !pre.terminal) {
-    return { kind: 'refused', reason: pre.ok ? 'the pane has no live terminal' : pre.reason }
+  if (panesInRestart.has(input.paneKey)) {
+    return { kind: 'refused', reason: 'another migration is already restarting this pane' }
   }
-  const terminal = pre.terminal
-  const handle = terminal.handle
+  panesInRestart.add(input.paneKey)
+  try {
+    return await restartLocked(port, input, options)
+  } finally {
+    panesInRestart.delete(input.paneKey)
+  }
+}
+
+async function restartLocked(
+  port: ClaudeTerminalRestartPort,
+  input: { paneKey: string; claudeSessionId: string | null; resumeLine: string },
+  options: ClaudeTerminalRestartOptions
+): Promise<ClaudeTerminalRestartOutcome> {
+  const pollMs = options.pollMs ?? 500
+  const signal = options.signal
+  const sessionId = input.claudeSessionId
+  if (!sessionId) {
+    return { kind: 'refused', reason: "Orca does not know this pane's Claude session id" }
+  }
+  if (!SESSION_ID_RE.test(sessionId)) {
+    return { kind: 'refused', reason: "this pane's Claude session id is not a UUID" }
+  }
+  const terminal = port.terminalForPane(input.paneKey)
+  if (!terminal) {
+    return { kind: 'refused', reason: 'the pane has no live terminal' }
+  }
+  const pre = await claudeInForeground(port, input.paneKey, terminal)
+  if (!pre.ok) {
+    return { kind: 'refused', reason: pre.reason }
+  }
+  const shell = await port.rootShell(terminal.ptyId)
+  if (!isPosixEnvPrefixShell(shell)) {
+    return {
+      kind: 'refused',
+      reason: shell
+        ? `the pane's shell is ${shell}; only bash, zsh, sh, dash and ksh are restarted automatically`
+        : "Orca cannot tell which shell runs in this pane"
+    }
+  }
   try {
     await port.assertResumeAllowed?.(input.resumeLine)
   } catch (error) {
@@ -180,81 +93,132 @@ export async function restartClaudeTerminalInPlace(
       reason: `the resume is not allowed in a terminal (${error instanceof Error ? error.message : String(error)})`
     }
   }
-  let interrupted = false
-  let state = await idleState(port, input.paneKey, handle)
+  let state = await idleState(port, input.paneKey, terminal.handle)
   if (state === 'question') {
-    return { kind: 'refused', reason: 'Claude is waiting for an answer or a permission in this pane' }
-  }
-  if (state === 'working' && !options.now) {
-    const waited = await waitForTurnEnd(port, input.paneKey, handle, options.idleDeadline, pollMs)
-    if (waited === null) {
-      return { kind: 'refused', reason: 'Claude was still working when the wait timed out' }
-    }
-    if (waited === 'question') {
-      return { kind: 'refused', reason: 'Claude is waiting for an answer or a permission in this pane' }
-    }
-    state = waited
+    return { kind: 'refused', reason: QUESTION }
   }
   if (state === 'working') {
-    // --now: interrupt the turn once (a second Escape would open Claude's rewind menu).
-    const check = await claudeInForeground(port, input.paneKey, terminal)
-    if (!check.ok) {
-      return { kind: 'refused', reason: check.reason }
-    }
-    if (!(await port.send(handle, { text: ESCAPE }))) {
-      return { kind: 'refused', reason: 'the terminal refused input' }
-    }
-    interrupted = true
-    const settled = await until(port, port.now() + 15_000, pollMs, async () => {
-      const { status } = await port.agentStatus(handle)
-      return status !== 'working' && port.hookState(input.paneKey) !== 'working'
-    })
-    if (!settled) {
-      return { kind: 'stopped-midway', reason: 'Claude was interrupted but did not settle; it was not exited' }
-    }
-  }
-  const check = await claudeInForeground(port, input.paneKey, terminal)
-  if (!check.ok) {
-    return interrupted
-      ? { kind: 'stopped-midway', reason: `Claude was interrupted, then ${check.reason}` }
-      : { kind: 'refused', reason: check.reason }
-  }
-  if (!(await port.send(handle, { text: '/exit', enter: true }))) {
-    return interrupted
-      ? { kind: 'stopped-midway', reason: 'Claude was interrupted, then the terminal refused /exit' }
-      : { kind: 'refused', reason: 'the terminal refused input' }
-  }
-  const exited = await until(
-    port,
-    port.now() + (options.exitTimeoutMs ?? 20_000),
-    pollMs,
-    async () => {
-      if (!samePty(port, input.paneKey, terminal)) {
-        return false
+    if (options.dryRun) {
+      return {
+        kind: 'would-restart',
+        detail: 'Claude is busy now; a real run waits for the turn to end (shared --timeout budget), then repeats every check before typing'
       }
-      const foreground = await port.foregroundProcess(handle)
-      return foreground !== null && isShellProcess(foreground)
     }
-  )
+    const seen: { state: 'idle' | 'working' | 'question' } = { state }
+    await until(
+      port,
+      options.idleDeadline,
+      pollMs,
+      async () => {
+        seen.state = await idleState(port, input.paneKey, terminal.handle)
+        return seen.state !== 'working'
+      },
+      signal
+    )
+    state = seen.state
+    if (signal?.aborted === true) {
+      return { kind: 'refused', reason: CANCELLED }
+    }
+    if (state !== 'idle') {
+      return {
+        kind: 'refused',
+        reason: state === 'question' ? QUESTION : 'Claude was still working when the wait timed out'
+      }
+    }
+  }
+  const release = port.holdInput(terminal.ptyId)
+  if (!release) {
+    return { kind: 'refused', reason: "another operation holds this pane's input" }
+  }
+  try {
+    return await typeRestart(port, input, sessionId, terminal, options, pollMs)
+  } finally {
+    release()
+  }
+}
+
+/** Runs with the pane's input held. Returns before any keystroke unless every check passes. */
+async function typeRestart(
+  port: ClaudeTerminalRestartPort,
+  input: { paneKey: string; resumeLine: string },
+  sessionId: string,
+  terminal: PaneTerminal,
+  options: ClaudeTerminalRestartOptions,
+  pollMs: number
+): Promise<ClaudeTerminalRestartOutcome> {
+  const signal = options.signal
+  const ready = await claudeReadyForKeys(port, input.paneKey, terminal, signal)
+  if (!ready.ok) {
+    return { kind: 'refused', reason: ready.reason }
+  }
+  if (options.dryRun) {
+    return { kind: 'would-restart', detail: 'every check passed; a real run would type /exit now' }
+  }
+  // Re-check as close to the write as possible.
+  const last = await claudeReadyForKeys(port, input.paneKey, terminal, signal)
+  if (!last.ok) {
+    return { kind: 'refused', reason: last.reason }
+  }
+  if (!(await port.write(terminal.ptyId, '/exit'))) {
+    return { kind: 'refused', reason: 'the terminal refused input' }
+  }
+  // From here on cancellation is not honoured until Claude runs again or the run stops and reports.
+  await port.sleep(options.enterDelayMs ?? 250)
+  const typed = claudePromptLineText((await port.readScreen(terminal.handle))?.lines ?? [])
+  if (typed !== '/exit' || !samePty(port, input.paneKey, terminal)) {
+    return midway(
+      port,
+      'typed /exit but the input box did not show exactly /exit, so Enter was NOT pressed; /exit is left in Claude\'s input box: delete it by hand'
+    )
+  }
+  if (!(await port.write(terminal.ptyId, '\r'))) {
+    return midway(port, "typed /exit but the terminal refused Enter; /exit is left in Claude's input box")
+  }
+  const seen: { shell: string | null } = { shell: null }
+  const exited = await until(port, port.now() + (options.exitTimeoutMs ?? 20_000), pollMs, async () => {
+    if (!samePty(port, input.paneKey, terminal)) {
+      return false
+    }
+    seen.shell = await port.foregroundProcess(terminal.handle)
+    return seen.shell !== null && isShellProcess(seen.shell)
+  })
   if (!exited || !samePty(port, input.paneKey, terminal)) {
-    return {
-      kind: 'stopped-midway',
-      reason: 'typed /exit but could not prove Claude exited, so no second Claude was started'
-    }
+    return midway(
+      port,
+      `typed /exit but could not prove Claude exited (an exit confirmation may be open; it was not answered), so no second Claude was started.${await screenTail(port, terminal.handle)}`
+    )
   }
-  if (!(await port.send(handle, { text: input.resumeLine, enter: true }))) {
-    return {
-      kind: 'stopped-midway',
-      reason: 'Claude exited but the terminal refused the resume line'
-    }
+  if (!isPosixEnvPrefixShell(seen.shell)) {
+    return midway(port, `Claude exited but the shell in front is ${seen.shell ?? 'unknown'}, so the resume line was not typed`)
   }
-  const started = await until(
-    port,
-    port.now() + (options.startTimeoutMs ?? 20_000),
-    pollMs,
-    async () => isClaudeForegroundProcess(await port.foregroundProcess(handle))
-  )
-  return started
-    ? { kind: 'restarted', detail: 'restarted in place' }
-    : { kind: 'started-unconfirmed', detail: 'resume line typed; Claude not yet seen in the foreground' }
+  // Last check right before the write: still the same PTY with a shell in front.
+  const front = await port.foregroundProcess(terminal.handle)
+  if (!samePty(port, input.paneKey, terminal) || !isPosixEnvPrefixShell(front)) {
+    return midway(port, 'Claude exited but the shell was no longer in front, so the resume line was not typed')
+  }
+  const typedAt = port.now()
+  if (!(await port.write(terminal.ptyId, `${input.resumeLine}\r`))) {
+    return midway(port, 'Claude exited but the terminal refused the resume line')
+  }
+  const started = await until(port, port.now() + (options.startTimeoutMs ?? 30_000), pollMs, async () => {
+    if (!samePty(port, input.paneKey, terminal)) {
+      return false
+    }
+    return (
+      isClaudeForegroundProcess(await port.foregroundProcess(terminal.handle)) &&
+      port.sessionIdSince(input.paneKey, typedAt) === sessionId
+    )
+  })
+  if (!started) {
+    return midway(
+      port,
+      `typed the resume line but could not prove Claude runs again under session ${sessionId}.${await screenTail(port, terminal.handle)}`
+    )
+  }
+  return { kind: 'restarted', detail: `restarted in place; Claude runs again under session ${sessionId}` }
+}
+
+function midway(port: ClaudeTerminalRestartPort, reason: string): ClaudeTerminalRestartOutcome {
+  port.log?.(`[overhedge] terminal restart stopped midway: ${reason}`)
+  return { kind: 'stopped-midway', reason }
 }

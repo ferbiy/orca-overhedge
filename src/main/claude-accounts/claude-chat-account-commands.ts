@@ -94,14 +94,11 @@ export function claudeChatAccount(
   return { accountId: deps.router.selectedProfile()?.accountId ?? null, source: 'global' }
 }
 
-/** A terminal pane runs its own pin, else its coordinator's, else the global selection (the
- *  pane's claude function re-reads it at every launch). */
+/** The account a terminal pane's Claude was launched under, as far as Orca knows: its own pin,
+ *  else its coordinator's. An unpinned pane followed the global selection *at its launch*, which
+ *  Orca does not record, so its account is unknown (null); never the selection now. */
 function terminalPaneAccount(deps: ClaudeChatAccountDeps, paneKey: string): string | null {
-  return (
-    pinnedClaudeAccountForTerminal(deps.router, paneKey)?.accountId ??
-    deps.router.selectedProfile()?.accountId ??
-    null
-  )
+  return pinnedClaudeAccountForTerminal(deps.router, paneKey)?.accountId ?? null
 }
 
 function claudeChatsOnAccount(deps: ClaudeChatAccountDeps, accountId: string): string[] {
@@ -220,6 +217,15 @@ export function runClaudeChatMigration(
   })
   for (const step of unknown) {
     lines.push(`  skipped ${step.orcaSessionId}: not a Claude chat on this host`)
+  }
+  if (allOnAccountId) {
+    for (const [id, pane] of terminals) {
+      if (terminalPaneAccount(deps, pane.paneKey) === null) {
+        lines.push(
+          `  skipped ${id}: not pinned, so Orca cannot tell which account its running Claude uses; select it with --chat ${id}`
+        )
+      }
+    }
   }
   if (!request.dryRun) {
     applyClaudeChatMigration(claudeChatAccountPinsFor(deps.router), movable, target?.id ?? null)

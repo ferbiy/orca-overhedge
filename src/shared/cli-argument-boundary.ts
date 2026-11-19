@@ -46,8 +46,8 @@ export const CLI_BOOLEAN_FLAGS = new Set([
   'mobile-pairing',
   'no-pairing',
   // Overhedge: `orca account migrate`.
-  'now',
   'pin-only',
+  'restart',
   'screen',
   'parent-current',
   'provision',

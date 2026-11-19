@@ -50,10 +50,14 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
     )
   }
   const timeoutSeconds = timeoutFlag(ctx)
-  const now = ctx.flags.get('now') === true
-  const pinOnly = ctx.flags.get('pin-only') === true
-  if (pinOnly && (now || timeoutSeconds !== undefined)) {
-    throw new RuntimeClientError('invalid_argument', '--pin-only cannot be combined with --now or --timeout.')
+  const restart = ctx.flags.get('restart') === true
+  const yes = ctx.flags.get('yes') === true
+  // --pin-only is the default now; it stays accepted as a no-op alias.
+  if (ctx.flags.get('pin-only') === true && restart) {
+    throw new RuntimeClientError('invalid_argument', '--pin-only cannot be combined with --restart.')
+  }
+  if (!restart && (timeoutSeconds !== undefined || yes)) {
+    throw new RuntimeClientError('invalid_argument', '--timeout and --yes apply only with --restart.')
   }
   const result = await ctx.client.call<{ ok: boolean; lines: string[]; moved: string[] }>(
     'accounts.migrateClaudeChats',
@@ -64,11 +68,12 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
       ...(withWorkersOf ? { withWorkersOf } : {}),
       ...(typeof allOn === 'string' ? { allOn } : {}),
       ...(ctx.flags.get('dry-run') === true ? { dryRun: true } : {}),
-      ...(now ? { now: true } : {}),
-      ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
-      ...(pinOnly ? { noRestart: true } : {})
+      ...(restart ? { restart: true } : {}),
+      ...(yes ? { yes: true } : {}),
+      ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {})
     },
-    // Terminal restarts wait for idle agents (shared budget) plus exit/start checks per pane.
+    // Terminal restarts wait for idle agents (one shared budget) plus exit/start checks per pane.
+    // Ctrl-C or a dropped connection cancels the server side at its next safe point.
     { timeoutMs: ((timeoutSeconds ?? DEFAULT_IDLE_WAIT_SECONDS) + MIGRATE_GRACE_SECONDS) * 1000 }
   )
   printResult(result, ctx.json, (value) => value.lines.join('\n'))
