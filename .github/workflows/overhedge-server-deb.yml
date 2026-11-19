@@ -181,8 +181,14 @@ jobs:
           sudo chown "$(id -u):$(id -g)" "dist/orca-ide_${VERSION}_amd64.deb"
           sudo rm -rf "$work"
 
+      # Retried like release-cut: its container's apt mirror fetches fail transiently.
       - name: Load packaged node-pty on the Linux floor
-        run: node config/scripts/desktop-distribution/runtime-verification/run-linux-packaged-node-pty-floor-smoke.mjs --app-dir dist/linux-unpacked
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: node config/scripts/desktop-distribution/runtime-verification/run-linux-packaged-node-pty-floor-smoke.mjs --app-dir dist/linux-unpacked
 
       - name: Describe the package
         id: describe
