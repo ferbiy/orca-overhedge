@@ -120,8 +120,12 @@ function fakePane(
         return null
       }
       state.holds += 1
+      let done = false
       return () => {
-        state.released += 1
+        if (!done) {
+          done = true
+          state.released += 1
+        }
       }
     },
     write: async (_ptyId, data) => {

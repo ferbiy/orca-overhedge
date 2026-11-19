@@ -133,7 +133,7 @@ async function restartLocked(
     return { kind: 'refused', reason: "another operation holds this pane's input" }
   }
   try {
-    return await typeRestart(port, input, sessionId, terminal, options, pollMs)
+    return await typeRestart(port, input, sessionId, terminal, options, pollMs, release)
   } finally {
     release()
   }
@@ -146,7 +146,8 @@ async function typeRestart(
   sessionId: string,
   terminal: PaneTerminal,
   options: ClaudeTerminalRestartOptions,
-  pollMs: number
+  pollMs: number,
+  release: () => void
 ): Promise<ClaudeTerminalRestartOutcome> {
   const signal = options.signal
   const ready = await claudeReadyForKeys(port, input.paneKey, terminal, signal)
@@ -206,6 +207,8 @@ async function typeRestart(
   if (!(await port.write(terminal.ptyId, `${input.resumeLine}\r`))) {
     return midway(port, 'Claude exited but the terminal refused the resume line')
   }
+  // Let the starting Claude get its terminal query replies; the hold has done its job.
+  release()
   const started = await until(port, port.now() + (options.startTimeoutMs ?? 30_000), pollMs, async () => {
     if (!samePty(port, input.paneKey, terminal)) {
       return false
