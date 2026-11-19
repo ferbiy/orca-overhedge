@@ -1,4 +1,5 @@
 import { getRepoHostIdentityForParts } from '../../../../shared/repo-host-identity'
+import { installClaudeChatWorkerInheritance } from '../../../claude-accounts/claude-chat-account-commands'
 import { createRepoRowExecutionHostLookup } from '../../../../shared/worktree-execution-host-resolution'
 import { resolveWorktreeHostRouting } from '../catalog/worktree-launch-host-repo'
 import { resolveHostStructuredAgentLaunchEnvironment } from '../../agent-session/launch/structured-agent-launch-support'
@@ -235,6 +236,8 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends RuntimeChatWorkerEven
         logger
       )
     )
+    // Overhedge: orchestration workers inherit their coordinator's pinned Claude account.
+    installClaudeChatWorkerInheritance(() => this.getOrchestrationDbIfAvailable?.() ?? null)
     const { stateDirectory, ...catalogDeps } = this.structuredAgentCatalogDependencies()
     await installStructuredAgentSessionHost({
       stateDirectory,

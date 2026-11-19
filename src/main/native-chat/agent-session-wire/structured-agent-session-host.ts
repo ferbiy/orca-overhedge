@@ -2,6 +2,7 @@ import * as usageLimit from './structured-agent-session-host-background'
 import { createStructuredAgentSessionConversationReads } from './structured-agent-session-conversation-reads'
 import { continuationContextReader as contextReader } from './structured-agent-session-continuation-context'
 import { structuredAgentStartJournal } from './structured-agent-start-journal'
+import { orcaNotices } from './structured-agent-session-orca-notice'
 import { StructuredConversationCommandController as CommandController } from './structured-conversation-command-controller'
 // Serialize durable mutations per conversation; open at rest and start a child only when work needs it.
 
@@ -346,6 +347,8 @@ export class StructuredAgentSessionHost {
   /** Live-only completion/prompt events; missed events are never replayed. */
   subscribeTurnCompletions = this.clientDelivery.subscribeTurnCompletions
   readStatusSummary = this.clientDelivery.readStatusSummary
+
+  appendOrcaNotice = orcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery])
 
   collaboratorsForTests = () => ({
     sessions: this.sessions,

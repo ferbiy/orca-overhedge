@@ -2,17 +2,23 @@ import type { ClaudeAccountRecipe } from '../../shared/agent-session/lifecycle/a
 import type { ClaudeProfileRouter } from '../claude-accounts/claude-profile-router'
 import { applyClaudeEnvPatch } from '../claude-accounts/environment'
 import { resolveStructuredClaudeAccountHomePath } from '../runtime/agent-session/environment/structured-agent-account-home'
+import { pinnedClaudeAccountForChat } from '../claude-accounts/claude-chat-account-pins'
 
 /** The account a launch runs under is the current selection; the receipt records what it used. */
 export async function prepareClaudeLaunchAccount(
   router: ClaudeProfileRouter | undefined,
   env: Record<string, string>,
-  recordHome: string
+  recordHome: string,
+  /** Overhedge: the chat's Orca session id; a pinned chat launches under its pin. */
+  orcaSessionId?: string
 ): Promise<ClaudeAccountRecipe> {
   if (!router) {
     return { route: 'system', home: recordHome, configDir: env.CLAUDE_CONFIG_DIR ?? null }
   }
-  const preparation = await router.prepareLaunch()
+  const pin = pinnedClaudeAccountForChat(router, orcaSessionId)
+  const preparation = pin
+    ? await router.prepareLaunchForAccount(pin.accountId)
+    : await router.prepareLaunch()
   const home =
     preparation.provenance === 'system'
       ? await resolveStructuredClaudeAccountHomePath({

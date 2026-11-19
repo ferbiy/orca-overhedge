@@ -42,6 +42,25 @@ export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
     allowedFlags: [...LOCAL_COMMAND_FLAGS, 'agent', 'account']
   },
   {
+    // Overhedge: per-chat Claude account pins.
+    path: ['account', 'migrate'],
+    summary: 'Move Claude chats to another managed Claude account on this Orca host',
+    usage:
+      'orca account migrate --to <id|email|label> (--chat <orca-session-id>... | --with-workers <coordinator-session-id>... | --all-on <account>) [--dry-run] [--json]',
+    allowedFlags: [...LOCAL_COMMAND_FLAGS, 'to', 'chat', 'with-workers', 'all-on', 'dry-run'],
+    repeatableFlags: ['chat', 'with-workers'],
+    notes: [
+      'Pins each chat-UI Claude chat to the target account. The chat keeps its tab, session id and orchestration identity, and switches at its next message once its current turn has ended.',
+      'With --with-workers, the coordinator chat and every chat it dispatched move; workers are re-pinned before the coordinator.',
+      'Pinned chats ignore the global account switch until they are moved again. Terminal Claude tabs are not moved yet.'
+    ],
+    examples: [
+      'orca account migrate --to team --chat 0f3c... --dry-run',
+      'orca account migrate --to personal --with-workers 0f3c...',
+      'orca account migrate --to personal --all-on team'
+    ]
+  },
+  {
     path: ['account', 'rm'],
     aliases: [['account', 'remove']],
     destructive: true,

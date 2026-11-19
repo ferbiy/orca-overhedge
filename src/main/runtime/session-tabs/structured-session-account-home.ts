@@ -4,6 +4,7 @@ import { getProfileUserDataPath } from '../../orca-profiles/profile-storage-path
 import { OrcaRuntimeWithStructuredSessionCliWriterHost } from './structured-session-cli-writer-host'
 import type { AgentSessionAccountHome } from '../../../shared/agent-session/lifecycle/agent-session-account-home'
 import type { AgentSessionRecord } from '../../../shared/agent-session/lifecycle/agent-session-record'
+import { pinnedClaudeLaunchAccountHome } from '../../claude-accounts/claude-chat-account-pin-home'
 
 export abstract class OrcaRuntimeWithStructuredSessionAccountHome extends OrcaRuntimeWithStructuredSessionCliWriterHost {
   /** Resolve account home through this host's agent registration; null means unregistered and create refuses. */
@@ -51,6 +52,11 @@ export abstract class OrcaRuntimeWithStructuredSessionAccountHome extends OrcaRu
     const { provider, location } = record
     if (!structuredAgentRuntimeMetadata(provider)?.launchFollowsSelection?.()) {
       return null
+    }
+    // Overhedge: a pinned chat compares against its pin, so the global switch leaves it alone.
+    const pinned = provider === 'claude' ? pinnedClaudeLaunchAccountHome(record.sessionId) : null
+    if (pinned) {
+      return pinned
     }
     const read = this.structuredAgentAccountHomeResolver(provider, '', purpose)
     const launchEnv = this.structuredAgentLaunchEnv(provider, this.requireStore().getSettings())

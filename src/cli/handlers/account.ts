@@ -32,6 +32,7 @@ import {
   withInteractiveLoginCleanup
 } from './interactive-login-interruption'
 import { getWslAccountTarget } from './account-wsl-location'
+import { migrateClaudeChats } from './account-migrate'
 import {
   addDataAccount,
   listDataAccounts,
@@ -282,6 +283,10 @@ export const ACCOUNT_HANDLERS: Record<string, CommandHandler> = {
   'account select': async (ctx) => {
     rejectAccountRemoteSelectionFlags(ctx, 'orca account select')
     await mutateDataAccount(ctx, 'select')
+  },
+  'account migrate': async (ctx) => {
+    rejectAccountRemoteSelectionFlags(ctx, 'orca account migrate')
+    await migrateClaudeChats(ctx)
   },
   'account rm': async (ctx) => {
     rejectAccountRemoteSelectionFlags(ctx, 'orca account rm')
