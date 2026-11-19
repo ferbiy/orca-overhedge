@@ -23,8 +23,9 @@ gh run watch <run-id> -R ferbiy/orca-overhedge --exit-status
 - Package version: `<package.json version>+overhedge.<run number>.g<sha10>`, e.g.
   `1.4.251+overhedge.7.g0123456789`. dpkg sorts it above `1.4.251`. The app's own version checks
   ignore the `+…` part (`src/shared/app-version.ts`), so the app still counts as 1.4.251.
-- Editing the workflow file on an `overhedge/**` branch also triggers a build (that is what keeps
-  the workflow listed for dispatch, since it is not on the fork's default branch).
+- Pushing an edit of the workflow file to an `overhedge/**` branch starts a run that skips every
+  job. It exists only so GitHub lists the workflow for dispatch: the file is not on the fork's
+  default branch, which mirrors upstream `main`.
 
 ## Download the artifact
 

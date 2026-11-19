@@ -14,7 +14,8 @@ on:
         type: string
         default: ''
   # Why: GitHub only lists a workflow for dispatch once it exists on the default branch (upstream
-  # main here) or has run on push. Only edits to this file trigger it, so ordinary pushes stay free.
+  # main here) or has run on push. A push run only registers it and skips every job, because
+  # node-server-tests.yml scopes its qualification lanes by the push diff.
   push:
     branches: ['overhedge/**']
     paths: ['.github/workflows/overhedge-server-deb.yml']
@@ -28,6 +29,7 @@ concurrency:
 
 jobs:
   resolve:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -160,6 +162,24 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 30
           command: node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron && pnpm exec electron-builder --config config/electron-builder.config.cjs --linux deb --x64 --publish never
+
+      # electron-builder drops semver build metadata from the deb Version (it emits 1.4.251), so
+      # dpkg would treat the fork build as the official one. Rewrite only the control Version;
+      # sudo keeps root ownership and the setuid chrome-sandbox through the repack.
+      - name: Stamp the fork version into the deb
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          src="$(ls dist/orca-ide_*_amd64.deb)"
+          work="$RUNNER_TEMP/deb-repack"
+          sudo rm -rf "$work"
+          sudo dpkg-deb -R "$src" "$work"
+          sudo sed -i "s/^Version: .*/Version: $VERSION/" "$work/DEBIAN/control"
+          sudo rm -f "$src"
+          sudo dpkg-deb -Zxz -b "$work" "dist/orca-ide_${VERSION}_amd64.deb"
+          sudo chown "$(id -u):$(id -g)" "dist/orca-ide_${VERSION}_amd64.deb"
+          sudo rm -rf "$work"
 
       - name: Load packaged node-pty on the Linux floor
         run: node config/scripts/desktop-distribution/runtime-verification/run-linux-packaged-node-pty-floor-smoke.mjs --app-dir dist/linux-unpacked
