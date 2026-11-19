@@ -71,13 +71,14 @@ function fakePane(
     resumeAllowed?: boolean
   } = {}
 ) {
+  const sent: string[] = []
   const state = {
     clock: 0,
     foreground: init.foreground === undefined ? 'claude' : init.foreground,
     hook: init.hook === undefined ? 'done' : init.hook,
     title: init.title === undefined ? 'idle' : init.title,
     ptyId: 'pty-1',
-    sent: [] as string[]
+    sent
   }
   const port: ClaudeTerminalRestartPort = {
     terminalForPane: (paneKey) =>
