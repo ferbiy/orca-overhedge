@@ -11,7 +11,7 @@ import type { StructuredAgentSessionHostSession } from './structured-agent-sessi
 
 type OrcaNoticeParts = readonly [
   { conversation: (sessionId: string) => Promise<StructuredAgentSessionHostSession> },
-  Pick<AgentSessionRecordStore, 'getRecord'>,
+  Pick<AgentSessionRecordStore, 'getRecord' | 'getConversation'>,
   { publishJournal: (sessionId: string, journal: AgentSessionJournal) => void }
 ]
 

@@ -42,8 +42,8 @@ export function claudeChatLineageFrom(
     return [orcaSessionId]
   }
   const edges = predecessors(store)
-  const lineage = [orcaSessionId]
-  const seen = new Set(lineage)
+  const lineage: string[] = [orcaSessionId]
+  const seen = new Set<string>(lineage)
   let prior = edges.get(orcaSessionId)
   // The visited set bounds corrupt chains; valid clear lineage is acyclic.
   while (prior && !seen.has(prior) && isOrcaSessionId(prior)) {

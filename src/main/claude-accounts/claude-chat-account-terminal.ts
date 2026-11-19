@@ -49,11 +49,11 @@ export function applyClaudeTerminalPin<Env extends Record<string, string> | unde
   if (!auth) {
     return { env: pinned, auth }
   }
-  const {
-    [CLAUDE_INJECTED_CONFIG_DIR_ENV]: _authMarker,
-    CLAUDE_CONFIG_DIR: _authHome,
-    ...authEnv
-  } = auth.envPatch as Record<string, string>
+  const authEnv = Object.fromEntries(
+    Object.entries(auth.envPatch).filter(
+      ([key]) => key !== CLAUDE_INJECTED_CONFIG_DIR_ENV && key !== 'CLAUDE_CONFIG_DIR'
+    )
+  )
   return {
     env: pinned,
     auth: {

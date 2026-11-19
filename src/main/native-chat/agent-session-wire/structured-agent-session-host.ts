@@ -2,7 +2,6 @@ import * as usageLimit from './structured-agent-session-host-background'
 import { createStructuredAgentSessionConversationReads } from './structured-agent-session-conversation-reads'
 import { continuationContextReader as contextReader } from './structured-agent-session-continuation-context'
 import { structuredAgentStartJournal } from './structured-agent-start-journal'
-import { orcaNotices } from './structured-agent-session-orca-notice'
 import { StructuredConversationCommandController as CommandController } from './structured-conversation-command-controller'
 // Serialize durable mutations per conversation; open at rest and start a child only when work needs it.
 
@@ -29,7 +28,7 @@ import * as conversation from './structured-agent-session-host-delivery'
 import { wireStructuredAgentSessionQueuedMessages as wireQueuedMessages } from './structured-agent-session-queued-wiring'
 import * as sessionLogger from './structured-agent-session-logger'
 import { createStructuredAgentSessionWorkspaceSleeper } from './structured-agent-session-workspace-sleep'
-import { createRemoteControlNoteWriter } from './structured-agent-session-remote-control'
+import { hostOrcaNotices } from './structured-agent-session-remote-control'
 export type { StructuredAgentSessionHostDeps } from './structured-agent-session-host-types'
 
 export class StructuredAgentSessionHost {
@@ -144,7 +143,6 @@ export class StructuredAgentSessionHost {
   private now = (): number => this.deps.now?.() ?? Date.now()
 
   hasSession = (sessionId: string): boolean => this.sessions.has(sessionId)
-  readonly remoteControlNote = createRemoteControlNoteWriter(this.sessions, () => this.deps.store, this.now, undefined, (id, journal) => this.clientDelivery.publishJournal(id, journal))
   loadedSessionIds = this.sessions.loadedSessionIds
   hasLoadedProviders = (): boolean => this.loadedSessionIds().length > 0
   private readonly reads = createStructuredAgentSessionConversationReads(() => ({
@@ -348,7 +346,7 @@ export class StructuredAgentSessionHost {
   subscribeTurnCompletions = this.clientDelivery.subscribeTurnCompletions
   readStatusSummary = this.clientDelivery.readStatusSummary
 
-  appendOrcaNotice = orcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery])
+  appendOrcaNotice = hostOrcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery], this.sessions, this.now)
 
   collaboratorsForTests = () => ({
     sessions: this.sessions,

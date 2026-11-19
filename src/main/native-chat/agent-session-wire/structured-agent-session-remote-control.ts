@@ -24,6 +24,7 @@ import { structuredAgentSessionConversationFence } from './structured-agent-sess
 import {
   acceptedOrcaCommandReply,
   orcaCommandReplies,
+  orcaNotices,
   type OrcaCommandReplyLedger
 } from './structured-agent-session-orca-notice'
 
@@ -63,6 +64,23 @@ export function createRemoteControlNoteWriter<Journal extends NoteJournal>(
   }
   registry.addNoteWriter(write)
   return write
+}
+
+/** The host's Orca rows: `appendOrcaNotice` for command answers, plus Remote Control's restart
+ *  notes registered on the same journals, store and client delivery. */
+export function hostOrcaNotices(
+  parts: Parameters<typeof orcaNotices>[0],
+  sessions: { get(sessionId: string): { journal: AgentSessionJournal } | undefined },
+  now: () => number
+): ReturnType<typeof orcaNotices> {
+  createRemoteControlNoteWriter(
+    sessions,
+    () => parts()[1],
+    now,
+    claudeRemoteControl,
+    (sessionId, journal) => parts()[2].publishJournal(sessionId, journal)
+  )
+  return orcaNotices(parts)
 }
 
 type SendLike = {

@@ -26,7 +26,7 @@ function lineageOf(orcaSessionId: string): readonly string[] {
 /** The id a chat's pin and orchestration rows are keyed by: its /clear root. */
 export function canonicalClaudeChatId(orcaSessionId: string): string {
   const lineage = lineageOf(orcaSessionId)
-  return lineage[lineage.length - 1] ?? orcaSessionId
+  return lineage.at(-1) ?? orcaSessionId
 }
 
 /** The chat's pin: the root's, else one an older build wrote under a later id of the lineage. */
@@ -35,7 +35,7 @@ export function readClaudeChatPin(
   orcaSessionId: string
 ): string | null {
   const lineage = lineageOf(orcaSessionId)
-  const root = lineage[lineage.length - 1] ?? orcaSessionId
+  const root = lineage.at(-1) ?? orcaSessionId
   return pins.get(root) ?? lineage.map((id) => pins.get(id)).find((pin) => pin !== null) ?? null
 }
 
@@ -47,7 +47,7 @@ export function writeClaudeChatPin(
   accountId: string | null
 ): void {
   const lineage = lineageOf(orcaSessionId)
-  const root = lineage[lineage.length - 1] ?? orcaSessionId
+  const root = lineage.at(-1) ?? orcaSessionId
   pins.update((chats) => {
     for (const id of lineage) {
       delete chats[id]
@@ -82,7 +82,7 @@ export function normalizeLegacyClaudeChatPins(pins: ClaudeChatAccountPins): void
       // Records not loaded yet: try again on a later read.
       return
     }
-    const root = lineage[lineage.length - 1] ?? id
+    const root = lineage.at(-1) ?? id
     const best = moves.get(root)
     if (!best || lineage.length > best.depth) {
       moves.set(root, { id, depth: lineage.length })
