@@ -1,12 +1,29 @@
 // Overhedge: the on-disk map of per-chat Claude account pins (ids only, no credentials).
-import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { writeFileAtomically } from '../codex-accounts/fs-utils'
 
 export const CLAUDE_CHAT_ACCOUNT_PINS_FILE = 'chat-account-pins.json'
 
 /** How long a cached read is trusted before the file's size and mtime are checked again. */
 const PIN_FILE_RECHECK_MS = 1_000
+/** Copies of a corrupt pin file kept beside it; older ones are deleted. */
+const KEPT_CORRUPT_COPIES = 3
+
+/** Keeps the newest `KEPT_CORRUPT_COPIES` `<file>.corrupt-<ms>` copies. Best effort. */
+function pruneCorruptCopies(path: string): void {
+  try {
+    const prefix = `${basename(path)}.corrupt-`
+    const copies = readdirSync(dirname(path))
+      .filter((name) => name.startsWith(prefix) && /^\d+$/.test(name.slice(prefix.length)))
+      .sort((a, b) => Number(b.slice(prefix.length)) - Number(a.slice(prefix.length)))
+    for (const name of copies.slice(KEPT_CORRUPT_COPIES)) {
+      unlinkSync(join(dirname(path), name))
+    }
+  } catch {
+    // A leftover copy is harmless; the pin write itself already succeeded or failed on its own.
+  }
+}
 
 type PinRead = { chats: Readonly<Record<string, string>>; corrupt: boolean }
 
@@ -98,6 +115,7 @@ export class ClaudeChatAccountPins {
     mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 })
     if (current.corrupt) {
       copyFileSync(this.path, `${this.path}.corrupt-${this.now()}`)
+      pruneCorruptCopies(this.path)
     }
     writeFileAtomically(this.path, `${JSON.stringify({ version: 1, chats }, null, 2)}\n`, {
       mode: 0o600
@@ -113,6 +131,19 @@ export class ClaudeChatAccountPins {
         delete chats[chatId]
       }
     })
+  }
+
+  /** Drops pins `keep` rejects; writes only when something is dropped. Returns the dropped keys. */
+  prune(keep: (chatId: string) => boolean): string[] {
+    const dropped = Object.keys(this.read().chats).filter((chatId) => !keep(chatId))
+    if (dropped.length > 0) {
+      this.update((chats) => {
+        for (const chatId of dropped) {
+          delete chats[chatId]
+        }
+      })
+    }
+    return dropped
   }
 
   all(): Record<string, string> {

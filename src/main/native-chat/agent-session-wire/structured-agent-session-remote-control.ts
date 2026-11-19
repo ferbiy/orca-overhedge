@@ -66,6 +66,8 @@ export function createRemoteControlNoteWriter<Journal extends NoteJournal>(
   return write
 }
 
+let removeHostNoteWriter: (() => void) | null = null
+
 /** The host's Orca rows: `appendOrcaNotice` for command answers, plus Remote Control's restart
  *  notes registered on the same journals, store and client delivery. */
 export function hostOrcaNotices(
@@ -73,13 +75,17 @@ export function hostOrcaNotices(
   sessions: { get(sessionId: string): { journal: AgentSessionJournal } | undefined },
   now: () => number
 ): ReturnType<typeof orcaNotices> {
-  createRemoteControlNoteWriter(
+  // A rebuilt host replaces the previous host's writer instead of adding another one.
+  removeHostNoteWriter?.()
+  const write = createRemoteControlNoteWriter(
     sessions,
     () => parts()[1],
     now,
     claudeRemoteControl,
     (sessionId, journal) => parts()[2].publishJournal(sessionId, journal)
   )
+  // The Set already holds `write`; this only returns its remover.
+  removeHostNoteWriter = claudeRemoteControl.addNoteWriter(write)
   return orcaNotices(parts)
 }
 

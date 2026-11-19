@@ -425,4 +425,37 @@ describe('pin file robustness', () => {
     expect(pins.get('chat')).toBe(TEAM.id)
     expect(existsSync(pins.path)).toBe(true)
   })
+
+  it('keeps at most 3 corrupt copies', () => {
+    const router = routerFixture()
+    const pins = claudeChatAccountPinsFor(router)
+    const dir = dirname(pins.path)
+    mkdirSync(dir, { recursive: true })
+    for (const ms of [1, 2, 3, 4]) {
+      writeFileSync(`${pins.path}.corrupt-${ms}`, 'old')
+    }
+    writeFileSync(pins.path, '{ not json')
+    pins.set('chat', TEAM.id)
+    const aside = readdirSync(dir).filter((name) => name.includes('.corrupt-'))
+    expect(aside).toHaveLength(3)
+    expect(aside).not.toContain('chat-account-pins.json.corrupt-1')
+  })
+
+  it('prunes pins whose chat no longer exists, keeping terminal pins', () => {
+    const router = routerFixture()
+    const pins = claudeChatAccountPinsFor(router)
+    pins.set('gone-chat', TEAM.id)
+    pins.set('live-chat', TEAM.id)
+    pins.set('terminal:t:1', TEAM.id)
+    runClaudeChatMigration(
+      {
+        router,
+        records: () => [{ sessionId: 'live-chat', provider: 'claude' }],
+        orchestrationDb: () => null,
+        chatExists: (id) => id === 'live-chat'
+      },
+      { to: PERSONAL.id, chatIds: ['live-chat'] }
+    )
+    expect(pins.all()).toEqual({ 'live-chat': PERSONAL.id, 'terminal:t:1': TEAM.id })
+  })
 })

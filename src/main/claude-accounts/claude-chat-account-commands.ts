@@ -61,6 +61,8 @@ export type ClaudeChatAccountDeps = {
   /** Terminal panes running Claude, from agent-status hooks; `terminal:<paneKey>` chat ids. */
   terminals?: () => readonly ClaudeTerminalChat[]
   orchestrationDb: () => OrchestrationDbLike
+  /** Whether the store still has (or cannot read) this chat; enables pruning pins of deleted chats. */
+  chatExists?: (orcaSessionId: string) => boolean
 }
 
 /** Wires pin inheritance (worker to coordinator) and /clear lineage into the pin lookups. */
@@ -228,7 +230,16 @@ export function runClaudeChatMigration(
     }
   }
   if (!request.dryRun) {
-    applyClaudeChatMigration(claudeChatAccountPinsFor(deps.router), movable, target?.id ?? null)
+    const pins = claudeChatAccountPinsFor(deps.router)
+    applyClaudeChatMigration(pins, movable, target?.id ?? null)
+    // Safe point: drop chat-UI pins whose chat no longer exists in the store. Terminal pins are
+    // kept (a closed pane can come back with a restored layout); /clear keys are canonical roots.
+    const chatExists = deps.chatExists
+    if (chatExists) {
+      pins.prune(
+        (chatId) => chatId.startsWith(TERMINAL_PREFIX) || byCanonical.has(chatId) || chatExists(chatId)
+      )
+    }
     if (movable.some((step) => !terminals.has(step.orcaSessionId))) {
       lines.push(
         'Chat-UI chats switch at their next message, after the current turn ends (same tab, same session).'

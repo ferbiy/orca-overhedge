@@ -51,7 +51,9 @@ function depsFor(ctx: RpcContext, host: StructuredAgentSessionHost): ClaudeChatA
     router,
     records: () => host.deps.store.listRecords(),
     terminals: () => claudeTerminalChats(ctx),
-    orchestrationDb: () => orchestrationDb(ctx)
+    orchestrationDb: () => orchestrationDb(ctx),
+    chatExists: (id) =>
+      host.deps.store.getRecord(id) !== null || host.deps.store.isSessionUnreadable(id)
   }
 }
 
@@ -134,8 +136,22 @@ export async function interceptClaudeAccountSlashCommand(
     if (!changes) {
       return acceptedOrcaCommandReply(clientOperationId, notice)
     }
-    const text = runAccountCommand(command, sessionId, ctx, host)
-    const settled = await host.appendOrcaNotice(sessionId, rowId, text).catch(() => null)
+    let text: string
+    try {
+      text = runAccountCommand(command, sessionId, ctx, host)
+    } catch (error) {
+      text = `Orca could not finish changing this chat's Claude account (${error instanceof Error ? error.message : String(error)}). Run /orca-account to see where it stands.`
+    }
+    // Never leave the interim "Changing…" row as the last word: retry once, then a short final row.
+    const settled =
+      (await host.appendOrcaNotice(sessionId, rowId, text).catch(() => null)) ??
+      (await host
+        .appendOrcaNotice(
+          sessionId,
+          rowId,
+          "Orca could not record the result here. Run /orca-account to see this chat's Claude account."
+        )
+        .catch(() => null))
     return acceptedOrcaCommandReply(clientOperationId, settled ?? notice)
   })
 }
