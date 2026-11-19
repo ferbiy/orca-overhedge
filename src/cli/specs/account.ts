@@ -44,20 +44,32 @@ export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
   {
     // Overhedge: per-chat Claude account pins.
     path: ['account', 'migrate'],
-    summary: 'Move Claude chats to another managed Claude account on this Orca host',
+    summary: 'Pin Claude chats to a managed Claude account on this Orca host, or unpin them',
     usage:
-      'orca account migrate --to <id|email|label> (--chat <orca-session-id>... | --with-workers <coordinator-session-id>... | --all-on <account>) [--dry-run] [--json]',
-    allowedFlags: [...LOCAL_COMMAND_FLAGS, 'to', 'chat', 'with-workers', 'all-on', 'dry-run'],
+      'orca account migrate (--to <id|email> | --unpin) (--chat <orca-session-id>... | --with-workers <coordinator-session-id>... | --all-on <id|email>) [--dry-run] [--json]',
+    allowedFlags: [
+      ...LOCAL_COMMAND_FLAGS,
+      'to',
+      'unpin',
+      'chat',
+      'with-workers',
+      'all-on',
+      'dry-run'
+    ],
     repeatableFlags: ['chat', 'with-workers'],
     notes: [
-      'Pins each chat-UI Claude chat to the target account. The chat keeps its tab, session id and orchestration identity, and switches at its next message once its current turn has ended.',
-      'With --with-workers, the coordinator chat and every chat it dispatched move; workers are re-pinned before the coordinator.',
-      'Pinned chats ignore the global account switch until they are moved again. Terminal Claude tabs are not moved yet.'
+      'Accounts are named exactly: the account id or its full email, case-insensitive. An unknown or ambiguous name changes nothing and lists the valid names.',
+      'Pins each chat-UI Claude chat to the target account. The chat keeps its tab, session id and orchestration identity, and switches at its next message once its current turn has ended. A pin survives /clear.',
+      'With --with-workers, the coordinator chat and every chat it dispatched are pinned; workers without a pin of their own otherwise inherit their coordinator\'s pin.',
+      '--unpin removes the pins, so those chats follow the global account selection again.',
+      'Terminal Claude tabs (chat ids terminal:<pane>) are pinned too: new shells in the pane use the pinned account, and the command prints how to restart the running Claude there.',
+      'In a Claude chat, /orca-account shows the chat\'s account, /orca-account <account|auto> pins or unpins it, and /orca-migrate <account|auto> [--with-workers] does the same with its workers.'
     ],
     examples: [
-      'orca account migrate --to team --chat 0f3c... --dry-run',
-      'orca account migrate --to personal --with-workers 0f3c...',
-      'orca account migrate --to personal --all-on team'
+      'orca account migrate --to team@example.com --chat 0f3c... --dry-run',
+      'orca account migrate --to me@example.com --with-workers 0f3c...',
+      'orca account migrate --to me@example.com --all-on team@example.com',
+      'orca account migrate --unpin --chat 0f3c...'
     ]
   },
   {

@@ -154,7 +154,7 @@ export class RpcDispatcher {
     try {
       const result = await method.handler(
         params,
-        rpcContextFromTransport(this.runtime, request, options, caller, params),
+        rpcContextFromTransport(this.runtime, request, this.scoped(options), caller, params),
         emit
       )
       recordRuntimeFeatureInteraction(
@@ -167,6 +167,11 @@ export class RpcDispatcher {
     } catch (error) {
       reply(JSON.stringify(mapDispatcherError(request, meta, error)))
     }
+  }
+
+  // Overhedge: handlers see the scope admission used (a pinned one wins, as in admission).
+  private scoped(options: RpcDispatchStreamingOptions | undefined) {
+    return this.pinnedCallerScope ? { ...options, callerScope: this.pinnedCallerScope } : options
   }
 
   private admit<M extends RpcMethod | RpcStreamingMethod>(
@@ -193,7 +198,7 @@ export class RpcDispatcher {
     options: RpcDispatchStreamingOptions | undefined
   ): Promise<unknown> {
     const { runtime, orchestrationMutations, legacyOrchestration } = this
-    const context = rpcContextFromTransport(runtime, request, options, caller, params)
+    const context = rpcContextFromTransport(runtime, request, this.scoped(options), caller, params)
     // Runtime test fakes may omit client-hosted browser routing.
     const clientHostedBrowser = await (runtime.routeClientHostedBrowserRpc?.(
       request.method,

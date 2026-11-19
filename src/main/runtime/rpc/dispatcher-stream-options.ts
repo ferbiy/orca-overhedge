@@ -65,6 +65,7 @@ export function rpcContextFromTransport(
     pairedDeviceId: options?.pairedDeviceId,
     pairedDeviceParentId: options?.pairedDeviceParentId,
     caller: resolveRpcCallerIdentity(options),
+    callerScope: options?.callerScope,
     clientKind: options?.clientKind,
     clientCapabilities: options?.clientCapabilities,
     capabilitySource: options?.capabilitySource,

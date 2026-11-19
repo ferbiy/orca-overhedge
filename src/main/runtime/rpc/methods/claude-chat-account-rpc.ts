@@ -3,19 +3,31 @@ import { z } from 'zod'
 import { getClaudeProfileRouter } from '../../../claude-accounts/claude-profile-installed-router'
 import {
   describeChatAccount,
-  parseAccountSlashCommand,
+  NO_MANAGED_ACCOUNTS,
+  orchestrationDbOf,
   runClaudeChatMigration,
-  type ClaudeChatAccountDeps,
-  type OrchestrationDbLike
+  type ClaudeChatAccountDeps
 } from '../../../claude-accounts/claude-chat-account-commands'
+import {
+  ORCA_ACCOUNT_USAGE,
+  parseAccountSlashCommand,
+  type AccountSlashCommand
+} from '../../../claude-accounts/claude-chat-account-slash'
 import type { StructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-host'
 import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-registry'
-import { acceptedOrcaCommandReply } from '../../../native-chat/agent-session-wire/structured-agent-session-orca-notice'
+import {
+  acceptedOrcaCommandReply,
+  orcaCommandReplies
+} from '../../../native-chat/agent-session-wire/structured-agent-session-orca-notice'
+import { refuseUnclassified } from '../../../../shared/agent-session/failures/agent-session-wire-refusals'
 import { defineMethod, type RpcContext } from '../core'
+import { denyRpcMethodForCaller, OWNER_RPC_CALLER_SCOPE } from '../rpc-caller-scope'
+
+const MIGRATE_METHOD = 'accounts.migrateClaudeChats'
 
 function orchestrationDb(ctx: RpcContext) {
   try {
-    return ctx.runtime.getOrchestrationDb() as unknown as OrchestrationDbLike
+    return orchestrationDbOf(ctx.runtime.getOrchestrationDb())
   } catch {
     return null
   }
@@ -23,11 +35,24 @@ function orchestrationDb(ctx: RpcContext) {
 
 type HookRow = { paneKey: string; agentType?: string; providerSession?: { id: string } }
 
+function hookRows(value: unknown): HookRow[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (row): row is HookRow =>
+          row !== null && typeof row === 'object' && 'paneKey' in row && typeof row.paneKey === 'string'
+      )
+    : []
+}
+
 /** Claude terminal panes the agent-status hooks currently know about. */
 function claudeTerminalChats(ctx: RpcContext) {
   // The runtime keeps this snapshot reader as an instance field; it is absent before hooks start.
-  const runtime = ctx.runtime as unknown as { getAgentStatusSnapshotFn?: (() => HookRow[]) | null }
-  return (runtime.getAgentStatusSnapshotFn?.() ?? [])
+  const runtime: unknown = ctx.runtime
+  const read =
+    runtime !== null && typeof runtime === 'object' && 'getAgentStatusSnapshotFn' in runtime
+      ? runtime.getAgentStatusSnapshotFn
+      : null
+  return hookRows(typeof read === 'function' ? read.call(runtime) : [])
     .filter((row) => row.agentType === 'claude' && row.paneKey)
     .map((row) => ({ paneKey: row.paneKey, claudeSessionId: row.providerSession?.id ?? null }))
 }
@@ -50,8 +75,49 @@ type SendParamsLike = {
   body: { blocks: readonly { type: string; text?: string }[] }
 }
 
-/** Handles `/account` and `/migrate` typed into a Claude chat before they reach Claude.
- *  Returns null for every other message, which then goes through the normal send. */
+/** What a pin change from chat needs: the permission `accounts.migrateClaudeChats` needs. The whole
+ *  command is refused without it (not narrowed to this chat), the safer of the two choices. */
+function moveDenial(ctx: RpcContext): string | null {
+  return denyRpcMethodForCaller(ctx.callerScope ?? OWNER_RPC_CALLER_SCOPE, MIGRATE_METHOD, 'accounts-admin')
+    ? 'This client may not change Claude accounts (it lacks the accounts-admin permission). Nothing changed.'
+    : null
+}
+
+/** The reply text for a command, applying the pin change when it is one. */
+function runAccountCommand(
+  command: AccountSlashCommand,
+  sessionId: string,
+  ctx: RpcContext,
+  host: StructuredAgentSessionHost
+): string {
+  if (command.kind === 'usage') {
+    return ORCA_ACCOUNT_USAGE
+  }
+  const deps = depsFor(ctx, host)
+  const accounts = deps?.router.listAccounts() ?? []
+  const record = host.deps.store.getRecord(sessionId)
+  if (!deps || accounts.length === 0 || !record) {
+    return NO_MANAGED_ACCOUNTS
+  }
+  if (command.kind === 'show') {
+    return describeChatAccount(deps, record, accounts)
+  }
+  const denial = moveDenial(ctx)
+  if (denial) {
+    return denial
+  }
+  const scope = command.withWorkers ? { withWorkersOf: [sessionId] } : { chatIds: [sessionId] }
+  const result = runClaudeChatMigration(
+    deps,
+    command.kind === 'unpin' ? { unpin: true, ...scope } : { to: command.to, ...scope }
+  )
+  return result.lines.join('\n')
+}
+
+/** Handles `/orca-account` and `/orca-migrate` typed into a Claude chat before they reach Claude.
+ *  Returns null for every other message, which then goes through the normal send. Once a command
+ *  is recognised it never falls through to Claude: its row is written first (so a failure there
+ *  changes nothing and refuses the send), then the pin change runs and the row is revised. */
 export async function interceptClaudeAccountSlashCommand(
   params: SendParamsLike,
   ctx: RpcContext,
@@ -62,36 +128,37 @@ export async function interceptClaudeAccountSlashCommand(
     return null
   }
   const command = parseAccountSlashCommand(blocks[0].text)
-  const sessionId = params.envelope.sessionId
-  const record = command ? host.deps.store.getRecord(sessionId) : undefined
-  if (!command || !record || record.provider !== 'claude') {
+  const { sessionId, clientOperationId } = params.envelope
+  if (!command || host.deps.store.getRecord(sessionId)?.provider !== 'claude') {
     return null
   }
-  const deps = depsFor(ctx, host)
-  let text: string
-  if (!deps) {
-    text = 'Claude accounts are not managed on this Orca host. Add one with `orca account add`.'
-  } else if (command.kind === 'show') {
-    text = describeChatAccount(deps, record, deps.router.listAccounts())
-  } else {
-    const result = runClaudeChatMigration(deps, {
-      to: command.to,
-      ...(command.withWorkers ? { withWorkersOf: [sessionId] } : { chatIds: [sessionId] })
-    })
-    text = result.lines.join('\n')
-  }
-  const clientMessageId = params.envelope.clientOperationId
-  const notice = await host.appendOrcaNotice(
-    sessionId,
-    `overhedge-account:${clientMessageId}`,
-    text
-  )
-  return notice ? acceptedOrcaCommandReply(clientMessageId, notice) : null
+  return orcaCommandReplies.once(sessionId, clientOperationId, async () => {
+    const rowId = `overhedge-account:${clientOperationId}`
+    const changes = command.kind === 'move' || command.kind === 'unpin'
+    const first = changes ? "Changing this chat's Claude account…" : runAccountCommand(command, sessionId, ctx, host)
+    const notice = await host.appendOrcaNotice(sessionId, rowId, first).catch(() => null)
+    if (!notice) {
+      return {
+        ok: false as const,
+        refusal: refuseUnclassified(
+          'structured_agent_session_unsupported',
+          'Orca could not record its answer to this command in this chat, so nothing changed'
+        )
+      }
+    }
+    if (!changes) {
+      return acceptedOrcaCommandReply(clientOperationId, notice)
+    }
+    const text = runAccountCommand(command, sessionId, ctx, host)
+    const settled = await host.appendOrcaNotice(sessionId, rowId, text).catch(() => null)
+    return acceptedOrcaCommandReply(clientOperationId, settled ?? notice)
+  })
 }
 
 const MigrateParams = z
   .object({
-    to: z.string().min(1).max(512),
+    to: z.string().min(1).max(512).optional(),
+    unpin: z.boolean().optional(),
     chatIds: z.array(z.string().min(1).max(512)).max(512).optional(),
     withWorkersOf: z.array(z.string().min(1).max(512)).max(64).optional(),
     allOn: z.string().min(1).max(512).optional(),

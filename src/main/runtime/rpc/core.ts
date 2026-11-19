@@ -22,6 +22,7 @@ import type {
 import type { OrchestrationCompatibilityEvidence } from '../../../shared/orchestration-compatibility-evidence'
 import type { OrchestrationSessionCaller } from '../orchestration/orchestration-caller-identity'
 import type { RpcCallerIdentity } from './rpc-caller-identity'
+import type { RpcCallerScope } from './rpc-caller-scope'
 import type { OrcadPeerDesktopsResult } from '../../../shared/orcad-peer-desktops-contract'
 import type { RpcBinarySender } from './rpc-binary-sender'
 import type { RpcMethodPermission } from './rpc-method-permission'
@@ -108,6 +109,8 @@ export type RpcContext = {
   pairedDeviceParentId?: string
   // Host-assigned transport identity; absent means the caller could not be established.
   caller?: RpcCallerIdentity
+  // Overhedge: what admission proved the caller may do (absent: this host's owner).
+  callerScope?: RpcCallerScope
   // Only phones receive truncated payloads; undefined in-process callers remain unclipped.
   clientKind?: 'mobile' | 'runtime'
   // Session-tab streams re-project with .current; other readers use the request-time clientCapabilities.

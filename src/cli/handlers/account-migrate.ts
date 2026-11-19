@@ -17,8 +17,9 @@ function listFlag(ctx: HandlerContext, name: string): string[] | undefined {
 
 export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
   const to = ctx.flags.get('to')
-  if (typeof to !== 'string' || !to) {
-    throw new RuntimeClientError('invalid_argument', 'Pass --to <account>.')
+  const unpin = ctx.flags.get('unpin') === true
+  if (unpin ? to !== undefined : typeof to !== 'string' || !to) {
+    throw new RuntimeClientError('invalid_argument', 'Pass either --to <account> or --unpin.')
   }
   const chatIds = listFlag(ctx, 'chat')
   const withWorkersOf = listFlag(ctx, 'with-workers')
@@ -35,7 +36,8 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
   const result = await ctx.client.call<{ ok: boolean; lines: string[]; moved: string[] }>(
     'accounts.migrateClaudeChats',
     {
-      to,
+      ...(typeof to === 'string' ? { to } : {}),
+      ...(unpin ? { unpin: true } : {}),
       ...(chatIds ? { chatIds } : {}),
       ...(withWorkersOf ? { withWorkersOf } : {}),
       ...(typeof allOn === 'string' ? { allOn } : {}),
