@@ -114,7 +114,11 @@ export async function prepareRuntimePtySpawn(
       : null
   // Overhedge: a pane pinned to a Claude account keeps it across the global switch and restores.
   ;({ env: args.env, auth: ctx.claudeAuth } = applyClaudeTerminalPin(
-    pinnedClaudeTerminalHome(getClaudeProfileRouter(), ptySpawnPaneFromIds(args)?.paneKey, ctx.codexSelectionTarget),
+    pinnedClaudeTerminalHome(
+      getClaudeProfileRouter(),
+      ptySpawnPaneFromIds(args)?.paneKey,
+      ctx.codexSelectionTarget
+    ),
     args.env,
     ctx.claudeAuth
   ))

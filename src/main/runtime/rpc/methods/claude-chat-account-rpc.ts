@@ -85,7 +85,11 @@ export async function interceptClaudeAccountSlashCommand(
     text = result.lines.join('\n')
   }
   const clientMessageId = params.envelope.clientOperationId
-  const notice = await host.appendOrcaNotice(sessionId, `overhedge-account:${clientMessageId}`, text)
+  const notice = await host.appendOrcaNotice(
+    sessionId,
+    `overhedge-account:${clientMessageId}`,
+    text
+  )
   return notice ? acceptedAccountCommandReply(clientMessageId, notice) : null
 }
 

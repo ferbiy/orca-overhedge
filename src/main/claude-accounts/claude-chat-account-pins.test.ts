@@ -160,7 +160,7 @@ describe('dry run', () => {
       `Would move 2 chat(s) to me@example.com (${PERSONAL.id}):`,
       '  1. worker      w1  (from team@example.com)',
       '  2. coordinator coord  (from team@example.com)',
-      '  skipped codex: not a Claude chat-UI session on this host'
+      '  skipped codex: not a Claude chat on this host'
     ])
     expect(claudeChatAccountPinsFor(router).all()).toEqual({})
     runClaudeChatMigration(deps, { to: 'me', withWorkersOf: ['coord'] })
@@ -237,7 +237,10 @@ describe('terminal pins', () => {
       provenance: 'profile:team'
     } as never)
     expect(applied.env).toEqual({ ORCA_CLAUDE_PROFILE_POINTER: '/p', CLAUDE_CONFIG_DIR: home })
-    expect(applied.auth?.envPatch).toEqual({ ORCA_CLAUDE_PROFILE_POINTER: '/p', CLAUDE_CONFIG_DIR: home })
+    expect(applied.auth?.envPatch).toEqual({
+      ORCA_CLAUDE_PROFILE_POINTER: '/p',
+      CLAUDE_CONFIG_DIR: home
+    })
     expect(applied.auth?.configDir).toBe(home)
     expect(applyClaudeTerminalPin(null, global, null).env).toBe(global)
   })
@@ -268,7 +271,9 @@ describe('stale pins', () => {
       { sessionId: 'chat', provider: 'claude' },
       [TEAM, PERSONAL]
     )
-    expect(text.split('\n')[0]).toContain('pinned to account removed-account, which no longer exists')
+    expect(text.split('\n')[0]).toContain(
+      'pinned to account removed-account, which no longer exists'
+    )
     expect(text).toContain('team@example.com (follows the global selection)')
   })
 })
