@@ -3,6 +3,16 @@ import type {
   Query,
   SDKControlInterruptResponse
 } from '@anthropic-ai/claude-agent-sdk'
+import {
+  claudeQueryRemoteControl,
+  type ClaudeRemoteControlResponse
+} from './claude-remote-control'
+
+type ClaudeRemoteControlRequest = (
+  enabled: boolean,
+  name?: string,
+  options?: ClaudeControlOptions
+) => Promise<ClaudeRemoteControlResponse>
 
 export class ClaudeControlRequestError extends Error {
   constructor(
@@ -114,6 +124,8 @@ export type ClaudeControlSurface = {
   getContextUsage: (options?: ClaudeControlOptions) => Promise<unknown>
   /** Names `sessionId` as the user's rename; refused once the CLI has moved to another session. */
   renameSession: (title: string, sessionId: string, options?: ClaudeControlOptions) => Promise<void>
+  /** overhedge: absent when this SDK has no enableRemoteControl. */
+  remoteControl?: ClaudeRemoteControlRequest
 }
 
 type InterruptingQuery = {
@@ -123,7 +135,12 @@ type InterruptingQuery = {
 }
 
 export function createClaudeControlSurface(query: Query): ClaudeControlSurface {
+  const remoteControl = claudeQueryRemoteControl(query)
   return {
+    ...(remoteControl && {
+      remoteControl: (enabled, name, options) =>
+        runClaudeControl('remote_control', () => remoteControl(enabled, name), options?.timeoutMs)
+    }),
     interrupt: (options) =>
       runClaudeControl(
         'interrupt',

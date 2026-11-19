@@ -28,6 +28,7 @@ import * as conversation from './structured-agent-session-host-delivery'
 import { wireStructuredAgentSessionQueuedMessages as wireQueuedMessages } from './structured-agent-session-queued-wiring'
 import * as sessionLogger from './structured-agent-session-logger'
 import { createStructuredAgentSessionWorkspaceSleeper } from './structured-agent-session-workspace-sleep'
+import { createRemoteControlNoteWriter } from './structured-agent-session-remote-control'
 export type { StructuredAgentSessionHostDeps } from './structured-agent-session-host-types'
 
 export class StructuredAgentSessionHost {
@@ -142,6 +143,7 @@ export class StructuredAgentSessionHost {
   private now = (): number => this.deps.now?.() ?? Date.now()
 
   hasSession = (sessionId: string): boolean => this.sessions.has(sessionId)
+  readonly remoteControlNote = createRemoteControlNoteWriter(this.sessions, () => this.deps.store, this.now)
   loadedSessionIds = this.sessions.loadedSessionIds
   hasLoadedProviders = (): boolean => this.loadedSessionIds().length > 0
   private readonly reads = createStructuredAgentSessionConversationReads(() => ({

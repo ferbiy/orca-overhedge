@@ -46,6 +46,7 @@ import {
 import { claudePromptCancelRoute } from './journal/claude-structured-prompt-replies'
 import { claudeForkForRewind } from '../claude-rewind-fork'
 import { ClaudeConversationNaming } from '../claude-conversation-naming'
+import { withClaudeRemoteControlCommands } from '../claude-remote-control'
 
 export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAdapter {
   private readonly sessions = new Map<string, ClaudeSession>()
@@ -199,7 +200,7 @@ export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAda
   ) =>
     this.sessions.has(sessionId) ? { supportsTaskStop: true, supportsStopAll: true } : undefined
   readCommands: NonNullable<StructuredAgentSessionAdapter['readCommands']> = (sessionId) =>
-    this.sessions.get(sessionId)?.commands.commands
+    withClaudeRemoteControlCommands(this.sessions.get(sessionId))
   readonly atRestCommands: ClaudeStructuredSessionAdapterDeps['atRestCommands']
   holdsDispatch = (sessionId: string): boolean => claudeHoldsDispatch(this.sessions.get(sessionId))
   requiresModelTransitionRestart = claudeOptions.claudeModelTransitionRestart(this.sessions)
