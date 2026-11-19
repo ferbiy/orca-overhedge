@@ -127,6 +127,22 @@ async function until(
   }
 }
 
+/** The state once the turn ended (idle, or a question opened); null when the deadline passed. */
+async function waitForTurnEnd(
+  port: ClaudeTerminalRestartPort,
+  paneKey: string,
+  handle: string,
+  deadline: number,
+  pollMs: number
+): Promise<'idle' | 'question' | null> {
+  let last: 'idle' | 'working' | 'question' = 'working'
+  const ended = await until(port, deadline, pollMs, async () => {
+    last = await idleState(port, paneKey, handle)
+    return last !== 'working'
+  })
+  return ended && last !== 'working' ? last : null
+}
+
 /** Read-only: would an automatic restart start now (ignoring whether the agent is idle)? */
 export async function precheckClaudeTerminalRestart(
   port: ClaudeTerminalRestartPort,
@@ -165,24 +181,21 @@ export async function restartClaudeTerminalInPlace(
     }
   }
   let interrupted = false
-  // A holder, not a narrowed local: the wait below updates it from a callback.
-  const seen = { state: await idleState(port, input.paneKey, handle) }
-  if (seen.state === 'question') {
+  let state = await idleState(port, input.paneKey, handle)
+  if (state === 'question') {
     return { kind: 'refused', reason: 'Claude is waiting for an answer or a permission in this pane' }
   }
-  if (seen.state === 'working' && !options.now) {
-    const idle = await until(port, options.idleDeadline, pollMs, async () => {
-      seen.state = await idleState(port, input.paneKey, handle)
-      return seen.state !== 'working'
-    })
-    if (!idle) {
+  if (state === 'working' && !options.now) {
+    const waited = await waitForTurnEnd(port, input.paneKey, handle, options.idleDeadline, pollMs)
+    if (waited === null) {
       return { kind: 'refused', reason: 'Claude was still working when the wait timed out' }
     }
-    if (seen.state === 'question') {
+    if (waited === 'question') {
       return { kind: 'refused', reason: 'Claude is waiting for an answer or a permission in this pane' }
     }
+    state = waited
   }
-  if (seen.state === 'working') {
+  if (state === 'working') {
     // --now: interrupt the turn once (a second Escape would open Claude's rewind menu).
     const check = await claudeInForeground(port, input.paneKey, terminal)
     if (!check.ok) {
