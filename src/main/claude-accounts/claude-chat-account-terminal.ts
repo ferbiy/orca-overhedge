@@ -2,7 +2,8 @@
 // which survives restore and restart of the pane's shell.
 import { CLAUDE_INJECTED_CONFIG_DIR_ENV } from '../../shared/claude-profile-routing'
 import type { ClaudeManagedAccount } from '../../shared/managed-account-types'
-import { claudeChatAccountPinsFor, terminalChatPinKey } from './claude-chat-account-pins'
+import { terminalChatPinKey } from './claude-chat-account-pins'
+import { claudeChatAccountPinsFor } from './claude-chat-account-pin-store'
 import { claudeAccountPreparation } from './claude-chat-account-preparation'
 import type { ClaudeProfileRouter } from './claude-profile-router'
 import type { ClaudeRuntimeAuthPreparation } from './runtime-auth/runtime-auth-types'

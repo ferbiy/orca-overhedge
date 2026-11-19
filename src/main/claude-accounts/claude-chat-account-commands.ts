@@ -1,17 +1,22 @@
-// Overhedge: server-side `/account` and `/migrate` chat commands and `orca account migrate`.
+// Overhedge: server-side `/orca-account` and `/orca-migrate` chat commands and `orca account migrate`.
 // Everything here is reached only when a user types those commands or runs that CLI verb.
 import type { ClaudeManagedAccount } from '../../shared/managed-account-types'
 import {
+  canonicalClaudeChatId,
   claudeAccountLabel,
-  claudeChatAccountPinsFor,
   installClaudeChatCoordinatorLookup,
+  installClaudeChatLineage,
   pinnedClaudeAccountForChat,
-  terminalChatPinKey
+  readClaudeChatPin,
+  terminalChatPinKey,
+  type ClaudeChatLineage
 } from './claude-chat-account-pins'
 import { claudeAccountPreparation } from './claude-chat-account-preparation'
+import { claudeChatAccountPinsFor } from './claude-chat-account-pin-store'
 import { quotePosixShell } from '../../shared/shell/launch/shell-argument-quoting'
 import {
   applyClaudeChatMigration,
+  claudeAccountNames,
   describeClaudeMigrationPlan,
   planClaudeChatMigration,
   resolveClaudeMigrationTarget
@@ -20,6 +25,39 @@ import type { ClaudeProfileRouter } from './claude-profile-router'
 
 type SqlDb = { prepare(sql: string): { all(...args: unknown[]): unknown[] } }
 export type OrchestrationDbLike = { db: SqlDb } | null
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object'
+}
+
+/** The orchestration database when `value` exposes a prepared-statement handle; else null. */
+export function orchestrationDbOf(value: unknown): OrchestrationDbLike {
+  if (!isObject(value) || !isObject(value.db)) {
+    return null
+  }
+  const db = value.db
+  const prepare = db.prepare
+  if (typeof prepare !== 'function') {
+    return null
+  }
+  return {
+    db: {
+      prepare: (sql) => {
+        const statement: unknown = prepare.call(db, sql)
+        if (!isObject(statement) || typeof statement.all !== 'function') {
+          throw new Error('orchestration statement has no all()')
+        }
+        const all = statement.all
+        return {
+          all: (...args) => {
+            const result: unknown = all.apply(statement, args)
+            return Array.isArray(result) ? result : []
+          }
+        }
+      }
+    }
+  }
+}
 
 export type ClaudeChatRecordLike = {
   sessionId: string
@@ -32,13 +70,11 @@ export type ClaudeTerminalChat = { paneKey: string; claudeSessionId: string | nu
 export type ClaudeChatAccountDeps = {
   router: Pick<
     ClaudeProfileRouter,
-    | 'pointerPath'
-    | 'listAccounts'
-    | 'selectedProfile'
-    | 'coveredBySystemDefault'
-    | 'accountHome'
-    | 'systemDefaultHome'
-  >
+    'pointerPath' | 'coveredBySystemDefault' | 'accountHome' | 'systemDefaultHome'
+  > & {
+    listAccounts(): readonly ClaudeManagedAccount[]
+    selectedProfile(): { accountId: string } | null
+  }
   records: () => readonly ClaudeChatRecordLike[]
   /** Terminal panes running Claude, from agent-status hooks; `terminal:<paneKey>` chat ids. */
   terminals?: () => readonly ClaudeTerminalChat[]
@@ -53,7 +89,7 @@ function rows(db: OrchestrationDbLike, sql: string, arg: string): string[] {
     return db.db
       .prepare(sql)
       .all(arg)
-      .map((row) => Object.values(row as Record<string, unknown>)[0])
+      .map((row) => (isObject(row) ? row.id : undefined))
       .filter((value): value is string => typeof value === 'string' && value.length > 0)
   } catch {
     // Older or missing schema: no orchestration lineage, so nothing to inherit or include.
@@ -61,43 +97,51 @@ function rows(db: OrchestrationDbLike, sql: string, arg: string): string[] {
   }
 }
 
+/** Workers a coordinator dispatched; dispatch rows hold /clear roots, so both sides are canonical. */
 export function workersOfCoordinator(db: OrchestrationDbLike, coordinator: string): string[] {
+  const root = canonicalClaudeChatId(coordinator)
   return [
     ...new Set(
       rows(
         db,
-        `SELECT DISTINCT assignee_orca_session_id FROM dispatch_contexts
-         WHERE creator_orca_session_id = ? AND assignee_orca_session_id IS NOT NULL`,
-        coordinator
+        `SELECT DISTINCT assignee_orca_session_id AS id FROM dispatch_contexts
+         WHERE creator_orca_session_id = ? AND assignee_orca_session_id IS NOT NULL
+           AND assignee_orca_session_id <> creator_orca_session_id`,
+        root
       )
     )
-  ]
+  ].filter((worker) => worker !== root)
 }
 
+/** The newest real coordinator of a worker; self-created bookkeeping rows never count. */
 export function coordinatorOfWorker(db: OrchestrationDbLike, worker: string): string | null {
+  const root = canonicalClaudeChatId(worker)
   return (
     rows(
       db,
-      `SELECT creator_orca_session_id FROM dispatch_contexts
+      `SELECT creator_orca_session_id AS id FROM dispatch_contexts
        WHERE assignee_orca_session_id = ? AND creator_orca_session_id IS NOT NULL
+         AND creator_orca_session_id <> assignee_orca_session_id
        ORDER BY rowid DESC LIMIT 1`,
-      worker
-    ).find((id) => id !== worker) ?? null
+      root
+    )[0] ?? null
   )
 }
 
-export function installClaudeChatWorkerInheritance(db: () => unknown): void {
-  installClaudeChatCoordinatorLookup((worker) =>
-    coordinatorOfWorker(db() as OrchestrationDbLike, worker)
-  )
+/** Wires pin inheritance (worker to coordinator) and /clear lineage into the pin lookups. */
+export function installClaudeChatWorkerInheritance(
+  db: () => unknown,
+  lineage?: ClaudeChatLineage
+): void {
+  installClaudeChatLineage(lineage)
+  installClaudeChatCoordinatorLookup((worker) => coordinatorOfWorker(orchestrationDbOf(db()), worker))
 }
 
 function acquiredManagedAccountId(record: ClaudeChatRecordLike): string | null {
-  const acquired = record.acquiredAccount as
-    | { recipe?: { route?: string; accountId?: string } }
-    | undefined
-  return acquired?.recipe?.route === 'managed' && typeof acquired.recipe.accountId === 'string'
-    ? acquired.recipe.accountId
+  const acquired = record.acquiredAccount
+  const recipe = isObject(acquired) ? acquired.recipe : undefined
+  return isObject(recipe) && recipe.route === 'managed' && typeof recipe.accountId === 'string'
+    ? recipe.accountId
     : null
 }
 
@@ -123,15 +167,22 @@ function claudeChatsOnAccount(deps: ClaudeChatAccountDeps, accountId: string): s
         ? (acquiredManagedAccountId(record) ?? current.accountId) === accountId
         : current.accountId === accountId
     })
-    .map((record) => record.sessionId)
+    .map((record) => canonicalClaudeChatId(record.sessionId))
 }
 
 export type ClaudeChatMigrationRequest = {
-  to: string
+  /** The target account; absent with `unpin`. */
+  to?: string
+  /** Remove the chats' pins so they follow the global selection again. */
+  unpin?: boolean
   chatIds?: string[]
   withWorkersOf?: string[]
   allOn?: string
   dryRun?: boolean
+}
+
+function chatIdFor(id: string): string {
+  return id.startsWith('terminal:') ? id : canonicalClaudeChatId(id)
 }
 
 export function runClaudeChatMigration(
@@ -139,9 +190,22 @@ export function runClaudeChatMigration(
   request: ClaudeChatMigrationRequest
 ): { ok: boolean; lines: string[]; moved: string[] } {
   const accounts = deps.router.listAccounts()
-  const target = resolveClaudeMigrationTarget(accounts, request.to)
-  if (!target.ok) {
-    return { ok: false, lines: [target.message], moved: [] }
+  if (accounts.length === 0) {
+    return { ok: false, lines: [NO_MANAGED_ACCOUNTS], moved: [] }
+  }
+  if (request.unpin === true && request.to !== undefined) {
+    return { ok: false, lines: ['Pass either --to <account> or --unpin, not both.'], moved: [] }
+  }
+  if (request.unpin !== true && !request.to) {
+    return { ok: false, lines: ['Pass --to <account> or --unpin.'], moved: [] }
+  }
+  let target: ClaudeManagedAccount | null = null
+  if (request.unpin !== true) {
+    const resolved = resolveClaudeMigrationTarget(accounts, request.to ?? '')
+    if (!resolved.ok) {
+      return { ok: false, lines: [resolved.message], moved: [] }
+    }
+    target = resolved.account
   }
   let allOnAccountId: string | undefined
   if (request.allOn) {
@@ -154,16 +218,15 @@ export function runClaudeChatMigration(
   const terminals = new Map(
     (deps.terminals?.() ?? []).map((pane) => [terminalChatPinKey(pane.paneKey), pane])
   )
-  const known = new Set([
-    ...deps
-      .records()
-      .filter((record) => record.provider === 'claude')
-      .map((record) => record.sessionId),
-    ...terminals.keys()
-  ])
+  const records = deps.records().filter((record) => record.provider === 'claude')
+  const byCanonical = new Map<string, ClaudeChatRecordLike>()
+  for (const record of records) {
+    byCanonical.set(canonicalClaudeChatId(record.sessionId), record)
+  }
+  const known = new Set([...byCanonical.keys(), ...terminals.keys()])
   const steps = planClaudeChatMigration({
-    chatIds: request.chatIds,
-    withWorkersOf: request.withWorkersOf,
+    chatIds: request.chatIds?.map(chatIdFor),
+    withWorkersOf: request.withWorkersOf?.map(chatIdFor),
     allOnAccountId,
     workersOf: (coordinator) => workersOfCoordinator(deps.orchestrationDb(), coordinator),
     chatsOnAccount: (accountId) => claudeChatsOnAccount(deps, accountId)
@@ -174,11 +237,10 @@ export function runClaudeChatMigration(
     const account = accounts.find((entry) => entry.id === id)
     return account ? claudeAccountLabel(account) : null
   }
-  const byId = new Map(deps.records().map((record) => [record.sessionId, record]))
-  const lines = describeClaudeMigrationPlan(movable, target.account, {
+  const lines = describeClaudeMigrationPlan(movable, target, {
     dryRun: request.dryRun === true,
     currentAccountOf: (id) => {
-      const record = byId.get(id)
+      const record = byCanonical.get(id)
       return record ? labelOf(claudeChatAccount(deps, record).accountId) : null
     }
   })
@@ -186,14 +248,14 @@ export function runClaudeChatMigration(
     lines.push(`  skipped ${step.orcaSessionId}: not a Claude chat on this host`)
   }
   if (!request.dryRun) {
-    applyClaudeChatMigration(claudeChatAccountPinsFor(deps.router), movable, target.account.id)
+    applyClaudeChatMigration(claudeChatAccountPinsFor(deps.router), movable, target?.id ?? null)
     if (movable.some((step) => !terminals.has(step.orcaSessionId))) {
       lines.push(
         'Chat-UI chats switch at their next message, after the current turn ends (same tab, same session).'
       )
     }
   }
-  const home = claudeAccountPreparation(deps.router, target.account.id).configDir
+  const home = target ? claudeAccountPreparation(deps.router, target.id).configDir : null
   for (const step of movable) {
     const pane = terminals.get(step.orcaSessionId)
     if (pane) {
@@ -203,35 +265,17 @@ export function runClaudeChatMigration(
   return { ok: true, lines, moved: movable.map((step) => step.orcaSessionId) }
 }
 
-/** Not restarted in place yet: the user runs this once in that terminal after its turn ends. */
-export function terminalMigrationInstruction(pane: ClaudeTerminalChat, home: string): string {
+/** Not restarted in place: the user runs this once in that terminal after its turn ends. */
+export function terminalMigrationInstruction(pane: ClaudeTerminalChat, home: string | null): string {
   const resume = pane.claudeSessionId ? ` --resume ${quotePosixShell(pane.claudeSessionId)}` : ''
+  if (home === null) {
+    return `  terminal ${pane.paneKey}: unpinned; new shells in this pane follow the global account. To switch the running Claude now, type /exit when idle, then run: claude${resume}`
+  }
   return `  terminal ${pane.paneKey}: when idle, type /exit, then run: CLAUDE_CONFIG_DIR=${quotePosixShell(home)} claude${resume}`
 }
 
-export type AccountSlashCommand =
-  | { kind: 'show' }
-  | { kind: 'move'; to: string; withWorkers: boolean }
-
-/** Exactly `/account`, `/account <label>`, `/migrate <label> [--with-workers]`; else null. */
-export function parseAccountSlashCommand(text: string): AccountSlashCommand | null {
-  const trimmed = text.trim()
-  const match = /^\/(account|migrate)(?:\s+(.*))?$/s.exec(trimmed)
-  if (!match) {
-    return null
-  }
-  const [, verb, rest = ''] = match
-  const words = rest.split(/\s+/).filter(Boolean)
-  const withWorkers = words.includes('--with-workers')
-  const args = words.filter((word) => word !== '--with-workers')
-  if (args.length > 1 || (withWorkers && verb !== 'migrate')) {
-    return null
-  }
-  if (args.length === 0) {
-    return verb === 'account' && !withWorkers ? { kind: 'show' } : null
-  }
-  return { kind: 'move', to: args[0], withWorkers }
-}
+export const NO_MANAGED_ACCOUNTS =
+  'This Orca host has no managed Claude accounts, so there is nothing to pin. Add one with `orca account add`; until then every chat uses the System default login.'
 
 export function describeChatAccount(
   deps: ClaudeChatAccountDeps,
@@ -249,20 +293,17 @@ export function describeChatAccount(
       : current.source === 'coordinator'
         ? 'inherited from its coordinator'
         : 'follows the global selection'
-  const available = accounts.map(
-    (account) => `${claudeAccountLabel(account)} (${account.id.slice(0, 8)})`
-  )
-  const rawPin = claudeChatAccountPinsFor(deps.router).get(record.sessionId)
+  const rawPin = readClaudeChatPin(claudeChatAccountPinsFor(deps.router), record.sessionId)
   const stale =
     rawPin && !accounts.some((account) => account.id === rawPin)
       ? [
-          `Warning: this chat is pinned to account ${rawPin}, which no longer exists on this host; it follows the global selection until you move it.`
+          `Warning: this chat is pinned to account ${rawPin}, which no longer exists on this host; it follows ${current.source === 'coordinator' ? 'its coordinator' : 'the global selection'} until you move it.`
         ]
       : []
   return [
     ...stale,
     `This chat's Claude account: ${label(current.accountId)} (${why}).`,
-    `Available: ${available.join(', ') || 'none'}.`,
-    'Move this chat with /account <label>; a coordinator and its workers with /migrate <label> --with-workers.'
+    `Accounts: ${claudeAccountNames(accounts)}.`,
+    'Pin this chat with /orca-account <account>, unpin it with /orca-account auto; a coordinator and its workers with /orca-migrate <account> --with-workers.'
   ].join('\n')
 }

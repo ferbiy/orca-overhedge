@@ -6,8 +6,18 @@ import type { ClaudeManagedAccount } from '../../shared/managed-account-types'
 import {
   claudeAccountLabel,
   matchClaudeAccount,
-  type ClaudeChatAccountPins
+  writeClaudeChatPin
 } from './claude-chat-account-pins'
+import type { ClaudeChatAccountPins } from './claude-chat-account-pin-store'
+
+/** The names a person can type for each account: its full email (when it has one) and its id. */
+export function claudeAccountNames(accounts: readonly ClaudeManagedAccount[]): string {
+  return (
+    accounts
+      .map((account) => (account.email ? `${account.email} (id ${account.id})` : `id ${account.id}`))
+      .join(', ') || 'none'
+  )
+}
 
 export type ClaudeMigrationRole = 'worker' | 'chat' | 'coordinator'
 export type ClaudeMigrationStep = { orcaSessionId: string; role: ClaudeMigrationRole }
@@ -67,13 +77,13 @@ export function resolveClaudeMigrationTarget(
   if (!match) {
     return {
       ok: false,
-      message: `No Claude account matches "${query}". Available: ${accounts.map(claudeAccountLabel).join(', ') || 'none'}.`
+      message: `No Claude account is named "${query}"; nothing changed. Valid names: ${claudeAccountNames(accounts)}.`
     }
   }
   if ('ambiguous' in match) {
     return {
       ok: false,
-      message: `"${query}" matches several accounts: ${match.ambiguous.map(claudeAccountLabel).join(', ')}.`
+      message: `"${query}" names several accounts; nothing changed. Use an id: ${claudeAccountNames(match.ambiguous)}.`
     }
   }
   return { ok: true, account: match }
@@ -81,11 +91,15 @@ export function resolveClaudeMigrationTarget(
 
 export function describeClaudeMigrationPlan(
   steps: readonly ClaudeMigrationStep[],
-  target: Pick<ClaudeManagedAccount, 'id' | 'email'>,
+  /** Null: the chats are unpinned and follow the global selection again. */
+  target: Pick<ClaudeManagedAccount, 'id' | 'email'> | null,
   options: { dryRun: boolean; currentAccountOf?: (orcaSessionId: string) => string | null }
 ): string[] {
-  const verb = options.dryRun ? 'Would move' : 'Moved'
-  const lines = [`${verb} ${steps.length} chat(s) to ${claudeAccountLabel(target)} (${target.id}):`]
+  const lines = [
+    target
+      ? `${options.dryRun ? 'Would move' : 'Moved'} ${steps.length} chat(s) to ${claudeAccountLabel(target)} (${target.id}):`
+      : `${options.dryRun ? 'Would unpin' : 'Unpinned'} ${steps.length} chat(s); they follow the global selection again:`
+  ]
   steps.forEach((step, index) => {
     const from = options.currentAccountOf?.(step.orcaSessionId)
     lines.push(
@@ -95,13 +109,18 @@ export function describeClaudeMigrationPlan(
   return lines
 }
 
-/** Writes pins in plan order, so workers are re-pinned before their coordinator. */
+/** Writes pins in plan order, so workers are re-pinned before their coordinator; null unpins.
+ *  Chat ids are keyed by their /clear root, terminal panes by `terminal:<paneKey>`. */
 export function applyClaudeChatMigration(
-  pins: Pick<ClaudeChatAccountPins, 'set'>,
+  pins: Pick<ClaudeChatAccountPins, 'set' | 'update'>,
   steps: readonly ClaudeMigrationStep[],
-  targetAccountId: string
+  targetAccountId: string | null
 ): void {
   for (const step of steps) {
-    pins.set(step.orcaSessionId, targetAccountId)
+    if (step.orcaSessionId.startsWith('terminal:')) {
+      pins.set(step.orcaSessionId, targetAccountId)
+    } else {
+      writeClaudeChatPin(pins, step.orcaSessionId, targetAccountId)
+    }
   }
 }

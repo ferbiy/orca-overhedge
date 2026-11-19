@@ -1,73 +1,122 @@
 // Overhedge: per-chat Claude account pins. Kept in its own file next to the router's pointer so the
 // session record schema stays untouched; absent pins mean "follow the global selection" as upstream.
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+// Chat pins are keyed by the chat's /clear lineage root (its canonical Orca session id), the id
+// orchestration's dispatch rows use, so a /clear keeps the pin and workers still find coordinators.
 import type { ClaudeManagedAccount } from '../../shared/managed-account-types'
-
-/** Orca session id (chat UI) or `terminal:<handle>` (terminal tab) to managed account id. */
-type PinFile = { version: 1; chats: Record<string, string> }
-
-export const CLAUDE_CHAT_ACCOUNT_PINS_FILE = 'chat-account-pins.json'
-
-export class ClaudeChatAccountPins {
-  constructor(readonly path: string) {}
-
-  private read(): PinFile {
-    try {
-      if (!existsSync(this.path)) {
-        return { version: 1, chats: {} }
-      }
-      const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as Partial<PinFile>
-      return parsed && typeof parsed.chats === 'object' && parsed.chats
-        ? { version: 1, chats: { ...parsed.chats } }
-        : { version: 1, chats: {} }
-    } catch {
-      // A corrupt pin file must not stop launches; chats then follow the global selection.
-      return { version: 1, chats: {} }
-    }
-  }
-
-  get(chatId: string): string | null {
-    const value = this.read().chats[chatId]
-    return typeof value === 'string' && value ? value : null
-  }
-
-  set(chatId: string, accountId: string | null): void {
-    const file = this.read()
-    if (accountId) {
-      file.chats[chatId] = accountId
-    } else {
-      delete file.chats[chatId]
-    }
-    mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 })
-    writeFileAtomically(this.path, `${JSON.stringify(file, null, 2)}\n`, { mode: 0o600 })
-  }
-
-  all(): Record<string, string> {
-    return this.read().chats
-  }
-}
-
-const byPath = new Map<string, ClaudeChatAccountPins>()
-
-/** Pins live beside the router's `selected-host` pointer (`<userData>/claude-profiles`). */
-export function claudeChatAccountPinsFor(router: { pointerPath: string }): ClaudeChatAccountPins {
-  const path = join(dirname(router.pointerPath), CLAUDE_CHAT_ACCOUNT_PINS_FILE)
-  let pins = byPath.get(path)
-  if (!pins) {
-    pins = new ClaudeChatAccountPins(path)
-    byPath.set(path, pins)
-  }
-  return pins
-}
+import { claudeChatAccountPinsFor, type ClaudeChatAccountPins } from './claude-chat-account-pin-store'
 
 export function terminalChatPinKey(handle: string): string {
   return `terminal:${handle}`
 }
 
-/** Orchestration: the coordinator chat that dispatched this worker chat, if any. */
-type CoordinatorLookup = (orcaSessionId: string) => string | null
+/** A chat's /clear lineage, newest first, ending at its root; null while records cannot be read. */
+export type ClaudeChatLineage = (orcaSessionId: string) => readonly string[] | null
+const NO_LINEAGE: ClaudeChatLineage = () => null
+let chatLineage: ClaudeChatLineage = NO_LINEAGE
+
+export function installClaudeChatLineage(lineage: ClaudeChatLineage | undefined): void {
+  chatLineage = lineage ?? NO_LINEAGE
+}
+
+function lineageOf(orcaSessionId: string): readonly string[] {
+  const lineage = chatLineage(orcaSessionId)
+  return lineage && lineage.length > 0 ? lineage : [orcaSessionId]
+}
+
+/** The id a chat's pin and orchestration rows are keyed by: its /clear root. */
+export function canonicalClaudeChatId(orcaSessionId: string): string {
+  const lineage = lineageOf(orcaSessionId)
+  return lineage[lineage.length - 1] ?? orcaSessionId
+}
+
+/** The chat's pin: the root's, else one an older build wrote under a later id of the lineage. */
+export function readClaudeChatPin(
+  pins: Pick<ClaudeChatAccountPins, 'get'>,
+  orcaSessionId: string
+): string | null {
+  const lineage = lineageOf(orcaSessionId)
+  const root = lineage[lineage.length - 1] ?? orcaSessionId
+  return pins.get(root) ?? lineage.map((id) => pins.get(id)).find((pin) => pin !== null) ?? null
+}
+
+/** Pin (or with null, unpin) the chat under its root and drop pins older builds left on its
+ *  other lineage ids, so one key decides. */
+export function writeClaudeChatPin(
+  pins: Pick<ClaudeChatAccountPins, 'update'>,
+  orcaSessionId: string,
+  accountId: string | null
+): void {
+  const lineage = lineageOf(orcaSessionId)
+  const root = lineage[lineage.length - 1] ?? orcaSessionId
+  pins.update((chats) => {
+    for (const id of lineage) {
+      delete chats[id]
+    }
+    // A pin an older build wrote under a later /clear id of this chat (found from its root).
+    for (const id of Object.keys(chats)) {
+      if (!id.startsWith('terminal:') && canonicalClaudeChatId(id) === root) {
+        delete chats[id]
+      }
+    }
+    if (accountId) {
+      chats[root] = accountId
+    }
+  })
+}
+
+const normalized = new WeakSet<ClaudeChatAccountPins>()
+
+/** Once per process, once records are readable: re-key pins older builds wrote under a chat's
+ *  current id to its /clear root. Of several ids of one chat, the newest (longest lineage) wins. */
+export function normalizeLegacyClaudeChatPins(pins: ClaudeChatAccountPins): void {
+  if (normalized.has(pins)) {
+    return
+  }
+  const moves = new Map<string, { id: string; depth: number }>()
+  for (const id of Object.keys(pins.all())) {
+    if (id.startsWith('terminal:')) {
+      continue
+    }
+    const lineage = chatLineage(id)
+    if (lineage === null) {
+      // Records not loaded yet: try again on a later read.
+      return
+    }
+    const root = lineage[lineage.length - 1] ?? id
+    const best = moves.get(root)
+    if (!best || lineage.length > best.depth) {
+      moves.set(root, { id, depth: lineage.length })
+    }
+  }
+  normalized.add(pins)
+  const legacy = [...moves.entries()].filter(([root, { id }]) => root !== id)
+  const strays = Object.keys(pins.all()).filter(
+    (id) => !id.startsWith('terminal:') && moves.get(canonicalClaudeChatId(id))?.id !== id
+  )
+  if (legacy.length === 0 && strays.length === 0) {
+    return
+  }
+  try {
+    pins.update((chats) => {
+      const chosen = new Map([...moves].map(([root, { id }]) => [root, chats[id]]))
+      for (const id of Object.keys(chats)) {
+        if (!id.startsWith('terminal:')) {
+          delete chats[id]
+        }
+      }
+      for (const [root, accountId] of chosen) {
+        if (accountId) {
+          chats[root] = accountId
+        }
+      }
+    })
+  } catch {
+    // Unwritable: reads still find legacy keys through the lineage walk.
+  }
+}
+
+/** Orchestration: the coordinator chat that dispatched this worker chat (both canonical), if any. */
+type CoordinatorLookup = (canonicalOrcaSessionId: string) => string | null
 let coordinatorLookup: CoordinatorLookup | undefined
 
 export function installClaudeChatCoordinatorLookup(lookup: CoordinatorLookup | undefined): void {
@@ -76,7 +125,8 @@ export function installClaudeChatCoordinatorLookup(lookup: CoordinatorLookup | u
 
 export type ClaudeChatAccountSource = 'pin' | 'coordinator' | 'global'
 
-/** Precedence: the chat's own pin, then its coordinator's pin, then the global selection (null). */
+/** Precedence: the chat's own pin, then its coordinator's pin, then the global selection (null).
+ *  A pin naming a removed account counts as no pin. */
 export function resolveClaudeChatAccount(input: {
   pinned: string | null
   coordinatorPinned: string | null
@@ -102,28 +152,58 @@ export function pinnedClaudeAccountForChat(
     return null
   }
   const pins = claudeChatAccountPinsFor(router)
-  const pinned = pins.get(orcaSessionId)
-  let coordinatorPinned: string | null = null
-  if (!pinned && coordinatorLookup) {
-    try {
-      const coordinator = coordinatorLookup(orcaSessionId)
-      coordinatorPinned = coordinator ? pins.get(coordinator) : null
-    } catch {
-      coordinatorPinned = null
-    }
+  // Most hosts pin nothing: answer without lineage or orchestration lookups.
+  if (!pins.hasAny()) {
+    return null
   }
-  return resolveClaudeChatAccount({
-    pinned,
-    coordinatorPinned,
-    knownAccountIds: router.listAccounts().map((account) => account.id)
-  })
+  normalizeLegacyClaudeChatPins(pins)
+  const knownAccountIds = router.listAccounts().map((account) => account.id)
+  const pinned = readClaudeChatPin(pins, orcaSessionId)
+  // A stale own pin (removed account) still lets a coordinator's pin apply.
+  const coordinatorPinned =
+    pinned && knownAccountIds.includes(pinned)
+      ? null
+      : inheritedCoordinatorPin(pins, canonicalClaudeChatId(orcaSessionId), knownAccountIds)
+  return resolveClaudeChatAccount({ pinned, coordinatorPinned, knownAccountIds })
+}
+
+/** How many coordinator levels a worker looks up for a pin (worker, its coordinator's coordinator…). */
+const MAX_COORDINATOR_DEPTH = 8
+
+function inheritedCoordinatorPin(
+  pins: Pick<ClaudeChatAccountPins, 'get'>,
+  worker: string,
+  knownAccountIds: readonly string[]
+): string | null {
+  if (!coordinatorLookup) {
+    return null
+  }
+  const seen = new Set([worker])
+  let current = worker
+  try {
+    for (let depth = 0; depth < MAX_COORDINATOR_DEPTH; depth++) {
+      const coordinator = coordinatorLookup(current)
+      if (!coordinator || seen.has(coordinator)) {
+        return null
+      }
+      const pin = readClaudeChatPin(pins, coordinator)
+      if (pin && knownAccountIds.includes(pin)) {
+        return pin
+      }
+      seen.add(coordinator)
+      current = coordinator
+    }
+  } catch {
+    // Orchestration unreadable: nothing to inherit.
+  }
+  return null
 }
 
 export function claudeAccountLabel(account: Pick<ClaudeManagedAccount, 'id' | 'email'>): string {
   return account.email || account.id
 }
 
-/** Match by id, id prefix (4+ chars), email, or the email's local part; case-insensitive. */
+/** Exact match only: the account id, its full email, or its label; case-insensitive. */
 export function matchClaudeAccount<T extends Pick<ClaudeManagedAccount, 'id' | 'email'>>(
   accounts: readonly T[],
   query: string
@@ -132,20 +212,14 @@ export function matchClaudeAccount<T extends Pick<ClaudeManagedAccount, 'id' | '
   if (!q) {
     return null
   }
-  const exact = accounts.find(
-    (account) => account.id.toLowerCase() === q || account.email.toLowerCase() === q
-  )
-  if (exact) {
-    return exact
-  }
-  const loose = accounts.filter(
+  const matches = accounts.filter(
     (account) =>
-      account.email.toLowerCase().split('@')[0] === q ||
-      (q.length >= 4 && account.id.toLowerCase().startsWith(q)) ||
-      (q.length >= 3 && account.email.toLowerCase().startsWith(q))
+      account.id.toLowerCase() === q ||
+      (account.email !== '' && account.email.toLowerCase() === q) ||
+      claudeAccountLabel(account).toLowerCase() === q
   )
-  if (loose.length === 1) {
-    return loose[0]
+  if (matches.length === 1) {
+    return matches[0]
   }
-  return loose.length > 1 ? { ambiguous: loose } : null
+  return matches.length > 1 ? { ambiguous: matches } : null
 }
