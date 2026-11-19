@@ -32,10 +32,15 @@ describe('parseClaudeRemoteControlCommand', () => {
   })
 })
 
+function fakeQuery(members: object): Query {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the surface reads only the members a test supplies.
+  return members as unknown as Query
+}
+
 describe('claudeQueryRemoteControl', () => {
   it('is null when the SDK lacks the method', () => {
-    expect(claudeQueryRemoteControl({} as unknown as Query)).toBeNull()
-    expect(createClaudeControlSurface({} as unknown as Query).remoteControl).toBeUndefined()
+    expect(claudeQueryRemoteControl({})).toBeNull()
+    expect(createClaudeControlSurface(fakeQuery({})).remoteControl).toBeUndefined()
   })
 
   it('calls enableRemoteControl on the query and wraps failures', async () => {
@@ -43,7 +48,7 @@ describe('claudeQueryRemoteControl', () => {
       expect(this).toBe(query)
       return { session_url: 'https://claude.ai/code/session_1' }
     })
-    const query = { enableRemoteControl } as unknown as Query
+    const query = fakeQuery({ enableRemoteControl })
     const surface = createClaudeControlSurface(query)
     await expect(surface.remoteControl!(true, 'n')).resolves.toEqual({
       session_url: 'https://claude.ai/code/session_1'

@@ -39,24 +39,37 @@ export type ClaudeRemoteControlResponse = {
   bridge_session_id?: string
 }
 
-type RemoteControlQuery = {
-  enableRemoteControl?: (enabled: boolean, name?: string) => Promise<unknown>
+const RESPONSE_FIELDS = [
+  'session_url',
+  'connect_url',
+  'environment_id',
+  'bridge_session_id'
+] as const satisfies readonly (keyof ClaudeRemoteControlResponse)[]
+
+function readRemoteControlResponse(value: unknown): ClaudeRemoteControlResponse {
+  const response: ClaudeRemoteControlResponse = {}
+  if (value === null || typeof value !== 'object') {
+    return response
+  }
+  for (const field of RESPONSE_FIELDS) {
+    const entry: unknown = field in value ? Reflect.get(value, field) : undefined
+    if (typeof entry === 'string') {
+      response[field] = entry
+    }
+  }
+  return response
 }
 
 /** Runtime check: enableRemoteControl is absent from Query's declaration. */
 export function claudeQueryRemoteControl(
-  query: Query
+  query: Query | object
 ): ((enabled: boolean, name?: string) => Promise<ClaudeRemoteControlResponse>) | null {
-  const enable = (query as unknown as RemoteControlQuery).enableRemoteControl
+  const enable: unknown = 'enableRemoteControl' in query ? query.enableRemoteControl : null
   if (typeof enable !== 'function') {
     return null
   }
-  return async (enabled, name) => {
-    const response = await enable.call(query, enabled, name)
-    return response !== null && typeof response === 'object'
-      ? (response as ClaudeRemoteControlResponse)
-      : {}
-  }
+  return async (enabled, name) =>
+    readRemoteControlResponse(await Reflect.apply(enable, query, [enabled, name]))
 }
 
 /** Bridge registration makes network round trips, so allow longer than ordinary controls. */
@@ -145,8 +158,10 @@ function availabilityProblem(initialization: unknown): string | null {
   if (initialization === null || typeof initialization !== 'object') {
     return null
   }
-  const available = (initialization as { remote_control_available?: unknown })
-    .remote_control_available
+  const available: unknown =
+    'remote_control_available' in initialization
+      ? initialization.remote_control_available
+      : undefined
   return available === false
     ? "Claude reports it is not available for this chat's account. It needs a claude.ai Pro, Max, Team or Enterprise login (not an API key), and no custom ANTHROPIC_BASE_URL."
     : null

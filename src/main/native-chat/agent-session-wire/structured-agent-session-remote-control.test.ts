@@ -51,11 +51,16 @@ describe('interceptRemoteControlSend', () => {
 
 describe('createRemoteControlNoteWriter', () => {
   it('appends a thread status row under the current fence', async () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the writer ignores the appended item.
     const appendItem = vi.fn(async () => ({}) as never)
     const registry = new ClaudeRemoteControlRegistry()
     const write = createRemoteControlNoteWriter(
       { get: (id) => (id === 's' ? { journal: { appendItem } } : undefined) },
-      () => ({ getConversation: (id) => (id === 's' ? ({ currentFence: 7 } as never) : null) }),
+      () => ({
+        getConversation: (id) =>
+          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the writer reads only currentFence.
+          id === 's' ? ({ currentFence: 7 } as never) : null
+      }),
       () => 100,
       registry
     )

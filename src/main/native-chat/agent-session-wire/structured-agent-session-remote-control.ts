@@ -62,7 +62,8 @@ export function remoteControlCommandOf(params: SendLike): ClaudeRemoteControlCom
   if (rest.length > 0 || block === null || typeof block !== 'object') {
     return null
   }
-  const { type, text } = block as { type?: unknown; text?: unknown }
+  const type: unknown = 'type' in block ? block.type : undefined
+  const text: unknown = 'text' in block ? block.text : undefined
   return type === 'text' && typeof text === 'string' ? parseClaudeRemoteControlCommand(text) : null
 }
 
