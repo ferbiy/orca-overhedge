@@ -170,7 +170,7 @@ export class ClaudeRemoteControlRegistry {
 
   /** The row shown while a toggle runs. */
   pending(command: ClaudeRemoteControlCommand): ClaudeRemoteControlNote {
-    return { text: `Turning Remote Control ${command.action === 'disable' ? 'off' : 'on'}…` }
+    return { text: `Turning Remote Control ${command.action === 'disable' ? 'off' : 'on'}\u2026` }
   }
 
   async run(sessionId: string, command: ClaudeRemoteControlCommand): Promise<ClaudeRemoteControlNote> {

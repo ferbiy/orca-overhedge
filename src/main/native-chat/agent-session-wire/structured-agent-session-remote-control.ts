@@ -94,7 +94,7 @@ type SendLike = {
   body: { blocks: readonly unknown[] }
 }
 
-/** The command when the message is one text block reading `/remote-control …` or `/rc …`. */
+/** The command when the message is one text block reading `/remote-control <args>` or `/rc <args>`. */
 export function remoteControlCommandOf(params: SendLike): ClaudeRemoteControlCommand | null {
   const [block, ...rest] = params.body.blocks
   if (rest.length > 0 || block === null || typeof block !== 'object') {
@@ -117,7 +117,7 @@ export type RemoteControlInterceptHost = {
 
 /** Null leaves the send untouched. Otherwise the send is answered at once as accepted, after its
  *  row is written: the final answer for `status` (or a chat with no running Claude), else "Turning
- *  Remote Control on…", which the same row is revised to once Claude answers. So neither client's
+ *  Remote Control on...", which the same row is revised to once Claude answers. So neither client's
  *  send timeout is reached, and a retried send gets its first answer instead of toggling again.
  *  Nothing reaches Claude either way. */
 export async function interceptRemoteControlSend(

@@ -169,7 +169,7 @@ export function pinnedClaudeAccountForChat(
   return resolveClaudeChatAccount({ pinned, coordinatorPinned, knownAccountIds })
 }
 
-/** How many coordinator levels a worker looks up for a pin (worker, its coordinator's coordinator…). */
+/** How many coordinator levels a worker looks up for a pin (worker, its coordinator's coordinator, ...). */
 const MAX_COORDINATOR_DEPTH = 8
 
 function inheritedCoordinatorPin(

@@ -122,7 +122,7 @@ export async function interceptClaudeAccountSlashCommand(
   return orcaCommandReplies.once(sessionId, clientOperationId, async () => {
     const rowId = `overhedge-account:${clientOperationId}`
     const changes = command.kind === 'move' || command.kind === 'unpin'
-    const first = changes ? "Changing this chat's Claude account…" : runAccountCommand(command, sessionId, ctx, host)
+    const first = changes ? "Changing this chat's Claude account\u2026" : runAccountCommand(command, sessionId, ctx, host)
     const notice = await host.appendOrcaNotice(sessionId, rowId, first).catch(() => null)
     if (!notice) {
       return {
@@ -142,7 +142,7 @@ export async function interceptClaudeAccountSlashCommand(
     } catch (error) {
       text = `Orca could not finish changing this chat's Claude account (${error instanceof Error ? error.message : String(error)}). Run /orca-account to see where it stands.`
     }
-    // Never leave the interim "Changing…" row as the last word: retry once, then a short final row.
+    // Never leave the interim "Changing ..." row as the last word: retry once, then a short final row.
     const settled =
       (await host.appendOrcaNotice(sessionId, rowId, text).catch(() => null)) ??
       (await host

@@ -7,13 +7,24 @@ export type ClaudePromptScreenProof =
   | { ok: false; reason: string }
 
 // The input box is drawn between two horizontal rules (newer Claude Code) or inside a rounded box.
-const RULE_RE = /^\s*[╭╰]?─{8,}[╮╯]?\s*$/
-// `>` or `❯` prompt marker, optionally inside box borders; group 1 is what follows the marker.
-const PROMPT_RE = /^\s*│?\s*(?:>|❯)(?:[  ](.*?))?\s*│?\s*$/
+// Why String.raw: the orcad bundle must stay ASCII, and the formatter unescapes regex literals.
+// Box drawing: \u256D/\u2570 corners, \u2500 rule, \u256E/\u256F corners, \u2502 side.
+const RULE_RE = new RegExp(String.raw`^\s*[\u256D\u2570]?\u2500{8,}[\u256E\u256F]?\s*$`)
+// `>` or U+276F prompt marker, optionally inside box borders; group 1 is what follows the marker
+// (after a space or a no-break space).
+const PROMPT_RE = new RegExp(
+  String.raw`^\s*\u2502?\s*(?:>|\u276F)(?:[ \u00A0](.*?))?\s*\u2502?\s*$`
+)
 // Lines that mean something other than a plain idle prompt is on screen.
 const BLOCKING_PATTERNS: readonly [RegExp, string][] = [
-  [/Enter to (?:select|confirm|submit)|Esc to (?:cancel|go back|exit)|↑\/↓|\(y\/n\)/i, 'a menu or dialog is open'],
-  [/^\s*❯\s*\d+\.\s|^\s+\d+\.\s/, 'a choice list is open'],
+  [
+    new RegExp(
+      String.raw`Enter to (?:select|confirm|submit)|Esc to (?:cancel|go back|exit)|\u2191/\u2193|\(y/n\)`,
+      'i'
+    ),
+    'a menu or dialog is open'
+  ],
+  [new RegExp(String.raw`^\s*\u276F\s*\d+\.\s|^\s+\d+\.\s`), 'a choice list is open'],
   // Case-sensitive on purpose: the footer `bypass permissions on` is a mode, not a question.
   [/Do you want|Would you like|\bAllow\b|\bApprove\b|\?\s*$/, 'Claude is asking a question or for a permission'],
   [/ready to code\?|proceed\?/i, 'a plan approval may be open'],
@@ -23,6 +34,7 @@ const BLOCKING_PATTERNS: readonly [RegExp, string][] = [
   [/exit anyway|really exit|press ctrl-c again|press ctrl-d again/i, 'an exit confirmation is showing'],
   [/search:|reverse-i-search|history search/i, 'a history search is open']
 ]
+const NO_BREAK_SPACE_RE = new RegExp(String.raw`\u00A0`, 'g')
 const REGION_LINES = 24
 // Claude's spinner line sits just above the input box while a turn runs.
 const WORKING_ABOVE_RE = /esc to interrupt/i
@@ -60,7 +72,7 @@ export function claudePromptLineText(
   if (!box) {
     return null
   }
-  return (PROMPT_RE.exec(box.region[box.index])?.[1] ?? '').replace(/\u00A0/g, ' ').trim()
+  return (PROMPT_RE.exec(box.region[box.index])?.[1] ?? '').replace(NO_BREAK_SPACE_RE, ' ').trim()
 }
 
 /** Proof that Claude's input box is empty and nothing else (dialog, picker, question, background
