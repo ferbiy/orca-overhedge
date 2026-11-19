@@ -1,0 +1,213 @@
+name: Overhedge server deb
+
+# Fork-only: build the unsigned Linux x64 orca-ide .deb for the headless server from any ref of
+# this fork and keep it as a workflow artifact. Mirrors the linux-x64 job of release-cut.yml
+# (same orcad template qualification, same build and electron-builder commands), minus
+# publishing, telemetry secrets and the other platforms. See OVERHEDGE.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA of this fork to build (default is the branch this runs on)
+        required: false
+        type: string
+        default: ''
+  # Why: GitHub only lists a workflow for dispatch once it exists on the default branch (upstream
+  # main here) or has run on push. A push run only registers it and skips every job, because
+  # node-server-tests.yml scopes its qualification lanes by the push diff.
+  push:
+    branches: ['overhedge/**']
+    paths: ['.github/workflows/overhedge-server-deb.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: overhedge-server-deb-${{ inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      # Why build metadata: dpkg sorts 1.4.251+overhedge.N above the official 1.4.251, while the
+      # app's own version compare (src/shared/app-version.ts, plugin engine ranges) ignores `+…`
+      # and keeps treating the build as 1.4.251.
+      - id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          base="$(node -p "require('./package.json').version")"
+          case "$base" in
+            *+*) echo "::error::package.json version $base already has build metadata"; exit 1 ;;
+          esac
+          version="${base}+overhedge.${GITHUB_RUN_NUMBER}.g${sha:0:10}"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building ${{ inputs.ref || github.ref }} at $sha as $version" >> "$GITHUB_STEP_SUMMARY"
+
+  # The server runs orca serve on the plain-Node orcad slot materialized from this template, so
+  # server-side code only reaches the server through it. Same reusable workflow release-cut uses.
+  orcad-template:
+    needs: resolve
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/qualified-orcad-template.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+      fast_runners: false
+
+  deb:
+    needs: [resolve, orcad-template]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # beforePack and afterPack fail the package when the template is absent.
+      ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
+      ORCA_BUILD_COMMIT: ${{ needs.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/setup@v2
+        with:
+          install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+
+      - name: Use external node-gyp to avoid pnpm's bundled copy
+        run: |
+          npm install -g node-gyp@11.5.0
+          echo "npm_config_node_gyp=$(npm root -g)/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
+
+      - name: Resolve electron-builder download versions
+        id: eb-versions
+        run: node -p "const d = require('./package.json').devDependencies; 'versions=electron' + d.electron + '-builder' + d['electron-builder']" >> "$GITHUB_OUTPUT"
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: overhedge-electron-builder-linux-x64-${{ steps.eb-versions.outputs.versions }}
+          restore-keys: |
+            overhedge-electron-builder-linux-x64-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile
+
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Install Linux packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-atspi-2.0 at-spi2-core xclip xdotool rpm
+
+      # Not committed: the version exists only in this build, like release-cut's tag commit.
+      - name: Stamp the fork version
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          node -p "require('./package.json').version"
+
+      # No ORCA_BUILD_IDENTITY / ORCA_POSTHOG_WRITE_KEY: non-official builds compile telemetry to null.
+      - name: Build app
+        run: pnpm run build:release
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Download the orcad deployment template
+        uses: actions/download-artifact@v8
+        with:
+          name: orcad-template
+          path: out/orcad-template
+
+      - name: Gate runtime file-watcher process isolation
+        run: |
+          node config/scripts/diagnostics/runtime-watchers/runtime-file-watcher-fault-harness.mjs
+          ELECTRON_RUN_AS_NODE=1 pnpm exec electron config/scripts/diagnostics/runtime-watchers/runtime-file-watcher-fault-harness.mjs
+
+      - name: Package the deb
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 30
+          max_attempts: 2
+          retry_wait_seconds: 30
+          command: node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron && pnpm exec electron-builder --config config/electron-builder.config.cjs --linux deb --x64 --publish never
+
+      # electron-builder drops semver build metadata from the deb Version (it emits 1.4.251), so
+      # dpkg would treat the fork build as the official one. Rewrite only the control Version;
+      # sudo keeps root ownership and the setuid chrome-sandbox through the repack.
+      - name: Stamp the fork version into the deb
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          src="$(ls dist/orca-ide_*_amd64.deb)"
+          work="$RUNNER_TEMP/deb-repack"
+          sudo rm -rf "$work"
+          sudo dpkg-deb -R "$src" "$work"
+          sudo sed -i "s/^Version: .*/Version: $VERSION/" "$work/DEBIAN/control"
+          sudo rm -f "$src"
+          sudo dpkg-deb -Zxz -b "$work" "dist/orca-ide_${VERSION}_amd64.deb"
+          sudo chown "$(id -u):$(id -g)" "dist/orca-ide_${VERSION}_amd64.deb"
+          sudo rm -rf "$work"
+
+      - name: Load packaged node-pty on the Linux floor
+        run: node config/scripts/desktop-distribution/runtime-verification/run-linux-packaged-node-pty-floor-smoke.mjs --app-dir dist/linux-unpacked
+
+      - name: Describe the package
+        id: describe
+        run: |
+          set -euo pipefail
+          deb="$(ls dist/orca-ide_*_amd64.deb)"
+          dpkg-deb --field "$deb" Package Version Architecture
+          dpkg --compare-versions "$(dpkg-deb --field "$deb" Version)" gt 1.4.251
+          sha256sum "$deb" | tee "$deb.sha256"
+          echo "name=$(basename "$deb" .deb)" >> "$GITHUB_OUTPUT"
+          {
+            echo '### orca-ide deb'
+            echo '```'
+            dpkg-deb --field "$deb" Package Version Architecture
+            ls -l "$deb"
+            cat "$deb.sha256"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.describe.outputs.name }}
+          path: |
+            dist/orca-ide_*_amd64.deb
+            dist/orca-ide_*_amd64.deb.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
