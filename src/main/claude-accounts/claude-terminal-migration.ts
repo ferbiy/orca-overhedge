@@ -67,15 +67,15 @@ export async function runClaudeChatMigrationWithRestarts(
       },
       { now: request.now === true, idleDeadline }
     )
-    if (outcome.kind === 'restarted' || outcome.kind === 'started-unconfirmed') {
-      lines.push(`  terminal ${pane.paneKey}: ${outcome.detail} (same shell and terminal)`)
-    } else if (outcome.kind === 'refused') {
+    if (outcome.kind === 'refused') {
       lines.push(terminalMigrationInstruction(pane, home, outcome.reason))
-    } else {
+    } else if (outcome.kind === 'stopped-midway') {
       ok = false
       lines.push(
         `  terminal ${pane.paneKey}: stopped midway: ${outcome.reason}. The pin is kept; when the shell prompt is back, run: ${claudeTerminalResumeLine(home, pane.claudeSessionId)}`
       )
+    } else {
+      lines.push(`  terminal ${pane.paneKey}: ${outcome.detail} (same shell and terminal)`)
     }
   }
   return { ...result, ok, lines }

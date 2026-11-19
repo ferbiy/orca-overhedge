@@ -165,23 +165,24 @@ export async function restartClaudeTerminalInPlace(
     }
   }
   let interrupted = false
-  let state = await idleState(port, input.paneKey, handle)
-  if (state === 'question') {
+  // A holder, not a narrowed local: the wait below updates it from a callback.
+  const seen = { state: await idleState(port, input.paneKey, handle) }
+  if (seen.state === 'question') {
     return { kind: 'refused', reason: 'Claude is waiting for an answer or a permission in this pane' }
   }
-  if (state === 'working' && !options.now) {
+  if (seen.state === 'working' && !options.now) {
     const idle = await until(port, options.idleDeadline, pollMs, async () => {
-      state = await idleState(port, input.paneKey, handle)
-      return state !== 'working'
+      seen.state = await idleState(port, input.paneKey, handle)
+      return seen.state !== 'working'
     })
     if (!idle) {
       return { kind: 'refused', reason: 'Claude was still working when the wait timed out' }
     }
-    if (state === 'question') {
+    if (seen.state === 'question') {
       return { kind: 'refused', reason: 'Claude is waiting for an answer or a permission in this pane' }
     }
   }
-  if (state === 'working') {
+  if (seen.state === 'working') {
     // --now: interrupt the turn once (a second Escape would open Claude's rewind menu).
     const check = await claudeInForeground(port, input.paneKey, terminal)
     if (!check.ok) {
