@@ -1,5 +1,6 @@
 import { claudeAccountUsagePreparation } from './claude-account-usage-preparation'
 import { claudeProfileSelectionHomes } from './claude-profile-selection-homes'
+import { claudeAccountPreparation } from './claude-chat-account-preparation'
 import { prepareClaudeProfileForLaunch } from './claude-profile-launch-preparation'
 import { getClaudeAgentViewService } from '../claude/agent-view/agent-view-service'
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
@@ -323,48 +324,15 @@ export class ClaudeProfileRouter {
     return !selected || !systemDefault || !isSameClaudeLogin(selected, systemDefault)
   }
 
-  // Overhedge: per-chat account pins (claude-chat-account-pins.ts). Unused unless a chat is pinned.
-  listAccounts(): readonly ClaudeManagedAccount[] {
-    return this.args.getSettings().claudeManagedAccounts
-  }
-
-  /** Launch under `accountId` whatever the global selection is. */
+  // Overhedge: per-chat pins (claude-chat-account-pins.ts); launch under `accountId`, not the selection.
+  listAccounts = (): readonly ClaudeManagedAccount[] => this.args.getSettings().claudeManagedAccounts
   async prepareLaunchForAccount(accountId: string): Promise<ClaudeRuntimeAuthPreparation> {
-    if (!this.accountLogin(accountId)) {
-      await this.envReady
-    }
+    await this.envReady
     if (!this.coveredBySystemDefault(accountId)) {
-      await prepareClaudeProfileForLaunch(
-        this.describe(accountId),
-        (value) => this.setUp(value),
-        this.args.refreshWaitMs
-      )
+      const profile = this.describe(accountId)
+      await prepareClaudeProfileForLaunch(profile, (v) => this.setUp(v), this.args.refreshWaitMs)
     }
-    return this.preparationForAccount(accountId)
-  }
-
-  preparationForAccount(accountId: string): ClaudeRuntimeAuthPreparation {
-    const home = this.coveredBySystemDefault(accountId) ? null : this.accountHome(accountId)
-    return {
-      configDir: home ?? this.systemDefaultHome(),
-      runtime: 'host',
-      wslDistro: null,
-      wslLinuxConfigDir: null,
-      envPatch: {
-        [CLAUDE_PROFILE_POINTER_ENV]: this.pointerPath,
-        ...(home ? { CLAUDE_CONFIG_DIR: home, [CLAUDE_INJECTED_CONFIG_DIR_ENV]: home } : {})
-      },
-      provenance: home ? `profile:${accountId}` : 'system'
-    }
-  }
-
-  /** A terminal pinned to `accountId`: CLAUDE_CONFIG_DIR without the injected marker, so Orca's
-   *  shell function treats it as a pane override and never follows the global pointer. */
-  terminalEnvForAccount(accountId: string): ClaudeEnvPatch {
-    const home = this.coveredBySystemDefault(accountId)
-      ? this.systemDefaultHome()
-      : this.accountHome(accountId)
-    return { [CLAUDE_PROFILE_POINTER_ENV]: this.pointerPath, CLAUDE_CONFIG_DIR: home }
+    return claudeAccountPreparation(this, accountId)
   }
 
   routesToAccount(): boolean {

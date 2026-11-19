@@ -2,6 +2,7 @@
 import type { LegacyAgentSessionAccountHome } from '../../shared/agent-session/lifecycle/agent-session-account-home'
 import { getClaudeProfileRouter } from './claude-profile-installed-router'
 import { pinnedClaudeAccountForChat } from './claude-chat-account-pins'
+import { claudeAccountPreparation } from './claude-chat-account-preparation'
 
 /** Null when the chat has no usable pin, so callers keep upstream's follow-the-selection path. */
 export function pinnedClaudeLaunchAccountHome(
@@ -15,7 +16,7 @@ export function pinnedClaudeLaunchAccountHome(
   try {
     return {
       variable: 'CLAUDE_CONFIG_DIR',
-      path: router.preparationForAccount(pin.accountId).configDir
+      path: claudeAccountPreparation(router, pin.accountId).configDir
     }
   } catch {
     return null

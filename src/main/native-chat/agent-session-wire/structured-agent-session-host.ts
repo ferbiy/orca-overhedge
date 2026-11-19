@@ -2,7 +2,7 @@ import * as usageLimit from './structured-agent-session-host-background'
 import { createStructuredAgentSessionConversationReads } from './structured-agent-session-conversation-reads'
 import { continuationContextReader as contextReader } from './structured-agent-session-continuation-context'
 import { structuredAgentStartJournal } from './structured-agent-start-journal'
-import { appendStructuredAgentSessionOrcaNotice } from './structured-agent-session-orca-notice'
+import { orcaNotices } from './structured-agent-session-orca-notice'
 import { StructuredConversationCommandController as CommandController } from './structured-conversation-command-controller'
 // Serialize durable mutations per conversation; open at rest and start a child only when work needs it.
 
@@ -346,18 +346,7 @@ export class StructuredAgentSessionHost {
   subscribeTurnCompletions = this.clientDelivery.subscribeTurnCompletions
   readStatusSummary = this.clientDelivery.readStatusSummary
 
-  // Overhedge: Orca-authored status row (server-side chat commands such as /account).
-  appendOrcaNotice = (sessionId: string, noticeId: string, text: string) =>
-    appendStructuredAgentSessionOrcaNotice(
-      {
-        conversation: (id) => this.lifetime.conversation(id),
-        store: this.deps.store,
-        publish: (id, journal) => this.clientDelivery.publishJournal(id, journal)
-      },
-      sessionId,
-      noticeId,
-      text
-    )
+  appendOrcaNotice = orcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery] as const)
 
   collaboratorsForTests = () => ({
     sessions: this.sessions,
