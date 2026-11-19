@@ -27,6 +27,7 @@ export const ROOT_HELP_TEXT_PRIMARY = [
   '  account add               Add a managed agent account on this Orca host',
   '  account list              List managed agent accounts on this Orca host',
   '  account select            Select an OpenCode or Devin account for new launches',
+  '  account migrate           Pin Claude chats to a managed Claude account, or unpin them',
   '  account rm                Remove an OpenCode or Devin account and its private data',
   '',
   'Skills:',
