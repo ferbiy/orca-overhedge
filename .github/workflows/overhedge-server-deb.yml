@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: ''
+  # Why: GitHub only lists a workflow for dispatch once it exists on the default branch (upstream
+  # main here) or has run on push. Only edits to this file trigger it, so ordinary pushes stay free.
+  push:
+    branches: ['overhedge/**']
+    paths: ['.github/workflows/overhedge-server-deb.yml']
 
 permissions:
   contents: read
