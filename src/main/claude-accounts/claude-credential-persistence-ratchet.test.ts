@@ -36,8 +36,12 @@ const fsAllowances: Record<string, readonly string[]> = {
   'claude-accounts/claude-chat-account-pin-store.ts': [
     'copyFileSync',
     'mkdirSync',
+    'unlinkSync',
     'writeFileAtomically'
   ],
+  // Keystrokes into a terminal pane (the restart port's PTY write), not file persistence.
+  'claude-accounts/claude-terminal-restart.ts': ['write'],
+  'claude-accounts/claude-terminal-restart-checks.ts': ['write'],
   'claude-accounts/claude-profile-history.ts': [
     'mkdirSync',
     'renameSync',

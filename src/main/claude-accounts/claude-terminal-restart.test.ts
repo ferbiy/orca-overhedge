@@ -254,9 +254,9 @@ describe('terminal restart in place', () => {
   it('stops before /exit when cancelled, and types nothing', async () => {
     const { port, state } = fakePane({ hook: 'working', title: 'working', idleAfterMs: 5000 })
     const controller = new AbortController()
-    const sleep = port.sleep
+    const advance = port.sleep
     port.sleep = async (ms) => {
-      await sleep(ms)
+      await advance(ms)
       controller.abort()
     }
     const outcome = await restartClaudeTerminalInPlace(port, INPUT, {
@@ -358,7 +358,12 @@ describe('shell and screen proofs', () => {
   it('reads a rounded box and the bypass-permissions footer as an empty prompt', () => {
     expect(
       proveClaudeEmptyPrompt({
-        lines: ['╭' + '─'.repeat(30) + '╮', '│ >                            │', '╰' + '─'.repeat(30) + '╯', '  ⏵⏵ bypass permissions on (shift+tab to cycle)']
+        lines: [
+          `╭${'─'.repeat(30)}╮`,
+          '│ >                            │',
+          `╰${'─'.repeat(30)}╯`,
+          '  ⏵⏵ bypass permissions on (shift+tab to cycle)'
+        ]
       })
     ).toEqual({ ok: true })
   })
