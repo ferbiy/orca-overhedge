@@ -45,6 +45,9 @@ export const CLI_BOOLEAN_FLAGS = new Set([
   'mobile',
   'mobile-pairing',
   'no-pairing',
+  // Overhedge: `orca account migrate`.
+  'now',
+  'pin-only',
   'screen',
   'parent-current',
   'provision',
@@ -65,6 +68,7 @@ export const CLI_BOOLEAN_FLAGS = new Set([
   'takeover-legacy',
   'tasks',
   'text-stdin',
+  'unpin',
   'unread',
   'urls',
   'value-stdin',

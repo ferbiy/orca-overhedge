@@ -7,6 +7,7 @@ import {
   installClaudeChatCoordinatorLookup,
   installClaudeChatLineage,
   pinnedClaudeAccountForChat,
+  pinnedClaudeAccountForTerminal,
   readClaudeChatPin,
   terminalChatPinKey,
   type ClaudeChatLineage
@@ -14,6 +15,7 @@ import {
 import { claudeAccountPreparation } from './claude-chat-account-preparation'
 import { claudeChatAccountPinsFor } from './claude-chat-account-pin-store'
 import { quotePosixShell } from '../../shared/shell/launch/shell-argument-quoting'
+import { CLAUDE_INJECTED_CONFIG_DIR_ENV } from '../../shared/claude-profile-routing'
 import {
   applyClaudeChatMigration,
   claudeAccountNames,
@@ -97,35 +99,57 @@ function rows(db: OrchestrationDbLike, sql: string, arg: string): string[] {
   }
 }
 
-/** Workers a coordinator dispatched; dispatch rows hold /clear roots, so both sides are canonical. */
+const TERMINAL_PREFIX = 'terminal:'
+
+/** Workers a coordinator dispatched; dispatch rows hold /clear roots, so both sides are canonical.
+ *  A terminal coordinator (`terminal:<pane>`) is matched by its pane; terminal workers come back as
+ *  `terminal:<pane>` and chat-UI workers as their Orca session id. */
 export function workersOfCoordinator(db: OrchestrationDbLike, coordinator: string): string[] {
-  const root = canonicalClaudeChatId(coordinator)
-  return [
-    ...new Set(
-      rows(
-        db,
-        `SELECT DISTINCT assignee_orca_session_id AS id FROM dispatch_contexts
-         WHERE creator_orca_session_id = ? AND assignee_orca_session_id IS NOT NULL
-           AND assignee_orca_session_id <> creator_orca_session_id`,
-        root
-      )
+  const terminal = coordinator.startsWith(TERMINAL_PREFIX)
+  const root = terminal ? coordinator.slice(TERMINAL_PREFIX.length) : canonicalClaudeChatId(coordinator)
+  const creator = terminal ? 'creator_pane_key' : 'creator_orca_session_id'
+  const workers = [
+    ...rows(
+      db,
+      `SELECT DISTINCT assignee_orca_session_id AS id FROM dispatch_contexts
+       WHERE ${creator} = ? AND assignee_orca_session_id IS NOT NULL
+         AND (creator_orca_session_id IS NULL OR assignee_orca_session_id <> creator_orca_session_id)`,
+      root
+    ),
+    ...rows(
+      db,
+      `SELECT DISTINCT '${TERMINAL_PREFIX}' || assignee_pane_key AS id FROM dispatch_contexts
+       WHERE ${creator} = ? AND assignee_pane_key IS NOT NULL
+         AND (creator_pane_key IS NULL OR assignee_pane_key <> creator_pane_key)`,
+      root
     )
-  ].filter((worker) => worker !== root)
+  ]
+  return [...new Set(workers)].filter((worker) => worker !== root && worker !== coordinator)
 }
 
 /** The newest real coordinator of a worker; self-created bookkeeping rows never count. */
 export function coordinatorOfWorker(db: OrchestrationDbLike, worker: string): string | null {
-  const root = canonicalClaudeChatId(worker)
-  return (
-    rows(
-      db,
-      `SELECT creator_orca_session_id AS id FROM dispatch_contexts
-       WHERE assignee_orca_session_id = ? AND creator_orca_session_id IS NOT NULL
-         AND creator_orca_session_id <> assignee_orca_session_id
-       ORDER BY rowid DESC LIMIT 1`,
-      root
-    )[0] ?? null
-  )
+  return coordinatorCandidatesOfWorker(db, worker)[0] ?? null
+}
+
+/** The ids the newest real coordinator of a worker may be pinned under: its Orca session id and,
+ *  for a terminal coordinator, `terminal:<pane>`. A terminal worker is matched by its pane. */
+export function coordinatorCandidatesOfWorker(db: OrchestrationDbLike, worker: string): string[] {
+  const terminal = worker.startsWith(TERMINAL_PREFIX)
+  const key = terminal ? worker.slice(TERMINAL_PREFIX.length) : canonicalClaudeChatId(worker)
+  // Both ids come from the same (newest real) dispatch row; a self-created row never counts.
+  const newest = terminal
+    ? `FROM dispatch_contexts WHERE assignee_pane_key = ?
+         AND (creator_pane_key IS NULL OR creator_pane_key <> assignee_pane_key)
+       ORDER BY rowid DESC LIMIT 1`
+    : `FROM dispatch_contexts WHERE assignee_orca_session_id = ?
+         AND (creator_orca_session_id IS NULL OR creator_orca_session_id <> assignee_orca_session_id)
+         AND (creator_orca_session_id IS NOT NULL OR creator_pane_key IS NOT NULL)
+       ORDER BY rowid DESC LIMIT 1`
+  return [
+    ...rows(db, `SELECT creator_orca_session_id AS id ${newest}`, key),
+    ...rows(db, `SELECT '${TERMINAL_PREFIX}' || creator_pane_key AS id ${newest}`, key)
+  ].filter((id) => id !== worker && id !== key)
 }
 
 /** Wires pin inheritance (worker to coordinator) and /clear lineage into the pin lookups. */
@@ -134,7 +158,9 @@ export function installClaudeChatWorkerInheritance(
   lineage?: ClaudeChatLineage
 ): void {
   installClaudeChatLineage(lineage)
-  installClaudeChatCoordinatorLookup((worker) => coordinatorOfWorker(orchestrationDbOf(db()), worker))
+  installClaudeChatCoordinatorLookup((worker) =>
+    coordinatorCandidatesOfWorker(orchestrationDbOf(db()), worker)
+  )
 }
 
 function acquiredManagedAccountId(record: ClaudeChatRecordLike): string | null {
@@ -157,7 +183,24 @@ export function claudeChatAccount(
   return { accountId: deps.router.selectedProfile()?.accountId ?? null, source: 'global' }
 }
 
+/** A terminal pane runs its own pin, else its coordinator's, else the global selection (the
+ *  pane's claude function re-reads it at every launch). */
+function terminalPaneAccount(deps: ClaudeChatAccountDeps, paneKey: string): string | null {
+  return (
+    pinnedClaudeAccountForTerminal(deps.router, paneKey)?.accountId ??
+    deps.router.selectedProfile()?.accountId ??
+    null
+  )
+}
+
 function claudeChatsOnAccount(deps: ClaudeChatAccountDeps, accountId: string): string[] {
+  const panes = (deps.terminals?.() ?? [])
+    .filter((pane) => terminalPaneAccount(deps, pane.paneKey) === accountId)
+    .map((pane) => terminalChatPinKey(pane.paneKey))
+  return [...chatUiChatsOnAccount(deps, accountId), ...panes]
+}
+
+function chatUiChatsOnAccount(deps: ClaudeChatAccountDeps, accountId: string): string[] {
   return deps
     .records()
     .filter((record) => record.provider === 'claude')
@@ -185,10 +228,21 @@ function chatIdFor(id: string): string {
   return id.startsWith('terminal:') ? id : canonicalClaudeChatId(id)
 }
 
+export type ClaudeChatMigrationResult = {
+  ok: boolean
+  lines: string[]
+  moved: string[]
+  /** Terminal panes among the moved chats, in plan order (workers first). */
+  terminalPanes?: ClaudeTerminalChat[]
+  /** The target account's config dir; null when unpinning. */
+  home?: string | null
+}
+
 export function runClaudeChatMigration(
   deps: ClaudeChatAccountDeps,
-  request: ClaudeChatMigrationRequest
-): { ok: boolean; lines: string[]; moved: string[] } {
+  request: ClaudeChatMigrationRequest,
+  options: { terminalLines?: boolean } = {}
+): ClaudeChatMigrationResult {
   const accounts = deps.router.listAccounts()
   if (accounts.length === 0) {
     return { ok: false, lines: [NO_MANAGED_ACCOUNTS], moved: [] }
@@ -228,7 +282,11 @@ export function runClaudeChatMigration(
     chatIds: request.chatIds?.map(chatIdFor),
     withWorkersOf: request.withWorkersOf?.map(chatIdFor),
     allOnAccountId,
-    workersOf: (coordinator) => workersOfCoordinator(deps.orchestrationDb(), coordinator),
+    // A worker row names both an Orca session id and a pane; keep the identity this host runs.
+    workersOf: (coordinator) =>
+      workersOfCoordinator(deps.orchestrationDb(), coordinator).filter(
+        (id) => !id.startsWith(TERMINAL_PREFIX) || terminals.has(id)
+      ),
     chatsOnAccount: (accountId) => claudeChatsOnAccount(deps, accountId)
   })
   const unknown = steps.filter((step) => !known.has(step.orcaSessionId))
@@ -241,7 +299,12 @@ export function runClaudeChatMigration(
     dryRun: request.dryRun === true,
     currentAccountOf: (id) => {
       const record = byCanonical.get(id)
-      return record ? labelOf(claudeChatAccount(deps, record).accountId) : null
+      const pane = terminals.get(id)
+      return record
+        ? labelOf(claudeChatAccount(deps, record).accountId)
+        : pane
+          ? labelOf(terminalPaneAccount(deps, pane.paneKey))
+          : null
     }
   })
   for (const step of unknown) {
@@ -256,22 +319,36 @@ export function runClaudeChatMigration(
     }
   }
   const home = target ? claudeAccountPreparation(deps.router, target.id).configDir : null
-  for (const step of movable) {
-    const pane = terminals.get(step.orcaSessionId)
-    if (pane) {
+  const terminalPanes = movable.flatMap((step) => terminals.get(step.orcaSessionId) ?? [])
+  if (options.terminalLines !== false) {
+    for (const pane of terminalPanes) {
       lines.push(terminalMigrationInstruction(pane, home))
     }
   }
-  return { ok: true, lines, moved: movable.map((step) => step.orcaSessionId) }
+  return { ok: true, lines, moved: movable.map((step) => step.orcaSessionId), terminalPanes, home }
+}
+
+/** The shell line that resumes a terminal chat under `home` (null: the global selection). Clearing
+ *  Orca's injected marker makes the pane's claude function keep this config dir. */
+export function claudeTerminalResumeLine(home: string | null, claudeSessionId: string | null): string {
+  const resume = claudeSessionId ? ` --resume ${quotePosixShell(claudeSessionId)}` : ''
+  return home === null
+    ? `CLAUDE_CONFIG_DIR= claude${resume}`
+    : `${CLAUDE_INJECTED_CONFIG_DIR_ENV}= CLAUDE_CONFIG_DIR=${quotePosixShell(home)} claude${resume}`
 }
 
 /** Not restarted in place: the user runs this once in that terminal after its turn ends. */
-export function terminalMigrationInstruction(pane: ClaudeTerminalChat, home: string | null): string {
-  const resume = pane.claudeSessionId ? ` --resume ${quotePosixShell(pane.claudeSessionId)}` : ''
+export function terminalMigrationInstruction(
+  pane: ClaudeTerminalChat,
+  home: string | null,
+  why?: string
+): string {
+  const line = claudeTerminalResumeLine(home, pane.claudeSessionId)
+  const prefix = `  terminal ${pane.paneKey}: ${why ? `not restarted automatically (${why}); ` : ''}`
   if (home === null) {
-    return `  terminal ${pane.paneKey}: unpinned; new shells in this pane follow the global account. To switch the running Claude now, type /exit when idle, then run: claude${resume}`
+    return `${prefix}unpinned; new shells in this pane follow the global account. To switch the running Claude now, type /exit when idle, then run: ${line}`
   }
-  return `  terminal ${pane.paneKey}: when idle, type /exit, then run: CLAUDE_CONFIG_DIR=${quotePosixShell(home)} claude${resume}`
+  return `${prefix}when idle, type /exit, then run: ${line}`
 }
 
 export const NO_MANAGED_ACCOUNTS =

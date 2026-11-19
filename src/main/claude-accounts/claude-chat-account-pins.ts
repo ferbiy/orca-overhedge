@@ -115,8 +115,10 @@ export function normalizeLegacyClaudeChatPins(pins: ClaudeChatAccountPins): void
   }
 }
 
-/** Orchestration: the coordinator chat that dispatched this worker chat (both canonical), if any. */
-type CoordinatorLookup = (canonicalOrcaSessionId: string) => string | null
+/** Orchestration: the coordinator chat that dispatched this worker chat (both canonical), if any.
+ *  Several ids name one coordinator when it may be pinned under either (Orca session id, then
+ *  `terminal:<pane>`); terminal workers are looked up as `terminal:<pane>`. */
+type CoordinatorLookup = (canonicalOrcaSessionId: string) => string | readonly string[] | null
 let coordinatorLookup: CoordinatorLookup | undefined
 
 export function installClaudeChatCoordinatorLookup(lookup: CoordinatorLookup | undefined): void {
@@ -182,21 +184,46 @@ function inheritedCoordinatorPin(
   let current = worker
   try {
     for (let depth = 0; depth < MAX_COORDINATOR_DEPTH; depth++) {
-      const coordinator = coordinatorLookup(current)
-      if (!coordinator || seen.has(coordinator)) {
+      const found = coordinatorLookup(current)
+      const candidates = (typeof found === 'string' ? [found] : (found ?? [])).filter(
+        (id) => !seen.has(id)
+      )
+      if (candidates.length === 0) {
         return null
       }
-      const pin = readClaudeChatPin(pins, coordinator)
-      if (pin && knownAccountIds.includes(pin)) {
-        return pin
+      for (const coordinator of candidates) {
+        const pin = readClaudeChatPin(pins, coordinator)
+        if (pin && knownAccountIds.includes(pin)) {
+          return pin
+        }
+        seen.add(coordinator)
       }
-      seen.add(coordinator)
-      current = coordinator
+      current = candidates[0]
     }
   } catch {
     // Orchestration unreadable: nothing to inherit.
   }
   return null
+}
+
+/** The account a terminal pane's Claude launches under: the pane's own pin, else its coordinator's
+ *  (orchestration worker panes), else null for the global selection. */
+export function pinnedClaudeAccountForTerminal(
+  router: { pointerPath: string; listAccounts(): readonly ClaudeManagedAccount[] },
+  paneKey: string
+): { accountId: string; source: Exclude<ClaudeChatAccountSource, 'global'> } | null {
+  const pins = claudeChatAccountPinsFor(router)
+  if (!pins.hasAny()) {
+    return null
+  }
+  const knownAccountIds = router.listAccounts().map((account) => account.id)
+  const key = terminalChatPinKey(paneKey)
+  const pinned = pins.get(key)
+  const coordinatorPinned =
+    pinned && knownAccountIds.includes(pinned)
+      ? null
+      : inheritedCoordinatorPin(pins, key, knownAccountIds)
+  return resolveClaudeChatAccount({ pinned, coordinatorPinned, knownAccountIds })
 }
 
 export function claudeAccountLabel(account: Pick<ClaudeManagedAccount, 'id' | 'email'>): string {

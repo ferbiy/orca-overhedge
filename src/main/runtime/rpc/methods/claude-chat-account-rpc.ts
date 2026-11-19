@@ -21,6 +21,13 @@ import {
 } from '../../../native-chat/agent-session-wire/structured-agent-session-orca-notice'
 import { refuseUnclassified } from '../../../../shared/agent-session/failures/agent-session-wire-refusals'
 import { defineMethod, type RpcContext } from '../core'
+import { runClaudeChatMigrationWithRestarts } from '../../../claude-accounts/claude-terminal-migration'
+import type { ClaudeTerminalRestartPort } from '../../../claude-accounts/claude-terminal-restart'
+import {
+  getProviderForPty,
+  hasPtyProviderForInspection
+} from '../../../ipc/pty/provider/registry'
+import { assertLegacyAiVaultResumeCommandAllowed } from '../../../ai-vault/structured-session-ownership'
 import { denyRpcMethodForCaller, OWNER_RPC_CALLER_SCOPE } from '../rpc-caller-scope'
 
 const MIGRATE_METHOD = 'accounts.migrateClaudeChats'
@@ -33,7 +40,12 @@ function orchestrationDb(ctx: RpcContext) {
   }
 }
 
-type HookRow = { paneKey: string; agentType?: string; providerSession?: { id: string } }
+type HookRow = {
+  paneKey: string
+  agentType?: string
+  state?: string
+  providerSession?: { id: string }
+}
 
 function hookRows(value: unknown): HookRow[] {
   return Array.isArray(value)
@@ -44,8 +56,7 @@ function hookRows(value: unknown): HookRow[] {
     : []
 }
 
-/** Claude terminal panes the agent-status hooks currently know about. */
-function claudeTerminalChats(ctx: RpcContext) {
+function agentStatusRows(ctx: RpcContext): HookRow[] {
   // The runtime keeps this snapshot reader as an instance field; it is absent before hooks start.
   const runtime: unknown = ctx.runtime
   const read =
@@ -53,6 +64,11 @@ function claudeTerminalChats(ctx: RpcContext) {
       ? runtime.getAgentStatusSnapshotFn
       : null
   return hookRows(typeof read === 'function' ? read.call(runtime) : [])
+}
+
+/** Claude terminal panes the agent-status hooks currently know about. */
+function claudeTerminalChats(ctx: RpcContext) {
+  return agentStatusRows(ctx)
     .filter((row) => row.agentType === 'claude' && row.paneKey)
     .map((row) => ({ paneKey: row.paneKey, claudeSessionId: row.providerSession?.id ?? null }))
 }
@@ -155,6 +171,64 @@ export async function interceptClaudeAccountSlashCommand(
   })
 }
 
+/** The runtime side of an in-place terminal restart: only reads and plain input writes, so it
+ *  works with any PTY daemon; a daemon that cannot report the foreground process makes the restart
+ *  refuse (and print the manual command) instead of typing blind. */
+function terminalRestartPort(ctx: RpcContext): ClaudeTerminalRestartPort {
+  const runtime = ctx.runtime
+  const terminalForPane = (paneKey: string) => {
+    try {
+      const handle = runtime.getTerminalHandleForPaneKey(paneKey)
+      const ptyId = handle ? runtime.resolveLiveLeafForHandle(handle)?.ptyId : null
+      return handle && ptyId ? { handle, ptyId } : null
+    } catch {
+      return null
+    }
+  }
+  return {
+    terminalForPane,
+    hookState: (paneKey) =>
+      agentStatusRows(ctx).find((row) => row.paneKey === paneKey)?.state ?? null,
+    agentStatus: async (handle) => {
+      try {
+        const status = await runtime.getTerminalAgentStatus(handle)
+        return { isRunningAgent: status.isRunningAgent, status: status.status }
+      } catch {
+        return { isRunningAgent: false, status: null }
+      }
+    },
+    foregroundProcess: async (handle) => {
+      try {
+        const ptyId = runtime.resolveLiveLeafForHandle(handle)?.ptyId
+        if (!ptyId || !hasPtyProviderForInspection(ptyId)) {
+          return null
+        }
+        return await getProviderForPty(ptyId).getForegroundProcess(ptyId)
+      } catch {
+        return null
+      }
+    },
+    send: async (handle, action) => {
+      try {
+        const sent = await runtime.sendTerminal(
+          handle,
+          { text: action.text, enter: action.enter === true },
+          { inputKind: 'driving' }
+        )
+        return sent.accepted === true
+      } catch {
+        return false
+      }
+    },
+    assertResumeAllowed: (line) =>
+      assertLegacyAiVaultResumeCommandAllowed(line, () =>
+        runtime.ensureStructuredAgentSessionHost()
+      ),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    now: () => Date.now()
+  }
+}
+
 const MigrateParams = z
   .object({
     to: z.string().min(1).max(512).optional(),
@@ -162,7 +236,10 @@ const MigrateParams = z
     chatIds: z.array(z.string().min(1).max(512)).max(512).optional(),
     withWorkersOf: z.array(z.string().min(1).max(512)).max(64).optional(),
     allOn: z.string().min(1).max(512).optional(),
-    dryRun: z.boolean().optional()
+    dryRun: z.boolean().optional(),
+    now: z.boolean().optional(),
+    timeoutSeconds: z.number().int().min(0).max(3600).optional(),
+    noRestart: z.boolean().optional()
   })
   .strict()
 
@@ -183,7 +260,12 @@ export const CLAUDE_CHAT_ACCOUNT_METHODS = [
           moved: []
         }
       }
-      return runClaudeChatMigration(deps, params)
+      const { ok, lines, moved } = await runClaudeChatMigrationWithRestarts(
+        deps,
+        params,
+        terminalRestartPort(ctx)
+      )
+      return { ok, lines, moved }
     }
   })
 ]

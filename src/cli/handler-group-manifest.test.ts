@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { buildHandlerRoutes, dispatch, type HandlerContext } from './dispatch'
 import { HANDLER_GROUPS, type HandlerGroup } from './handler-group-manifest'
 import { ACCOUNT_COMMAND_SPECS } from './specs/account'
+import { CLI_BOOLEAN_FLAGS } from '../shared/cli-argument-boundary'
 
 describe('duplicate command keys', () => {
   const group = (name: string, keys: string[]): HandlerGroup => ({
@@ -53,5 +54,17 @@ describe('account handler group', () => {
     for (const spec of ACCOUNT_COMMAND_SPECS) {
       expect(routes.has(spec.path.join(' ')), spec.path.join(' ')).toBe(true)
     }
+  })
+})
+
+describe('account migrate flags', () => {
+  it('registers its switches as boolean flags, so a following value is never swallowed', () => {
+    const spec = ACCOUNT_COMMAND_SPECS.find((entry) => entry.path.join(' ') === 'account migrate')
+    for (const flag of ['unpin', 'dry-run', 'now', 'pin-only']) {
+      expect(spec?.allowedFlags, flag).toContain(flag)
+      expect(CLI_BOOLEAN_FLAGS.has(flag), flag).toBe(true)
+    }
+    expect(spec?.allowedFlags).toContain('timeout')
+    expect(CLI_BOOLEAN_FLAGS.has('timeout')).toBe(false)
   })
 })

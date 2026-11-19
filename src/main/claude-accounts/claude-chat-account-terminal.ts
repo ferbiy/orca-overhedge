@@ -2,8 +2,7 @@
 // which survives restore and restart of the pane's shell.
 import { CLAUDE_INJECTED_CONFIG_DIR_ENV } from '../../shared/claude-profile-routing'
 import type { ClaudeManagedAccount } from '../../shared/managed-account-types'
-import { terminalChatPinKey } from './claude-chat-account-pins'
-import { claudeChatAccountPinsFor } from './claude-chat-account-pin-store'
+import { pinnedClaudeAccountForTerminal } from './claude-chat-account-pins'
 import { claudeAccountPreparation } from './claude-chat-account-preparation'
 import type { ClaudeProfileRouter } from './claude-profile-router'
 import type { ClaudeRuntimeAuthPreparation } from './runtime-auth/runtime-auth-types'
@@ -23,8 +22,9 @@ export function pinnedClaudeTerminalHome(
   if (!router || !paneKey || target?.runtime === 'wsl') {
     return null
   }
-  const accountId = claudeChatAccountPinsFor(router).get(terminalChatPinKey(paneKey))
-  if (!accountId || !router.listAccounts().some((account) => account.id === accountId)) {
+  // Own pin, else (orchestration worker panes) the coordinator's pin, as for chat-UI workers.
+  const accountId = pinnedClaudeAccountForTerminal(router, paneKey)?.accountId
+  if (!accountId) {
     return null
   }
   try {

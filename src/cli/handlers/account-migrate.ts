@@ -15,6 +15,22 @@ function listFlag(ctx: HandlerContext, name: string): string[] | undefined {
   return value.split(REPEATED_FLAG_SEPARATOR).filter(Boolean)
 }
 
+/** Mirrors DEFAULT_TERMINAL_IDLE_WAIT_SECONDS in claude-terminal-migration.ts (main process). */
+const DEFAULT_IDLE_WAIT_SECONDS = 180
+const MIGRATE_GRACE_SECONDS = 600
+
+function timeoutFlag(ctx: HandlerContext): number | undefined {
+  const value = ctx.flags.get('timeout')
+  if (value === undefined) {
+    return undefined
+  }
+  const seconds = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : Number.NaN
+  if (!Number.isInteger(seconds) || seconds > 3600) {
+    throw new RuntimeClientError('invalid_argument', '--timeout takes whole seconds, 0 to 3600.')
+  }
+  return seconds
+}
+
 export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
   const to = ctx.flags.get('to')
   const unpin = ctx.flags.get('unpin') === true
@@ -33,6 +49,12 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
       'Choose chats with --chat, --with-workers or --all-on.'
     )
   }
+  const timeoutSeconds = timeoutFlag(ctx)
+  const now = ctx.flags.get('now') === true
+  const pinOnly = ctx.flags.get('pin-only') === true
+  if (pinOnly && (now || timeoutSeconds !== undefined)) {
+    throw new RuntimeClientError('invalid_argument', '--pin-only cannot be combined with --now or --timeout.')
+  }
   const result = await ctx.client.call<{ ok: boolean; lines: string[]; moved: string[] }>(
     'accounts.migrateClaudeChats',
     {
@@ -41,8 +63,13 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
       ...(chatIds ? { chatIds } : {}),
       ...(withWorkersOf ? { withWorkersOf } : {}),
       ...(typeof allOn === 'string' ? { allOn } : {}),
-      ...(ctx.flags.get('dry-run') === true ? { dryRun: true } : {})
-    }
+      ...(ctx.flags.get('dry-run') === true ? { dryRun: true } : {}),
+      ...(now ? { now: true } : {}),
+      ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
+      ...(pinOnly ? { noRestart: true } : {})
+    },
+    // Terminal restarts wait for idle agents (shared budget) plus exit/start checks per pane.
+    { timeoutMs: ((timeoutSeconds ?? DEFAULT_IDLE_WAIT_SECONDS) + MIGRATE_GRACE_SECONDS) * 1000 }
   )
   printResult(result, ctx.json, (value) => value.lines.join('\n'))
   if (!result.result.ok) {

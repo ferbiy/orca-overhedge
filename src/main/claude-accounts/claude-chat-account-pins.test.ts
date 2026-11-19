@@ -312,7 +312,7 @@ describe('terminal pins', () => {
     )
     expect(claudeChatAccountPinsFor(router).get('terminal:tab1:leaf1')).toBe(PERSONAL.id)
     expect(result.lines.at(-1)).toBe(
-      `  terminal tab1:leaf1: when idle, type /exit, then run: CLAUDE_CONFIG_DIR='/profiles/${PERSONAL.id}/home' claude --resume 'sess-1'`
+      `  terminal tab1:leaf1: when idle, type /exit, then run: ORCA_CLAUDE_INJECTED_CONFIG_DIR= CLAUDE_CONFIG_DIR='/profiles/${PERSONAL.id}/home' claude --resume 'sess-1'`
     )
   })
 })
@@ -377,7 +377,8 @@ describe('pins across /clear', () => {
     }
     expect(workersOfCoordinator(db, 'A3')).toEqual(['W'])
     expect(coordinatorOfWorker(db, 'A2')).toBe('W')
-    expect(seen).toEqual(['A', 'A'])
+    // Workers: chat-UI and terminal rows; coordinator: its session id and pane, newest row.
+    expect(seen).toEqual(['A', 'A', 'A', 'A'])
   })
 })
 

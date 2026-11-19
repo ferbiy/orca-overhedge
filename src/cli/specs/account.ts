@@ -46,7 +46,7 @@ export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
     path: ['account', 'migrate'],
     summary: 'Pin Claude chats to a managed Claude account on this Orca host, or unpin them',
     usage:
-      'orca account migrate (--to <id|email> | --unpin) (--chat <orca-session-id>... | --with-workers <coordinator-session-id>... | --all-on <id|email>) [--dry-run] [--json]',
+      'orca account migrate (--to <id|email> | --unpin) (--chat <orca-session-id|terminal:<pane>>... | --with-workers <coordinator-id>... | --all-on <id|email>) [--now] [--timeout <seconds>] [--pin-only] [--dry-run] [--json]',
     allowedFlags: [
       ...LOCAL_COMMAND_FLAGS,
       'to',
@@ -54,7 +54,10 @@ export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
       'chat',
       'with-workers',
       'all-on',
-      'dry-run'
+      'dry-run',
+      'now',
+      'timeout',
+      'pin-only'
     ],
     repeatableFlags: ['chat', 'with-workers'],
     notes: [
@@ -62,14 +65,16 @@ export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
       'Pins each chat-UI Claude chat to the target account. The chat keeps its tab, session id and orchestration identity, and switches at its next message once its current turn has ended. A pin survives /clear.',
       'With --with-workers, the coordinator chat and every chat it dispatched are pinned; workers without a pin of their own otherwise inherit their coordinator\'s pin.',
       '--unpin removes the pins, so those chats follow the global account selection again.',
-      'Terminal Claude tabs (chat ids terminal:<pane>) are pinned too: new shells in the pane use the pinned account, and the command prints how to restart the running Claude there.',
+      'Terminal Claude tabs (chat ids terminal:<pane>) are pinned and restarted in place: Orca waits until the agent is idle (default 180 s for the whole migration, --timeout <seconds>), types /exit, checks that Claude left the foreground, then runs `claude --resume <session>` under the target account in the same shell. --now does not wait and interrupts a running turn. A pane that is not provably running an idle Claude (or whose terminal host cannot report its foreground process) is left untouched and keeps only the pin; the command then prints the line to run by hand. --pin-only skips restarts.',
+      '--dry-run lists, per chat, whether it would be restarted in place, only pinned (and why), or skipped.',
       'In a Claude chat, /orca-account shows the chat\'s account, /orca-account <account|auto> pins or unpins it, and /orca-migrate <account|auto> [--with-workers] does the same with its workers.'
     ],
     examples: [
       'orca account migrate --to team@example.com --chat 0f3c... --dry-run',
       'orca account migrate --to me@example.com --with-workers 0f3c...',
       'orca account migrate --to me@example.com --all-on team@example.com',
-      'orca account migrate --unpin --chat 0f3c...'
+      'orca account migrate --unpin --chat 0f3c...',
+      'orca account migrate --to me@example.com --chat terminal:<tab-id>:<leaf-id> --timeout 300'
     ]
   },
   {
