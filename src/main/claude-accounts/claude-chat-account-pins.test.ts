@@ -17,6 +17,10 @@ import {
   type ClaudeChatAccountDeps
 } from './claude-chat-account-commands'
 import { orderClaudeChatMigration, planClaudeChatMigration } from './claude-chat-account-migration'
+import { applyClaudeTerminalPin, pinnedClaudeTerminalHome } from './claude-chat-account-terminal'
+import { describeChatAccount } from './claude-chat-account-commands'
+import { acceptedAccountCommandReply } from '../runtime/rpc/methods/claude-chat-account-rpc'
+import { structuredAgentSessionSendEvidence } from '../../shared/agent-session/requests/structured-agent-session-send-evidence'
 
 const account = (id: string, email: string) => ({ id, email }) as ClaudeManagedAccount
 const TEAM = account('aaaa1111-team', 'team@example.com')
@@ -28,7 +32,10 @@ function routerFixture(selected: string | null = TEAM.id) {
   return {
     pointerPath: join(dir, 'claude-profiles', 'selected-host'),
     listAccounts: () => [TEAM, PERSONAL],
-    selectedProfile: () => (selected ? ({ accountId: selected } as never) : null)
+    selectedProfile: () => (selected ? ({ accountId: selected } as never) : null),
+    coveredBySystemDefault: () => false,
+    accountHome: (id: string) => `/profiles/${id}/home`,
+    systemDefaultHome: () => '/home/u/.claude'
   }
 }
 
@@ -194,5 +201,74 @@ describe('slash parsing', () => {
     expect(matchClaudeAccount([TEAM, PERSONAL], 'bbbb')).toBe(PERSONAL)
     expect(matchClaudeAccount([TEAM, PERSONAL], 'ME@example.com')).toBe(PERSONAL)
     expect(matchClaudeAccount([TEAM, PERSONAL], 'zzz')).toBeNull()
+  })
+})
+
+describe('accepted reply for an intercepted command', () => {
+  it('reads as recorded to a released client, so nothing returns to the composer', () => {
+    const reply = acceptedAccountCommandReply('msg-1', {
+      fence: 3,
+      cursor: { epoch: 'e', sequence: 9 } as never
+    })
+    expect(structuredAgentSessionSendEvidence({ kind: 'result', result: reply })).toEqual({
+      kind: 'recorded'
+    })
+    expect(reply.ok && reply.cursor).toEqual({ epoch: 'e', sequence: 9 })
+    expect(reply.ok && 'submission' in reply.value).toBe(false)
+  })
+})
+
+describe('terminal pins', () => {
+  it('sets the pinned config dir without the follow-the-switch marker', () => {
+    const router = routerFixture(TEAM.id)
+    claudeChatAccountPinsFor(router).set('terminal:tab1:leaf1', PERSONAL.id)
+    const home = pinnedClaudeTerminalHome(router, 'tab1:leaf1')
+    expect(home).toBe(`/profiles/${PERSONAL.id}/home`)
+    expect(pinnedClaudeTerminalHome(router, 'tab1:other')).toBeNull()
+    expect(pinnedClaudeTerminalHome(router, 'tab1:leaf1', { runtime: 'wsl' } as never)).toBeNull()
+    const global = {
+      ORCA_CLAUDE_PROFILE_POINTER: '/p',
+      CLAUDE_CONFIG_DIR: '/team',
+      ORCA_CLAUDE_INJECTED_CONFIG_DIR: '/team'
+    }
+    const applied = applyClaudeTerminalPin(home, global, {
+      configDir: '/team',
+      envPatch: global,
+      provenance: 'profile:team'
+    } as never)
+    expect(applied.env).toEqual({ ORCA_CLAUDE_PROFILE_POINTER: '/p', CLAUDE_CONFIG_DIR: home })
+    expect(applied.auth?.envPatch).toEqual({ ORCA_CLAUDE_PROFILE_POINTER: '/p', CLAUDE_CONFIG_DIR: home })
+    expect(applied.auth?.configDir).toBe(home)
+    expect(applyClaudeTerminalPin(null, global, null).env).toBe(global)
+  })
+  it('migrate pins a terminal pane and prints the resume command for it', () => {
+    const router = routerFixture(TEAM.id)
+    const result = runClaudeChatMigration(
+      {
+        router,
+        records: () => [],
+        orchestrationDb: () => null,
+        terminals: () => [{ paneKey: 'tab1:leaf1', claudeSessionId: 'sess-1' }]
+      },
+      { to: 'me', chatIds: ['terminal:tab1:leaf1'] }
+    )
+    expect(claudeChatAccountPinsFor(router).get('terminal:tab1:leaf1')).toBe(PERSONAL.id)
+    expect(result.lines.at(-1)).toBe(
+      `  terminal tab1:leaf1: when idle, type /exit, then run: CLAUDE_CONFIG_DIR='/profiles/${PERSONAL.id}/home' claude --resume 'sess-1'`
+    )
+  })
+})
+
+describe('stale pins', () => {
+  it('/account says the pin points at a removed account', () => {
+    const router = routerFixture(TEAM.id)
+    claudeChatAccountPinsFor(router).set('chat', 'removed-account')
+    const text = describeChatAccount(
+      { router, records: () => [], orchestrationDb: () => null },
+      { sessionId: 'chat', provider: 'claude' },
+      [TEAM, PERSONAL]
+    )
+    expect(text.split('\n')[0]).toContain('pinned to account removed-account, which no longer exists')
+    expect(text).toContain('team@example.com (follows the global selection)')
   })
 })

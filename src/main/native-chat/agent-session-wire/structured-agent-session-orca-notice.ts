@@ -1,6 +1,7 @@
 // Overhedge: an Orca-authored status row in a chat's timeline, for server-side commands such as
 // `/account`. Released clients already render `status` rows, so no client change is needed.
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
+import type { AgentJournalCursor } from '../../../shared/agent-session/journal/agent-session-journal-identity'
 import type { AgentSessionRecordStore } from '../../runtime/agent-session/records/agent-session-record-store'
 import type { StructuredAgentSessionHostSession } from './structured-agent-session-host-types'
 
@@ -12,12 +13,16 @@ type OrcaNoticeParts = readonly [
 
 /** Bound by the host to its lifetime, record store and client delivery. */
 export function orcaNotices(parts: () => OrcaNoticeParts) {
-  return async (sessionId: string, noticeId: string, text: string): Promise<void> => {
+  return async (
+    sessionId: string,
+    noticeId: string,
+    text: string
+  ): Promise<{ fence: number; cursor: AgentJournalCursor } | null> => {
     const [lifetime, store, delivery] = parts()
     const session = await lifetime.conversation(sessionId)
     const record = store.getRecord(sessionId)
     if (!record) {
-      return
+      return null
     }
     await session.journal.appendItem(
       { provider: 'orca', clientMessageId: noticeId },
@@ -25,5 +30,6 @@ export function orcaNotices(parts: () => OrcaNoticeParts) {
       { fence: record.lease.runtimeFence, turnScope: { kind: 'thread' } }
     )
     delivery.publishJournal(sessionId, session.journal)
+    return { fence: record.lease.runtimeFence, cursor: session.journal.cursor() }
   }
 }

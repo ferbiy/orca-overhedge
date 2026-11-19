@@ -1,7 +1,10 @@
 // Overhedge: wires the Claude per-chat account commands into the runtime RPC surface.
-import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { refuseUnclassified } from '../../../../shared/agent-session/failures/agent-session-wire-refusals'
+import type {
+  AgentSessionMutationResult,
+  AgentSessionSendResult
+} from '../../../../shared/agent-session/agent-session-wire'
+import type { AgentJournalCursor } from '../../../../shared/agent-session/journal/agent-session-journal-identity'
 import { getClaudeProfileRouter } from '../../../claude-accounts/claude-profile-installed-router'
 import {
   describeChatAccount,
@@ -22,6 +25,17 @@ function orchestrationDb(ctx: RpcContext) {
   }
 }
 
+type HookRow = { paneKey: string; agentType?: string; providerSession?: { id: string } }
+
+/** Claude terminal panes the agent-status hooks currently know about. */
+function claudeTerminalChats(ctx: RpcContext) {
+  // The runtime keeps this snapshot reader as an instance field; it is absent before hooks start.
+  const runtime = ctx.runtime as unknown as { getAgentStatusSnapshotFn?: (() => HookRow[]) | null }
+  return (runtime.getAgentStatusSnapshotFn?.() ?? [])
+    .filter((row) => row.agentType === 'claude' && row.paneKey)
+    .map((row) => ({ paneKey: row.paneKey, claudeSessionId: row.providerSession?.id ?? null }))
+}
+
 function depsFor(ctx: RpcContext, host: StructuredAgentSessionHost): ClaudeChatAccountDeps | null {
   const router = getClaudeProfileRouter()
   if (!router) {
@@ -30,12 +44,13 @@ function depsFor(ctx: RpcContext, host: StructuredAgentSessionHost): ClaudeChatA
   return {
     router,
     records: () => host.deps.store.listRecords(),
+    terminals: () => claudeTerminalChats(ctx),
     orchestrationDb: () => orchestrationDb(ctx)
   }
 }
 
 type SendParamsLike = {
-  envelope: { sessionId: string }
+  envelope: { sessionId: string; clientOperationId: string }
   body: { blocks: readonly { type: string; text?: string }[] }
 }
 
@@ -69,11 +84,26 @@ export async function interceptClaudeAccountSlashCommand(
     })
     text = result.lines.join('\n')
   }
-  await host.appendOrcaNotice(sessionId, `overhedge-account:${randomUUID()}`, text)
-  // The command never reaches Claude; the status row above carries its outcome.
+  const clientMessageId = params.envelope.clientOperationId
+  const notice = await host.appendOrcaNotice(sessionId, `overhedge-account:${clientMessageId}`, text)
+  return notice ? acceptedAccountCommandReply(clientMessageId, notice) : null
+}
+
+/** Released clients treat a refusal as "not sent" and hand the text back to the composer. A
+ *  queued-receipt answer reads as recorded; its cursor (past the notice row) retires the echo. */
+export function acceptedAccountCommandReply(
+  clientMessageId: string,
+  notice: { fence: number; cursor: AgentJournalCursor }
+): AgentSessionMutationResult<AgentSessionSendResult> {
   return {
-    ok: false as const,
-    refusal: refuseUnclassified('agent_session_operation_invalid', text)
+    ok: true,
+    replayed: false,
+    fence: notice.fence,
+    cursor: notice.cursor,
+    value: {
+      clientMessageId,
+      queued: { messageId: clientMessageId, position: 0, state: 'withdrawn' }
+    }
   }
 }
 

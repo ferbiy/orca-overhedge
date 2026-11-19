@@ -5,8 +5,11 @@ import {
   claudeAccountLabel,
   claudeChatAccountPinsFor,
   installClaudeChatCoordinatorLookup,
-  pinnedClaudeAccountForChat
+  pinnedClaudeAccountForChat,
+  terminalChatPinKey
 } from './claude-chat-account-pins'
+import { claudeAccountPreparation } from './claude-chat-account-preparation'
+import { quotePosixShell } from '../../shared/shell/launch/shell-argument-quoting'
 import {
   applyClaudeChatMigration,
   describeClaudeMigrationPlan,
@@ -24,9 +27,21 @@ export type ClaudeChatRecordLike = {
   acquiredAccount?: unknown
 }
 
+export type ClaudeTerminalChat = { paneKey: string; claudeSessionId: string | null }
+
 export type ClaudeChatAccountDeps = {
-  router: Pick<ClaudeProfileRouter, 'pointerPath' | 'listAccounts' | 'selectedProfile'>
+  router: Pick<
+    ClaudeProfileRouter,
+    | 'pointerPath'
+    | 'listAccounts'
+    | 'selectedProfile'
+    | 'coveredBySystemDefault'
+    | 'accountHome'
+    | 'systemDefaultHome'
+  >
   records: () => readonly ClaudeChatRecordLike[]
+  /** Terminal panes running Claude, from agent-status hooks; `terminal:<paneKey>` chat ids. */
+  terminals?: () => readonly ClaudeTerminalChat[]
   orchestrationDb: () => OrchestrationDbLike
 }
 
@@ -136,12 +151,16 @@ export function runClaudeChatMigration(
     }
     allOnAccountId = source.account.id
   }
-  const known = new Set(
-    deps
+  const terminals = new Map(
+    (deps.terminals?.() ?? []).map((pane) => [terminalChatPinKey(pane.paneKey), pane])
+  )
+  const known = new Set([
+    ...deps
       .records()
       .filter((record) => record.provider === 'claude')
-      .map((record) => record.sessionId)
-  )
+      .map((record) => record.sessionId),
+    ...terminals.keys()
+  ])
   const steps = planClaudeChatMigration({
     chatIds: request.chatIds,
     withWorkersOf: request.withWorkersOf,
@@ -164,17 +183,30 @@ export function runClaudeChatMigration(
     }
   })
   for (const step of unknown) {
-    lines.push(`  skipped ${step.orcaSessionId}: not a Claude chat-UI session on this host`)
+    lines.push(`  skipped ${step.orcaSessionId}: not a Claude chat on this host`)
   }
   if (!request.dryRun) {
     applyClaudeChatMigration(claudeChatAccountPinsFor(deps.router), movable, target.account.id)
-    if (movable.length > 0) {
+    if (movable.some((step) => !terminals.has(step.orcaSessionId))) {
       lines.push(
-        'Each chat switches at its next message, after its current turn ends (same tab, same session).'
+        'Chat-UI chats switch at their next message, after the current turn ends (same tab, same session).'
       )
     }
   }
+  const home = claudeAccountPreparation(deps.router, target.account.id).configDir
+  for (const step of movable) {
+    const pane = terminals.get(step.orcaSessionId)
+    if (pane) {
+      lines.push(terminalMigrationInstruction(pane, home))
+    }
+  }
   return { ok: true, lines, moved: movable.map((step) => step.orcaSessionId) }
+}
+
+/** Not restarted in place yet: the user runs this once in that terminal after its turn ends. */
+export function terminalMigrationInstruction(pane: ClaudeTerminalChat, home: string): string {
+  const resume = pane.claudeSessionId ? ` --resume ${quotePosixShell(pane.claudeSessionId)}` : ''
+  return `  terminal ${pane.paneKey}: when idle, type /exit, then run: CLAUDE_CONFIG_DIR=${quotePosixShell(home)} claude${resume}`
 }
 
 export type AccountSlashCommand =
@@ -220,7 +252,15 @@ export function describeChatAccount(
   const available = accounts.map(
     (account) => `${claudeAccountLabel(account)} (${account.id.slice(0, 8)})`
   )
+  const rawPin = claudeChatAccountPinsFor(deps.router).get(record.sessionId)
+  const stale =
+    rawPin && !accounts.some((account) => account.id === rawPin)
+      ? [
+          `Warning: this chat is pinned to account ${rawPin}, which no longer exists on this host; it follows the global selection until you move it.`
+        ]
+      : []
   return [
+    ...stale,
     `This chat's Claude account: ${label(current.accountId)} (${why}).`,
     `Available: ${available.join(', ') || 'none'}.`,
     'Move this chat with /account <label>; a coordinator and its workers with /migrate <label> --with-workers.'

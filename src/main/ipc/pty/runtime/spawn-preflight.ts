@@ -1,4 +1,11 @@
-import { withClaudeProfileTerminalEnv } from '../../../claude-accounts/claude-profile-installed-router'
+import {
+  getClaudeProfileRouter,
+  withClaudeProfileTerminalEnv
+} from '../../../claude-accounts/claude-profile-installed-router'
+import {
+  applyClaudeTerminalPin,
+  pinnedClaudeTerminalHome
+} from '../../../claude-accounts/claude-chat-account-terminal'
 import type { PtySpawnResult } from '../../../providers/pty-provider-contract'
 import { LocalPtyProvider } from '../../../providers/local-pty/local-pty-provider'
 import { isValidTerminalTabId } from '../../../../shared/workspace-layout/terminal-tab-id'
@@ -105,6 +112,12 @@ export async function prepareRuntimePtySpawn(
     ctx.isClaudeLaunch && ctx.deps.prepareClaudeAuth
       ? await ctx.deps.prepareClaudeAuth(ctx.codexSelectionTarget)
       : null
+  // Overhedge: a pane pinned to a Claude account keeps it across the global switch and restores.
+  ;({ env: args.env, auth: ctx.claudeAuth } = applyClaudeTerminalPin(
+    pinnedClaudeTerminalHome(getClaudeProfileRouter(), ptySpawnPaneFromIds(args)?.paneKey, ctx.codexSelectionTarget),
+    args.env,
+    ctx.claudeAuth
+  ))
 
   ctx.shouldPersistHostSessionBinding = args.persistHostSessionBinding === true
   if (ctx.shouldPersistHostSessionBinding) {
