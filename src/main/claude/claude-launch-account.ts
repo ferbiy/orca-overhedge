@@ -6,7 +6,12 @@ import { pinnedClaudeAccountForChat } from '../claude-accounts/claude-chat-accou
 
 /** The account a launch runs under is the current selection; the receipt records what it used. */
 export async function prepareClaudeLaunchAccount(
-  router: ClaudeProfileRouter | undefined,
+  router:
+    | Pick<
+        ClaudeProfileRouter,
+        'prepareLaunch' | 'prepareLaunchForAccount' | 'systemDefaultHome' | 'pointerPath' | 'listAccounts'
+      >
+    | undefined,
   env: Record<string, string>,
   recordHome: string,
   /** Overhedge: the chat's Orca session id; a pinned chat launches under its pin. */
@@ -19,8 +24,11 @@ export async function prepareClaudeLaunchAccount(
   const preparation = pin
     ? await router.prepareLaunchForAccount(pin.accountId)
     : await router.prepareLaunch()
-  const home =
-    preparation.provenance === 'system'
+  // A pin names its account's own folder (the System default login's for a covered account);
+  // resolving the home again would read the global selection and launch under that instead.
+  const home = pin
+    ? preparation.configDir
+    : preparation.provenance === 'system'
       ? await resolveStructuredClaudeAccountHomePath({
           launchEnv: env,
           wslDistro: null,

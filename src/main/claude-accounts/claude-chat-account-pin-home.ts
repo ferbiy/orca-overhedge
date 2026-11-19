@@ -3,12 +3,20 @@ import type { LegacyAgentSessionAccountHome } from '../../shared/agent-session/l
 import { getClaudeProfileRouter } from './claude-profile-installed-router'
 import { pinnedClaudeAccountForChat } from './claude-chat-account-pins'
 import { claudeAccountPreparation } from './claude-chat-account-preparation'
+import type { ClaudeProfileRouter } from './claude-profile-router'
 
-/** Null when the chat has no usable pin, so callers keep upstream's follow-the-selection path. */
+type PinHomeRouter = Pick<
+  ClaudeProfileRouter,
+  'pointerPath' | 'listAccounts' | 'coveredBySystemDefault' | 'accountHome' | 'systemDefaultHome'
+>
+
+/** Null when the chat has no usable pin, so callers keep upstream's follow-the-selection path.
+ *  Must name the same folder `prepareClaudeLaunchAccount` launches a pinned chat under, or the
+ *  host's wrong-account check would restart the chat on every send. */
 export function pinnedClaudeLaunchAccountHome(
-  orcaSessionId: string
+  orcaSessionId: string,
+  router: PinHomeRouter | undefined = getClaudeProfileRouter()
 ): LegacyAgentSessionAccountHome | null {
-  const router = getClaudeProfileRouter()
   const pin = router ? pinnedClaudeAccountForChat(router, orcaSessionId) : null
   if (!router || !pin) {
     return null
