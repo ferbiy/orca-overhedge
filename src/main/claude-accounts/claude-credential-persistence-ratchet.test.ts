@@ -31,6 +31,8 @@ const credentialRoots: readonly (string | { root: string; only: RegExp })[] = [
 
 // New persistence primitives require explicit review, even in an allowed module.
 const fsAllowances: Record<string, readonly string[]> = {
+  // Overhedge: chat-to-account pin map (ids only, no credentials) beside the selection pointer.
+  'claude-accounts/claude-chat-account-pins.ts': ['mkdirSync', 'writeFileAtomically'],
   'claude-accounts/claude-profile-history.ts': [
     'mkdirSync',
     'renameSync',

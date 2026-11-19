@@ -323,6 +323,50 @@ export class ClaudeProfileRouter {
     return !selected || !systemDefault || !isSameClaudeLogin(selected, systemDefault)
   }
 
+  // Overhedge: per-chat account pins (claude-chat-account-pins.ts). Unused unless a chat is pinned.
+  listAccounts(): readonly ClaudeManagedAccount[] {
+    return this.args.getSettings().claudeManagedAccounts
+  }
+
+  /** Launch under `accountId` whatever the global selection is. */
+  async prepareLaunchForAccount(accountId: string): Promise<ClaudeRuntimeAuthPreparation> {
+    if (!this.accountLogin(accountId)) {
+      await this.envReady
+    }
+    if (!this.coveredBySystemDefault(accountId)) {
+      await prepareClaudeProfileForLaunch(
+        this.describe(accountId),
+        (value) => this.setUp(value),
+        this.args.refreshWaitMs
+      )
+    }
+    return this.preparationForAccount(accountId)
+  }
+
+  preparationForAccount(accountId: string): ClaudeRuntimeAuthPreparation {
+    const home = this.coveredBySystemDefault(accountId) ? null : this.accountHome(accountId)
+    return {
+      configDir: home ?? this.systemDefaultHome(),
+      runtime: 'host',
+      wslDistro: null,
+      wslLinuxConfigDir: null,
+      envPatch: {
+        [CLAUDE_PROFILE_POINTER_ENV]: this.pointerPath,
+        ...(home ? { CLAUDE_CONFIG_DIR: home, [CLAUDE_INJECTED_CONFIG_DIR_ENV]: home } : {})
+      },
+      provenance: home ? `profile:${accountId}` : 'system'
+    }
+  }
+
+  /** A terminal pinned to `accountId`: CLAUDE_CONFIG_DIR without the injected marker, so Orca's
+   *  shell function treats it as a pane override and never follows the global pointer. */
+  terminalEnvForAccount(accountId: string): ClaudeEnvPatch {
+    const home = this.coveredBySystemDefault(accountId)
+      ? this.systemDefaultHome()
+      : this.accountHome(accountId)
+    return { [CLAUDE_PROFILE_POINTER_ENV]: this.pointerPath, CLAUDE_CONFIG_DIR: home }
+  }
+
   routesToAccount(): boolean {
     return this.routedProfile() !== null
   }

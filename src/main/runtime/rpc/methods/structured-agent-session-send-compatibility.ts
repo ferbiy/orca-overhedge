@@ -8,6 +8,7 @@ import { STRUCTURED_AGENT_SESSION_START_WAIT_MS } from '../../../native-chat/age
 import type { RpcContext } from '../core'
 import { requireStructuredSessionHost, structuredCallerFor } from './structured-agent-session-gate'
 import { readsQueuedImageCards } from './structured-agent-session-queued-image-capability'
+import { interceptClaudeAccountSlashCommand } from './claude-chat-account-rpc'
 
 /** Older clients wait past acceptance until handoff/rejection because they cannot show later failure.
  * Command-queued replies avoid request timeout; clients predating pending replies still wait for provider response. */
@@ -16,6 +17,10 @@ export async function sendStructuredAgentSessionForClient(
   context: RpcContext
 ) {
   const host = requireStructuredSessionHost(context, params.envelope.sessionId)
+  const accountCommand = await interceptClaudeAccountSlashCommand(params, context, host)
+  if (accountCommand) {
+    return accountCommand
+  }
   // Person provenance lets undelivered text recover as an ordinary queued card.
   const result = await host.send(structuredCallerFor(context), {
     ...params,
