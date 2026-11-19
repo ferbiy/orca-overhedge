@@ -31,6 +31,8 @@ export {
   type ClaudeTerminalRestartPort
 } from './claude-terminal-restart-checks'
 
+const REGION_FOOTER_WITH_SUGGESTIONS = 12
+
 /** Panes with a restart in progress in this process; a second request for one is refused. */
 const panesInRestart = new Set<string>()
 
@@ -164,8 +166,12 @@ async function typeRestart(
   }
   // From here on cancellation is not honoured until Claude runs again or the run stops and reports.
   await port.sleep(options.enterDelayMs ?? 250)
-  const typed = claudePromptLineText((await port.readScreen(terminal.handle))?.lines ?? [])
-  if (typed !== '/exit' || !samePty(port, input.paneKey, terminal)) {
+  // The box must read exactly `/exit` (a command suggestion list may sit below it).
+  const shows = await until(port, port.now() + 2000, 100, async () => {
+    const lines = (await port.readScreen(terminal.handle))?.lines ?? []
+    return claudePromptLineText(lines, REGION_FOOTER_WITH_SUGGESTIONS) === '/exit'
+  })
+  if (!shows || !samePty(port, input.paneKey, terminal)) {
     return midway(
       port,
       'typed /exit but the input box did not show exactly /exit, so Enter was NOT pressed; /exit is left in Claude\'s input box: delete it by hand'

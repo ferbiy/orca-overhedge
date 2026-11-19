@@ -31,7 +31,7 @@ const WORKING_ABOVE_LINES = 4
 type InputBox = { region: string[]; index: number }
 
 /** The bottom of the screen as Claude's input box: exactly one prompt line between two rules. */
-function findInputBox(lines: readonly string[]): InputBox | null {
+function findInputBox(lines: readonly string[], maxFooterLines = 4): InputBox | null {
   const region = lines
     .map((line) => line.replace(/\s+$/, ''))
     .filter((line) => line.trim() !== '')
@@ -45,15 +45,18 @@ function findInputBox(lines: readonly string[]): InputBox | null {
     return null
   }
   // At most a short footer below the box; more means something else is painted there.
-  if (region.length - (index + 2) > 4) {
+  if (region.length - (index + 2) > maxFooterLines) {
     return null
   }
   return { region, index }
 }
 
 /** What the prompt line shows after its marker; null when Claude's input box is not recognised. */
-export function claudePromptLineText(lines: readonly string[]): string | null {
-  const box = findInputBox(lines)
+export function claudePromptLineText(
+  lines: readonly string[],
+  maxFooterLines = 4
+): string | null {
+  const box = findInputBox(lines, maxFooterLines)
   if (!box) {
     return null
   }
