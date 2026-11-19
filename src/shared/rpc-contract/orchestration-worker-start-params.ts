@@ -31,7 +31,10 @@ export const WorkerStartParams = z
     effort: OptionalWorkerLaunchPreference,
     retryOf: OptionalString,
     timeoutMs: OptionalFiniteNumber,
-    devMode: z.boolean().optional()
+    devMode: z.boolean().optional(),
+    /** Overhedge: an Orca-managed Claude account (id or full email) the new worker is pinned to
+     *  before it starts. Gate on overhedge.claude-launch-account.v1; older hosts strip it. */
+    account: OptionalWorkerLaunchPreference
   })
   .superRefine((params, ctx) => {
     if (!params.task && !params.spec) {

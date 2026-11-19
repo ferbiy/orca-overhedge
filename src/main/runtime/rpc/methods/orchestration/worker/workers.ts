@@ -27,10 +27,15 @@ import { assertWorkerStartTaskSpecWithinPromptBudget } from './worker-start-prom
 import { ORCA_SESSION_ADDRESS_PREFIX } from '../../../../../../shared/orca-session-address'
 import { ORCHESTRATION_SESSION_CALLER_ERROR_CODES as SESSION_CODES } from '../../../../../../shared/orchestration-session-caller-codes'
 import { resolveDispatchCreator } from '../runs/dispatch-creator'
+import { resolveWorkerStartClaudeAccount } from './worker-start-claude-account'
 
 type WorkerStartContext = Pick<
   RpcContext,
-  'runtime' | 'orchestrationMutation' | 'orchestrationCompatibilityEvidence' | 'orchestrationCaller'
+  | 'runtime'
+  | 'orchestrationMutation'
+  | 'orchestrationCompatibilityEvidence'
+  | 'orchestrationCaller'
+  | 'callerScope'
 >
 
 export const ORCHESTRATION_WORKER_START_METHODS = [
@@ -50,7 +55,8 @@ export async function startWorker(
     runtime,
     orchestrationMutation,
     orchestrationCompatibilityEvidence,
-    orchestrationCaller
+    orchestrationCaller,
+    callerScope
   }: WorkerStartContext,
   followUp?: WorkerFollowUp
 ): Promise<unknown> {
@@ -60,6 +66,8 @@ export async function startWorker(
       '--timeout-ms is too large for worker-start transport grace; the derived timeout must fit within the timer limit.'
     )
   }
+  // Overhedge: an explicit --account is checked before any Run, Task or Dispatch exists.
+  const claudeAccountId = resolveWorkerStartClaudeAccount(params, { callerScope })
   if (params.on && params.terminal?.startsWith(ORCA_SESSION_ADDRESS_PREFIX)) {
     // Refused here, before any remote call: an Orca session ID names a chat only on its own host.
     throw new OrchestrationError(
@@ -196,7 +204,8 @@ export async function startWorker(
     orchestrationMutation,
     mode,
     helperCreator,
-    followUp
+    followUp,
+    ...(claudeAccountId ? { claudeAccountId } : {})
   })
   await stopHelperAfterStart(runtime, receipt, orchestrationMutation)
   return withRun(withWorkerStartNext(receipt))

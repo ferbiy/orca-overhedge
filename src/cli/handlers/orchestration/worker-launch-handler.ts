@@ -19,12 +19,18 @@ import {
 import { explainOlderRuntimeRunRequired } from './older-runtime-run-binding'
 import { withResolvedNextCommands } from '../../orchestration-mutation-recovery'
 import { readTextOrFileFlag } from '../../command-body-input'
+import { assertClaudeAccountSupported, readCliClaudeAccount } from '../../agent-launch-request'
 
 export const ORCHESTRATION_WORKER_LAUNCH_HANDLER: Record<string, CommandHandler> = {
   'orchestration worker-start': async ({ flags, client, cwd, json }) => {
     const terminal = getPresentStringFlag(flags, 'terminal')
     const model = getOptionalStringFlag(flags, 'model')
     const effort = getOptionalStringFlag(flags, 'effort')
+    const account = readWorkerClaudeAccount(flags, terminal)
+    if (account) {
+      const status = await client.call<RuntimeStatus>('status.get')
+      assertClaudeAccountSupported(account, status.result.capabilities)
+    }
     if (model || effort) {
       const status = await client.call<RuntimeStatus>('status.get')
       if (
@@ -78,7 +84,8 @@ export const ORCHESTRATION_WORKER_LAUNCH_HANDLER: Record<string, CommandHandler>
       timeoutMs: getOptionalPositiveIntegerValueFlag(flags, 'timeout-ms'),
       run: getOptionalStringFlag(flags, 'run'),
       from: await resolveCoordinatorTerminalHandle(flags, cwd, client),
-      devMode: isDevCliInvocation()
+      devMode: isDevCliInvocation(),
+      ...(account ? { account } : {})
     }).catch(async (error: unknown) => {
       throw await explainOlderRuntimeRunRequired(client, error)
     })
@@ -123,6 +130,28 @@ export const ORCHESTRATION_WORKER_LAUNCH_HANDLER: Record<string, CommandHandler>
       })
     }
   }
+}
+
+// Overhedge: `--account` starts a new Claude worker on that account; it cannot reuse a terminal or
+// cross to another server, whose accounts are its own.
+export function readWorkerClaudeAccount(
+  flags: Map<string, string | boolean>,
+  terminal: string | undefined
+): string | undefined {
+  const account = readCliClaudeAccount(flags, getOptionalStringFlag(flags, 'agent'))
+  if (account && terminal) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      '--account starts a new Claude worker and cannot combine with --terminal.'
+    )
+  }
+  if (account && flags.has('on')) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      '--account names an account on this Orca server and cannot combine with --on.'
+    )
+  }
+  return account
 }
 
 // A worker given its own new workspace is that workspace's chat; closing it frees no space.

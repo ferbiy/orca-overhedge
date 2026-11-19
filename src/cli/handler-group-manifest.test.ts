@@ -4,6 +4,8 @@ import { buildHandlerRoutes, dispatch, type HandlerContext } from './dispatch'
 import { HANDLER_GROUPS, type HandlerGroup } from './handler-group-manifest'
 import { ACCOUNT_COMMAND_SPECS } from './specs/account'
 import { CLI_BOOLEAN_FLAGS } from '../shared/cli-argument-boundary'
+import { COMMAND_SPECS } from './specs/index'
+import { formatCommandHelp } from './help'
 
 describe('duplicate command keys', () => {
   const group = (name: string, keys: string[]): HandlerGroup => ({
@@ -67,4 +69,20 @@ describe('account migrate flags', () => {
     expect(spec?.allowedFlags).toContain('timeout')
     expect(CLI_BOOLEAN_FLAGS.has('timeout')).toBe(false)
   })
+})
+
+describe('--account on the commands that start a Claude agent', () => {
+  for (const command of ['agent launch', 'worktree create', 'orchestration worker-start']) {
+    it(`${command} registers --account as a value flag, routes it and documents it`, () => {
+      const spec = COMMAND_SPECS.find((entry) => entry.path.join(' ') === command)
+      expect(spec?.allowedFlags).toContain('account')
+      // A value flag: registered as boolean, the account would be parsed as a stray positional.
+      expect(CLI_BOOLEAN_FLAGS.has('account')).toBe(false)
+      expect(spec?.usage).toContain('[--account <id|email>]')
+      expect(buildHandlerRoutes(HANDLER_GROUPS).has(command)).toBe(true)
+      expect(spec && formatCommandHelp(spec)).toContain(
+        'Start Claude under this Orca-managed Claude account'
+      )
+    })
+  }
 })

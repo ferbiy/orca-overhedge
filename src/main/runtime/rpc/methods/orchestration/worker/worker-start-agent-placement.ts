@@ -1,4 +1,11 @@
 import type { RuntimeTerminalCreate } from '../../../../../../shared/runtime-terminal-create-contract'
+import { randomUUID } from 'node:crypto'
+import { makePaneKey } from '../../../../../../shared/workspace-layout/stable-pane-id'
+import { getClaudeProfileRouter } from '../../../../../claude-accounts/claude-profile-installed-router'
+import {
+  dropUnusedClaudeLaunchPin,
+  pinClaudeLaunch
+} from '../../../../../claude-accounts/claude-chat-account-launch'
 /** Use the shared executor for new workers; structured worktrees omit startup agent, then resolve host support before chat creation.
  * Keep worker lineage/effects and background presentation in factories; caller passes the pre-decided mode.
  * Structured create refusals fail start through the worker error contract instead of silently downgrading. */
@@ -61,6 +68,8 @@ type WorkerAgentPlacementArgs = {
   onStage: (stage: string) => void
   /** A follow-up continuing a worker; a closed one is brought back in place of a launch. */
   followUp?: WorkerFollowUp | undefined
+  /** Overhedge: the managed Claude account the new worker is pinned to before it starts. */
+  claudeAccountId?: string | null
 }
 
 /** Setup evidence for existing placements and failures before placement creation. */
@@ -122,6 +131,7 @@ async function launchWorkerAgent(
   existing: PlacedWorktree | undefined
 ): Promise<WorkerAgentPlacement> {
   const agent = requireAgent(args.agent)
+  const claudePin = pinWorkerClaudeAccount(args.claudeAccountId)
   let created: Awaited<ReturnType<typeof createWorkerWorktree>> | undefined
   let structuredSession: WorkerStructuredSession | null = null
   let terminalCreation: RuntimeTerminalCreate | undefined
@@ -168,6 +178,7 @@ async function launchWorkerAgent(
             promisedAgentChat,
             onWorkspaceCreated,
             ...(args.launchPreferences ? { launchPreferences: args.launchPreferences } : {}),
+            ...(claudePin ? { startupPaneKey: claudePin.keys.paneKey } : {}),
             effects: args.effects
           })
           return {
@@ -185,7 +196,8 @@ async function launchWorkerAgent(
         },
         (session) => {
           structuredSession = session
-        }
+        },
+        claudePin?.keys
       )
     })
   } catch (error) {
@@ -197,6 +209,7 @@ async function launchWorkerAgent(
     })
     throw error
   }
+  claudePin?.settle(launched.outcome.kind)
   return {
     mode: launched.receipt,
     worktree: existing ?? requirePlacement(created?.worktree),
@@ -213,7 +226,8 @@ function workerSurfaceFactory(
   args: WorkerAgentPlacementArgs,
   agent: TuiAgent,
   onTerminalCreation: (terminal: RuntimeTerminalCreate) => void,
-  onStructuredSession: (session: WorkerStructuredSession) => void
+  onStructuredSession: (session: WorkerStructuredSession) => void,
+  claudePinKeys?: { paneKey: string; sessionId: string }
 ): AgentLaunchSurfaceFactory {
   const recordSurfaceStage = (worktreeId: string): void => {
     args.db.recordWorkerStage({
@@ -232,6 +246,7 @@ function workerSurfaceFactory(
         agent,
         dispatchId: args.dispatchId,
         ...(args.launchPreferences ? { launchPreferences: args.launchPreferences } : {}),
+        ...(claudePinKeys ? { sessionId: claudePinKeys.sessionId } : {}),
         effects: args.effects
       })
       onStructuredSession(session)
@@ -249,6 +264,7 @@ function workerSurfaceFactory(
         agent,
         ...(args.launchPreferences ? { launchPreferences: args.launchPreferences } : {}),
         taskId: args.taskId,
+        ...(claudePinKeys ? { paneKey: claudePinKeys.paneKey } : {}),
         effects: args.effects
       })
       onTerminalCreation(terminal)
@@ -259,6 +275,21 @@ function workerSurfaceFactory(
       }
     }
   }
+}
+
+/** Overhedge: reserve the new worker's pane and chat session id and pin both before anything starts;
+ *  `settle` drops the pin of the one the launch did not use. */
+function pinWorkerClaudeAccount(accountId: string | null | undefined): {
+  keys: { paneKey: string; sessionId: string }
+  settle: (used: 'terminal' | 'structured') => void
+} | null {
+  const router = accountId ? getClaudeProfileRouter() : undefined
+  if (!accountId || !router) {
+    return null
+  }
+  const keys = { paneKey: makePaneKey(randomUUID(), randomUUID()), sessionId: randomUUID() }
+  pinClaudeLaunch(router, accountId, keys)
+  return { keys, settle: (used) => dropUnusedClaudeLaunchPin(router, keys, used) }
 }
 
 function requirePlacement<T>(placement: T | undefined): T {

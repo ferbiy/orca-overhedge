@@ -2,7 +2,13 @@
 const FILE_OPEN_FOCUS_HELP =
   "--focus                Bring the user to the file (switches Orca's window to its worktree)"
 
+// Overhedge: --account on the commands that start a Claude agent.
+const CLAUDE_LAUNCH_ACCOUNT_HELP =
+  '--account <id|email>   Start Claude under this Orca-managed Claude account (pinned before it starts)'
+
 const COMMAND_SCOPED_FLAG_HELP: Record<string, Record<string, string>> = {
+  'agent launch': { account: CLAUDE_LAUNCH_ACCOUNT_HELP },
+  'orchestration worker-start': { account: CLAUDE_LAUNCH_ACCOUNT_HELP },
   'reference add': {
     url: '--url <url-or-jira-key> Full review/issue URL or Jira key; use positionals or repeated --url',
     'reference-site': '--reference-site <id> Jira site for bare keys; see orca jira connection'
@@ -28,7 +34,8 @@ const COMMAND_SCOPED_FLAG_HELP: Record<string, Record<string, string>> = {
     'reference-site': '--reference-site <id> Jira site for bare keys; see orca jira connection',
     pr: '--pr <number>          Linked GitHub pull request number',
     'gitlab-issue': '--gitlab-issue <number|url> Linked GitLab issue in the source project',
-    'gitlab-mr': '--gitlab-mr <number|url> Linked GitLab merge request in the source project'
+    'gitlab-mr': '--gitlab-mr <number|url> Linked GitLab merge request in the source project',
+    account: CLAUDE_LAUNCH_ACCOUNT_HELP
   },
   'skills get': {
     full: '--full                 Print the full guide with bundled references',

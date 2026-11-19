@@ -108,7 +108,10 @@ export const AgentLaunchFields = z.object({
   nativeChatDefault: z.boolean().optional(),
   /** Explicit terminal runs CLI; proven-unsupported chat refuses before creation. Inside replay identity; unknown
    * values refuse. Clients must gate on agent.launch.surface.v1 because older hosts strip this field. */
-  surface: z.enum(AGENT_LAUNCH_SURFACES).optional()
+  surface: z.enum(AGENT_LAUNCH_SURFACES).optional(),
+  /** Overhedge: an Orca-managed Claude account (id or full email) the new chat is pinned to before
+   *  it starts. Claude only; outside replay identity. Gate on overhedge.claude-launch-account.v1. */
+  claudeAccount: z.string().min(1).max(512).optional()
 })
 
 /** Caller IDs must retain the agent lane encoded by host-minted IDs. */
