@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Query } from '@anthropic-ai/claude-agent-sdk'
 import {
-  ClaudeRemoteControlRegistry,
   claudeQueryRemoteControl,
   parseClaudeRemoteControlCommand,
-  withClaudeRemoteControlCommands,
-  type ClaudeRemoteControlConnection
+  withClaudeRemoteControlCommands
 } from './claude-remote-control'
+import {
+  ClaudeRemoteControlRegistry,
+  type ClaudeRemoteControlConnection
+} from './claude-remote-control-registry'
 import { createClaudeControlSurface } from './claude-agent-sdk-control-requests'
 import type { AgentSessionSlashCommand } from '../../shared/agent-session/agent-session-wire'
 
@@ -18,10 +20,20 @@ describe('parseClaudeRemoteControlCommand', () => {
     expect(parseClaudeRemoteControlCommand('/rc off')).toEqual({ action: 'disable' })
     expect(parseClaudeRemoteControlCommand('/remote-control STOP')).toEqual({ action: 'disable' })
     expect(parseClaudeRemoteControlCommand('/rc status')).toEqual({ action: 'status' })
-    expect(parseClaudeRemoteControlCommand('/rc My laptop chat')).toEqual({
+    expect(parseClaudeRemoteControlCommand('/rc on My laptop chat')).toEqual({
       action: 'enable',
       name: 'My laptop chat'
     })
+  })
+
+  it('passes anything else after /rc through to Claude', () => {
+    expect(parseClaudeRemoteControlCommand('/rc 1.4 failed on CI, please look')).toBeNull()
+    expect(parseClaudeRemoteControlCommand('/rc on\nsecond line')).toBeNull()
+    expect(parseClaudeRemoteControlCommand('/rc status\n')).toEqual({ action: 'status' })
+    expect(parseClaudeRemoteControlCommand('/rc\noff')).toBeNull()
+    expect(parseClaudeRemoteControlCommand('/rc start')).toBeNull()
+    expect(parseClaudeRemoteControlCommand('/rc disable')).toBeNull()
+    expect(parseClaudeRemoteControlCommand(`/rc on ${'x'.repeat(201)}`)).toBeNull()
   })
 
   it('ignores anything else', () => {
@@ -166,6 +178,31 @@ describe('ClaudeRemoteControlRegistry', () => {
     await vi.waitFor(() => expect(notes).toHaveLength(1))
     expect(notes[0]).toMatchObject({ tone: 'warning', text: expect.stringContaining('turned off') })
     expect((await registry.run('s', { action: 'status' })).text).toContain('off')
+  })
+
+  it('reports off once the child exits, and forgets a chat that never wanted it', async () => {
+    const registry = new ClaudeRemoteControlRegistry()
+    const exited = Promise.withResolvers<Error>()
+    const connection = { ...fakeConnection(async () => ({ session_url: 'u1' })), exited: exited.promise }
+    registry.observeConnection('s', connection)
+    await registry.run('s', { action: 'enable' })
+    exited.resolve(new Error('gone'))
+    await vi.waitFor(() =>
+      expect(registry.immediate('s', { action: 'status' })?.text).toContain('not running')
+    )
+    const other = Promise.withResolvers<Error>()
+    registry.observeConnection('t', { ...fakeConnection(vi.fn()), exited: other.promise })
+    other.resolve(new Error('gone'))
+    await vi.waitFor(() => expect(registry.hasSession('t')).toBe(false))
+  })
+
+  it('does not wait forever for a child that never finishes starting', async () => {
+    const registry = new ClaudeRemoteControlRegistry(20)
+    registry.observeConnection('s', {
+      remoteControl: vi.fn(),
+      initializationResult: () => new Promise(() => {})
+    })
+    expect((await registry.run('s', { action: 'enable' })).text).toContain('did not answer in time')
   })
 
   it('does nothing on restart when it was never on', async () => {

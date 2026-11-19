@@ -11,7 +11,7 @@ import type {
 import { openClaudeStructuredSession } from './claude-structured-session-open'
 import { claudeStartFailure } from '../claude-startup-failure'
 import type { ClaudeSession, ClaudeSessionExit } from './claude-structured-session-state'
-import { claudeRemoteControl } from '../claude-remote-control'
+import { claudeRemoteControl } from '../claude-remote-control-registry'
 
 /** Publishes an acquisition's session with its start ending admitted first, so its exit is never
  *  missed. A failed acquire has no start owner left, so it retires exactly that admission. */

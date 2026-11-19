@@ -3,12 +3,14 @@
 // answers with a thread status row, which released clients already render.
 
 import {
-  claudeRemoteControl,
   parseClaudeRemoteControlCommand,
-  type ClaudeRemoteControlCommand,
+  type ClaudeRemoteControlCommand
+} from '../../claude/claude-remote-control'
+import {
+  claudeRemoteControl,
   type ClaudeRemoteControlNote,
   type ClaudeRemoteControlRegistry
-} from '../../claude/claude-remote-control'
+} from '../../claude/claude-remote-control-registry'
 import type {
   AgentSessionMutationResult,
   AgentSessionSendResult
@@ -19,18 +21,24 @@ import { AGENT_JOURNAL_THREAD_SCOPE } from '../../../shared/agent-session/journa
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
 import type { AgentSessionRecordStore } from '../../runtime/agent-session/records/agent-session-record-store'
 import { structuredAgentSessionConversationFence } from './structured-agent-session-provider-child'
-import { acceptedOrcaCommandReply } from './structured-agent-session-orca-notice'
+import {
+  acceptedOrcaCommandReply,
+  orcaCommandReplies,
+  type OrcaCommandReplyLedger
+} from './structured-agent-session-orca-notice'
 
 export const REMOTE_CONTROL_ROW_PREFIX = 'overhedge-remote-control:'
 
-type NoteSessions = { get(sessionId: string): { journal: Pick<AgentSessionJournal, 'appendItem'> } | undefined }
+type NoteJournal = Pick<AgentSessionJournal, 'appendItem'>
 
-/** Bind a host's journals as a place Remote Control notes can land; returns the writer. */
-export function createRemoteControlNoteWriter(
-  sessions: NoteSessions,
+/** Bind a host's journals as a place Remote Control notes can land; returns the writer. Each note
+ *  is published to the chat's open clients, as `appendOrcaNotice` rows are. */
+export function createRemoteControlNoteWriter<Journal extends NoteJournal>(
+  sessions: { get(sessionId: string): { journal: Journal } | undefined },
   readStore: () => Pick<AgentSessionRecordStore, 'getConversation'>,
   now: () => number,
-  registry: ClaudeRemoteControlRegistry = claudeRemoteControl
+  registry: ClaudeRemoteControlRegistry = claudeRemoteControl,
+  publish?: (sessionId: string, journal: Journal) => void
 ): (sessionId: string, note: ClaudeRemoteControlNote) => Promise<boolean> {
   let sequence = 0
   const write = async (sessionId: string, note: ClaudeRemoteControlNote): Promise<boolean> => {
@@ -50,6 +58,7 @@ export function createRemoteControlNoteWriter(
         turnScope: AGENT_JOURNAL_THREAD_SCOPE
       }
     )
+    publish?.(sessionId, session.journal)
     return true
   }
   registry.addNoteWriter(write)
@@ -82,31 +91,55 @@ export type RemoteControlInterceptHost = {
   ) => Promise<{ fence: number; cursor: AgentJournalCursor } | null>
 }
 
-/** Null leaves the send untouched. Otherwise the toggle ran, its row is written, and the send is
- *  answered as accepted (like `/account`) so released clients neither show "not sent" nor hand the
- *  text back to the composer. Nothing reaches Claude either way. */
+/** Null leaves the send untouched. Otherwise the send is answered at once as accepted, after its
+ *  row is written: the final answer for `status` (or a chat with no running Claude), else "Turning
+ *  Remote Control on…", which the same row is revised to once Claude answers. So neither client's
+ *  send timeout is reached, and a retried send gets its first answer instead of toggling again.
+ *  Nothing reaches Claude either way. */
 export async function interceptRemoteControlSend(
   host: RemoteControlInterceptHost,
   params: SendLike,
-  registry: ClaudeRemoteControlRegistry = claudeRemoteControl
+  registry: ClaudeRemoteControlRegistry = claudeRemoteControl,
+  ledger: OrcaCommandReplyLedger = orcaCommandReplies
 ): Promise<AgentSessionMutationResult<AgentSessionSendResult> | null> {
   const command = remoteControlCommandOf(params)
   const { sessionId, clientOperationId } = params.envelope
   if (!command || host.sessionAgent(sessionId) !== 'claude') {
     return null
   }
-  const note = await registry.run(sessionId, command)
+  return ledger.once(sessionId, clientOperationId, () =>
+    answerRemoteControl(host, sessionId, clientOperationId, command, registry)
+  )
+}
+
+async function answerRemoteControl(
+  host: RemoteControlInterceptHost,
+  sessionId: string,
+  clientOperationId: string,
+  command: ClaudeRemoteControlCommand,
+  registry: ClaudeRemoteControlRegistry
+): Promise<AgentSessionMutationResult<AgentSessionSendResult>> {
+  const rowId = `${REMOTE_CONTROL_ROW_PREFIX}${clientOperationId}`
+  const immediate = registry.immediate(sessionId, command)
+  const first = immediate ?? registry.pending(command)
   const notice = await host
-    .appendOrcaNotice(sessionId, `${REMOTE_CONTROL_ROW_PREFIX}${clientOperationId}`, note.text, note.tone)
+    .appendOrcaNotice(sessionId, rowId, first.text, first.tone)
     .catch(() => null)
-  if (notice) {
-    return acceptedOrcaCommandReply(clientOperationId, notice)
+  if (!notice) {
+    // Nothing ran: the toggle starts only after its row exists.
+    return {
+      ok: false,
+      refusal: refuseUnclassified(
+        'structured_agent_session_unsupported',
+        'Orca could not record its answer to /rc in this chat, so Remote Control was not changed'
+      )
+    }
   }
-  return {
-    ok: false,
-    refusal: refuseUnclassified(
-      'structured_agent_session_unsupported',
-      `Orca handled ${command.action} Remote Control but could not record its answer in this chat`
-    )
+  if (!immediate) {
+    void registry
+      .run(sessionId, command)
+      .then((note) => host.appendOrcaNotice(sessionId, rowId, note.text, note.tone))
+      .catch(() => undefined)
   }
+  return acceptedOrcaCommandReply(clientOperationId, notice)
 }

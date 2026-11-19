@@ -144,7 +144,7 @@ export class StructuredAgentSessionHost {
   private now = (): number => this.deps.now?.() ?? Date.now()
 
   hasSession = (sessionId: string): boolean => this.sessions.has(sessionId)
-  readonly remoteControlNote = createRemoteControlNoteWriter(this.sessions, () => this.deps.store, this.now)
+  readonly remoteControlNote = createRemoteControlNoteWriter(this.sessions, () => this.deps.store, this.now, undefined, (id, journal) => this.clientDelivery.publishJournal(id, journal))
   loadedSessionIds = this.sessions.loadedSessionIds
   hasLoadedProviders = (): boolean => this.loadedSessionIds().length > 0
   private readonly reads = createStructuredAgentSessionConversationReads(() => ({

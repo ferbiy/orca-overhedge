@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ClaudeRemoteControlRegistry } from '../../claude/claude-remote-control'
+import { ClaudeRemoteControlRegistry } from '../../claude/claude-remote-control-registry'
 import {
   createRemoteControlNoteWriter,
   interceptRemoteControlSend,
   remoteControlCommandOf,
   REMOTE_CONTROL_ROW_PREFIX
 } from './structured-agent-session-remote-control'
-import { acceptedOrcaCommandReply } from './structured-agent-session-orca-notice'
+import { acceptedOrcaCommandReply, OrcaCommandReplyLedger } from './structured-agent-session-orca-notice'
 import type { AgentJournalCursor } from '../../../shared/agent-session/journal/agent-session-journal-identity'
 import { structuredAgentSessionSendEvidence } from '../../../shared/agent-session/requests/structured-agent-session-send-evidence'
 
@@ -36,40 +36,73 @@ describe('interceptRemoteControlSend', () => {
     const registry = new ClaudeRemoteControlRegistry()
     const claude = noticeHost('claude')
     await expect(interceptRemoteControlSend(claude.host, send([text('hello')]), registry)).resolves.toBeNull()
-    await expect(interceptRemoteControlSend(claude.host, send([text('/account')]), registry)).resolves.toBeNull()
+    await expect(interceptRemoteControlSend(claude.host, send([text('/orca-account')]), registry)).resolves.toBeNull()
+    await expect(interceptRemoteControlSend(claude.host, send([text('/rc please look at CI')]), registry)).resolves.toBeNull()
     const codex = noticeHost('codex')
     await expect(interceptRemoteControlSend(codex.host, send([text('/rc')]), registry)).resolves.toBeNull()
     expect(claude.appendOrcaNotice).not.toHaveBeenCalled()
     expect(codex.appendOrcaNotice).not.toHaveBeenCalled()
   })
 
-  it('toggles, writes a row and answers the send as accepted', async () => {
+  it('answers at once, then revises its row with the result', async () => {
     const registry = new ClaudeRemoteControlRegistry()
+    const answer = Promise.withResolvers<{ session_url: string }>()
     registry.observeConnection('s', {
-      remoteControl: async () => ({ session_url: 'https://claude.ai/code/x' }),
+      remoteControl: () => answer.promise,
       initializationResult: async () => ({})
     })
     const { host, appendOrcaNotice } = noticeHost('claude')
-    const result = await interceptRemoteControlSend(host, send([text('/remote-control')]), registry)
-    expect(appendOrcaNotice).toHaveBeenCalledWith(
+    const result = await interceptRemoteControlSend(
+      host,
+      send([text('/remote-control')]),
+      registry,
+      new OrcaCommandReplyLedger()
+    )
+    // Answered before Claude answered: no client send timeout can be reached.
+    expect(appendOrcaNotice).toHaveBeenCalledTimes(1)
+    expect(appendOrcaNotice).toHaveBeenLastCalledWith(
       's',
       `${REMOTE_CONTROL_ROW_PREFIX}op-1`,
-      expect.stringContaining('https://claude.ai/code/x'),
+      'Turning Remote Control on…',
       undefined
     )
     expect(result).toEqual(acceptedOrcaCommandReply('op-1', { fence: 2, cursor: cursor }))
-    // Same evidence the released client reads: recorded, so the draft does not return.
     if (!result) {
       throw new Error('expected an intercepted reply')
     }
     expect(structuredAgentSessionSendEvidence({ kind: 'result', result })).toEqual({
       kind: 'recorded'
     })
+    answer.resolve({ session_url: 'https://claude.ai/code/x' })
+    await vi.waitFor(() => expect(appendOrcaNotice).toHaveBeenCalledTimes(2))
+    expect(appendOrcaNotice).toHaveBeenLastCalledWith(
+      's',
+      `${REMOTE_CONTROL_ROW_PREFIX}op-1`,
+      expect.stringContaining('https://claude.ai/code/x'),
+      undefined
+    )
+  })
+
+  it('answers a retried send with its first answer instead of toggling again', async () => {
+    const registry = new ClaudeRemoteControlRegistry()
+    const remoteControl = vi.fn(async () => ({ session_url: 'u' }))
+    registry.observeConnection('s', { remoteControl, initializationResult: async () => ({}) })
+    const { host } = noticeHost('claude')
+    const ledger = new OrcaCommandReplyLedger()
+    const first = await interceptRemoteControlSend(host, send([text('/rc')]), registry, ledger)
+    const retried = await interceptRemoteControlSend(host, send([text('/rc')]), registry, ledger)
+    await vi.waitFor(() => expect(remoteControl).toHaveBeenCalledTimes(1))
+    expect(retried).toEqual(first && first.ok ? { ...first, replayed: true } : null)
   })
 
   it('keeps the warning tone when the chat has no live Claude process', async () => {
     const { host, appendOrcaNotice } = noticeHost('claude')
-    const result = await interceptRemoteControlSend(host, send([text('/rc')]), new ClaudeRemoteControlRegistry())
+    const result = await interceptRemoteControlSend(
+      host,
+      send([text('/rc')]),
+      new ClaudeRemoteControlRegistry(),
+      new OrcaCommandReplyLedger()
+    )
     expect(appendOrcaNotice).toHaveBeenCalledWith('s', expect.any(String), expect.any(String), 'warning')
     expect(result?.ok).toBe(true)
   })
@@ -83,7 +116,12 @@ describe('interceptRemoteControlSend', () => {
       }
     ]) {
       const host = { sessionAgent: () => 'claude', appendOrcaNotice }
-      const result = await interceptRemoteControlSend(host, send([text('/rc status')]), registry)
+      const result = await interceptRemoteControlSend(
+        host,
+        send([text('/rc status')]),
+        registry,
+        new OrcaCommandReplyLedger()
+      )
       expect(result).toMatchObject({
         ok: false,
         refusal: { code: 'structured_agent_session_unsupported' }
@@ -96,6 +134,7 @@ describe('createRemoteControlNoteWriter', () => {
   it('appends a thread status row under the current fence', async () => {
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the writer ignores the appended item.
     const appendItem = vi.fn(async () => ({}) as never)
+    const publish = vi.fn()
     const registry = new ClaudeRemoteControlRegistry()
     const write = createRemoteControlNoteWriter(
       { get: (id) => (id === 's' ? { journal: { appendItem } } : undefined) },
@@ -105,7 +144,8 @@ describe('createRemoteControlNoteWriter', () => {
           id === 's' ? ({ currentFence: 7 } as never) : null
       }),
       () => 100,
-      registry
+      registry,
+      publish
     )
     await expect(write('other', { text: 'x' })).resolves.toBe(false)
     await expect(write('s', { text: 'on', tone: 'warning' })).resolves.toBe(true)
@@ -114,6 +154,8 @@ describe('createRemoteControlNoteWriter', () => {
       { kind: 'status', text: 'on', tone: 'warning' },
       { fence: 7, turnScope: expect.anything() }
     )
+    // Published, so open clients see the row now.
+    expect(publish).toHaveBeenCalledWith('s', expect.objectContaining({ appendItem }))
     // Registered so restart notes reach this host.
     await registry.writeNote('s', { text: 'again' })
     expect(appendItem).toHaveBeenCalledTimes(2)
