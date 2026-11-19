@@ -32,14 +32,16 @@ describe('parseClaudeRemoteControlCommand', () => {
   })
 })
 
-function fakeQuery(members: object): Query {
+type FakeQueryMembers = { enableRemoteControl?: (...args: unknown[]) => Promise<unknown> }
+
+function fakeQuery(members: FakeQueryMembers): Query {
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the surface reads only the members a test supplies.
   return members as unknown as Query
 }
 
 describe('claudeQueryRemoteControl', () => {
   it('is null when the SDK lacks the method', () => {
-    expect(claudeQueryRemoteControl({})).toBeNull()
+    expect(claudeQueryRemoteControl(fakeQuery({}))).toBeNull()
     expect(createClaudeControlSurface(fakeQuery({})).remoteControl).toBeUndefined()
   })
 

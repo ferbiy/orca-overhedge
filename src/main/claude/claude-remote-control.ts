@@ -39,37 +39,34 @@ export type ClaudeRemoteControlResponse = {
   bridge_session_id?: string
 }
 
-const RESPONSE_FIELDS = [
-  'session_url',
-  'connect_url',
-  'environment_id',
-  'bridge_session_id'
-] as const satisfies readonly (keyof ClaudeRemoteControlResponse)[]
+const text = (entry: unknown): string | undefined => (typeof entry === 'string' ? entry : undefined)
 
+/** Keep only the reported URL and ids; other fields are not used. */
 function readRemoteControlResponse(value: unknown): ClaudeRemoteControlResponse {
-  const response: ClaudeRemoteControlResponse = {}
   if (value === null || typeof value !== 'object') {
-    return response
+    return {}
   }
-  for (const field of RESPONSE_FIELDS) {
-    const entry: unknown = field in value ? Reflect.get(value, field) : undefined
-    if (typeof entry === 'string') {
-      response[field] = entry
-    }
+  const sessionUrl = text('session_url' in value ? value.session_url : undefined)
+  const connectUrl = text('connect_url' in value ? value.connect_url : undefined)
+  const environmentId = text('environment_id' in value ? value.environment_id : undefined)
+  const bridgeSessionId = text('bridge_session_id' in value ? value.bridge_session_id : undefined)
+  return {
+    ...(sessionUrl === undefined ? {} : { session_url: sessionUrl }),
+    ...(connectUrl === undefined ? {} : { connect_url: connectUrl }),
+    ...(environmentId === undefined ? {} : { environment_id: environmentId }),
+    ...(bridgeSessionId === undefined ? {} : { bridge_session_id: bridgeSessionId })
   }
-  return response
 }
 
 /** Runtime check: enableRemoteControl is absent from Query's declaration. */
 export function claudeQueryRemoteControl(
-  query: Query | object
+  query: Query
 ): ((enabled: boolean, name?: string) => Promise<ClaudeRemoteControlResponse>) | null {
-  const enable: unknown = 'enableRemoteControl' in query ? query.enableRemoteControl : null
-  if (typeof enable !== 'function') {
-    return null
-  }
-  return async (enabled, name) =>
-    readRemoteControlResponse(await Reflect.apply(enable, query, [enabled, name]))
+  const enable = 'enableRemoteControl' in query ? query.enableRemoteControl : null
+  return typeof enable === 'function'
+    ? async (enabled, name) =>
+        readRemoteControlResponse(await enable.call(query, enabled, name))
+    : null
 }
 
 /** Bridge registration makes network round trips, so allow longer than ordinary controls. */
