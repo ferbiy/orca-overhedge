@@ -98,7 +98,9 @@ export const CLAUDE_CHAT_ACCOUNT_METHODS = [
       if (!host || !deps) {
         return {
           ok: false,
-          lines: ['Claude chat sessions or managed Claude accounts are not available on this host.'],
+          lines: [
+            'Claude chat sessions or managed Claude accounts are not available on this host.'
+          ],
           moved: []
         }
       }

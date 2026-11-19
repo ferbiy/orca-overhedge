@@ -13,7 +13,9 @@ export type ClaudeMigrationRole = 'worker' | 'chat' | 'coordinator'
 export type ClaudeMigrationStep = { orcaSessionId: string; role: ClaudeMigrationRole }
 
 /** Workers first, plain chats next, coordinators last; each chat once, with its strongest role. */
-export function orderClaudeChatMigration(steps: readonly ClaudeMigrationStep[]): ClaudeMigrationStep[] {
+export function orderClaudeChatMigration(
+  steps: readonly ClaudeMigrationStep[]
+): ClaudeMigrationStep[] {
   const rank: Record<ClaudeMigrationRole, number> = { worker: 0, chat: 1, coordinator: 2 }
   // A chat named explicitly that is also a worker still moves as a worker.
   const strength: Record<ClaudeMigrationRole, number> = { chat: 0, worker: 1, coordinator: 2 }

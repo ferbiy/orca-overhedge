@@ -25,10 +25,7 @@ export type ClaudeChatRecordLike = {
 }
 
 export type ClaudeChatAccountDeps = {
-  router: Pick<
-    ClaudeProfileRouter,
-    'pointerPath' | 'listAccounts' | 'selectedProfile'
-  >
+  router: Pick<ClaudeProfileRouter, 'pointerPath' | 'listAccounts' | 'selectedProfile'>
   records: () => readonly ClaudeChatRecordLike[]
   orchestrationDb: () => OrchestrationDbLike
 }
@@ -220,7 +217,9 @@ export function describeChatAccount(
       : current.source === 'coordinator'
         ? 'inherited from its coordinator'
         : 'follows the global selection'
-  const available = accounts.map((account) => `${claudeAccountLabel(account)} (${account.id.slice(0, 8)})`)
+  const available = accounts.map(
+    (account) => `${claudeAccountLabel(account)} (${account.id.slice(0, 8)})`
+  )
   return [
     `This chat's Claude account: ${label(current.accountId)} (${why}).`,
     `Available: ${available.join(', ') || 'none'}.`,

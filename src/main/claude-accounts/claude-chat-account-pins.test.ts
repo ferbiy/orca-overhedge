@@ -44,12 +44,20 @@ describe('pin resolution precedence', () => {
   const known = [TEAM.id, PERSONAL.id]
   it('prefers the chat pin over the coordinator pin', () => {
     expect(
-      resolveClaudeChatAccount({ pinned: TEAM.id, coordinatorPinned: PERSONAL.id, knownAccountIds: known })
+      resolveClaudeChatAccount({
+        pinned: TEAM.id,
+        coordinatorPinned: PERSONAL.id,
+        knownAccountIds: known
+      })
     ).toEqual({ accountId: TEAM.id, source: 'pin' })
   })
   it('inherits the coordinator pin when the chat has none', () => {
     expect(
-      resolveClaudeChatAccount({ pinned: null, coordinatorPinned: PERSONAL.id, knownAccountIds: known })
+      resolveClaudeChatAccount({
+        pinned: null,
+        coordinatorPinned: PERSONAL.id,
+        knownAccountIds: known
+      })
     ).toEqual({ accountId: PERSONAL.id, source: 'coordinator' })
   })
   it('falls back to the global selection (null) without pins or with a removed account', () => {
@@ -84,8 +92,13 @@ describe('global switch skips pinned chats', () => {
       accountId: TEAM.id,
       source: 'global'
     })
-    const switched = { ...deps, router: { ...router, selectedProfile: () => ({ accountId: PERSONAL.id }) as never } }
-    expect(claudeChatAccount(switched, { sessionId: 'pinned', provider: 'claude' }).source).toBe('pin')
+    const switched = {
+      ...deps,
+      router: { ...router, selectedProfile: () => ({ accountId: PERSONAL.id }) as never }
+    }
+    expect(claudeChatAccount(switched, { sessionId: 'pinned', provider: 'claude' }).source).toBe(
+      'pin'
+    )
     expect(claudeChatAccount(switched, { sessionId: 'free', provider: 'claude' }).accountId).toBe(
       PERSONAL.id
     )
@@ -166,12 +179,16 @@ describe('slash parsing', () => {
   ])('%s', (text, expected) => {
     expect(parseAccountSlashCommand(text)).toEqual(expected)
   })
-  it.each(['/accounts', '/account a b', '/migrate', '/account x --with-workers', 'hi /account', '/accountx'])(
-    'ignores %s',
-    (text) => {
-      expect(parseAccountSlashCommand(text)).toBeNull()
-    }
-  )
+  it.each([
+    '/accounts',
+    '/account a b',
+    '/migrate',
+    '/account x --with-workers',
+    'hi /account',
+    '/accountx'
+  ])('ignores %s', (text) => {
+    expect(parseAccountSlashCommand(text)).toBeNull()
+  })
   it('matches accounts by email local part, id prefix and email', () => {
     expect(matchClaudeAccount([TEAM, PERSONAL], 'team')).toBe(TEAM)
     expect(matchClaudeAccount([TEAM, PERSONAL], 'bbbb')).toBe(PERSONAL)

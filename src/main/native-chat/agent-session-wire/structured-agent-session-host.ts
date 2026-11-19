@@ -346,7 +346,7 @@ export class StructuredAgentSessionHost {
   subscribeTurnCompletions = this.clientDelivery.subscribeTurnCompletions
   readStatusSummary = this.clientDelivery.readStatusSummary
 
-  appendOrcaNotice = orcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery] as const)
+  appendOrcaNotice = orcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery])
 
   collaboratorsForTests = () => ({
     sessions: this.sessions,

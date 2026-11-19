@@ -325,7 +325,8 @@ export class ClaudeProfileRouter {
   }
 
   // Overhedge: per-chat pins (claude-chat-account-pins.ts); launch under `accountId`, not the selection.
-  listAccounts = (): readonly ClaudeManagedAccount[] => this.args.getSettings().claudeManagedAccounts
+  listAccounts = (): readonly ClaudeManagedAccount[] =>
+    this.args.getSettings().claudeManagedAccounts
   async prepareLaunchForAccount(accountId: string): Promise<ClaudeRuntimeAuthPreparation> {
     await this.envReady
     if (!this.coveredBySystemDefault(accountId)) {
