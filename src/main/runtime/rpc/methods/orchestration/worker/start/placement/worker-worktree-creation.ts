@@ -137,6 +137,8 @@ export async function createWorkerWorktree(args: {
   promisedAgentChat?: boolean
   onWorkspaceCreated?: (worktreeId: string) => void
   launchPreferences?: AgentLaunchPreferences
+  /** Overhedge: a reserved `tabId:leafId` for the startup agent's pane. */
+  startupPaneKey?: string
   effects: WorkerEffect[]
 }): Promise<{
   worktree: Awaited<ReturnType<OrcaRuntimeService['showManagedWorktree']>>
@@ -174,7 +176,9 @@ export async function createWorkerWorktree(args: {
           startupAgent: args.agent,
           startupLaunchSource: 'orchestration',
           startupSuppressUpdatePrompt: true,
-          ...(args.launchPreferences ? { startupLaunchPreferences: args.launchPreferences } : {})
+          ...(args.launchPreferences ? { startupLaunchPreferences: args.launchPreferences } : {}),
+          // Overhedge: a reserved pane, pinned to a Claude account before the startup agent spawns.
+          ...(args.startupPaneKey ? { startupPaneKey: args.startupPaneKey } : {})
         }
       : {}),
     activate: false,

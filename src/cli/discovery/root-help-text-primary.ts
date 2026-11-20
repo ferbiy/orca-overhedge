@@ -27,6 +27,7 @@ export const ROOT_HELP_TEXT_PRIMARY = [
   '  account add               Add a managed agent account on this Orca host',
   '  account list              List managed agent accounts on this Orca host',
   '  account select            Select the account new agent launches use',
+  '  account migrate           Pin Claude chats to a managed Claude account, or unpin them',
   '  account rm                Remove a managed agent account and its private data',
   '',
   'Skills:',

@@ -34,6 +34,7 @@ import {
   type AgentLaunchParams
 } from '../../../../../shared/rpc-contract/agent-launch/agent-launch-params'
 import { agentLaunchSurfaceFactory } from './agent-launch-surfaces'
+import { launchWithClaudeAccount } from './agent-launch-claude-account'
 import { prepareAgentHandoffCard } from './agent-launch-handoff-card'
 import {
   agentLaunchFailureCode,
@@ -124,10 +125,7 @@ function runLegacyAgentLaunch(
   return execute()
 }
 
-type ActiveAgentLaunch = {
-  fingerprint: string
-  promise: Promise<AgentLaunchResult>
-}
+type ActiveAgentLaunch = { fingerprint: string; promise: Promise<AgentLaunchResult> }
 
 const activeAgentLaunchesByRuntime = new WeakMap<
   OrcaRuntimeService,
@@ -268,7 +266,7 @@ export const AGENT_LAUNCH_METHODS = [
       }
       assertAgentLaunchTargetAuthorized(params.target, context)
       try {
-        return await runReplaySafeAgentLaunch(params, context)
+        return await launchWithClaudeAccount(params, context, runReplaySafeAgentLaunch)
       } catch (error) {
         // Nested failures cannot authorize another workspace, regardless of their message or code.
         if (error instanceof AgentLaunchExecutionError) {
@@ -294,7 +292,7 @@ export const AGENT_LAUNCH_METHODS = [
     requires: agentLaunchFeatureRequirement,
     permission: 'workspace',
     params: AgentLaunch,
-    handler: (params, context) => launchAgentOnHost(params, context)
+    handler: (params, context) => launchWithClaudeAccount(params, context, launchAgentOnHost)
   })
 ]
 

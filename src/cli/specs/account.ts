@@ -55,6 +55,48 @@ export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
     ]
   },
   {
+    // Overhedge: per-chat Claude account pins.
+    path: ['account', 'migrate'],
+    summary: 'Pin Claude chats to a managed Claude account on this Orca host, or unpin them',
+    usage:
+      'orca account migrate (--to <id|email> | --unpin) (--chat <orca-session-id|terminal:<pane>>... | --with-workers <coordinator-id>... | --all-on <id|email>) [--restart [--timeout <seconds>] [--yes]] [--dry-run] [--json]',
+    allowedFlags: [
+      ...LOCAL_COMMAND_FLAGS,
+      'to',
+      'unpin',
+      'chat',
+      'with-workers',
+      'all-on',
+      'dry-run',
+      'restart',
+      'timeout',
+      'yes',
+      'pin-only'
+    ],
+    repeatableFlags: ['chat', 'with-workers'],
+    notes: [
+      'Accounts are named exactly: the account id or its full email, case-insensitive. An unknown or ambiguous name changes nothing and lists the valid names.',
+      'Pins each chat-UI Claude chat to the target account. The chat keeps its tab, session id and orchestration identity, and switches at its next message once its current turn has ended. A pin survives /clear.',
+      'With --with-workers, the coordinator chat and every chat it dispatched are pinned; workers without a pin of their own otherwise inherit their coordinator\'s pin.',
+      '--unpin removes the pins, so those chats follow the global account selection again.',
+      'Terminal Claude tabs (chat ids terminal:<pane>) are pinned, and the command prints for each one the line to run by hand in that terminal after typing /exit (--pin-only is accepted and means the same).',
+      'With --restart (opt-in), Orca restarts each terminal tab in place instead, one at a time: it waits for the turn to end, then holds the pane\'s input (your keys, CLI `terminal send` and orchestration deliveries to that pane are refused meanwhile), checks the screen shows Claude\'s empty prompt with no dialog, picker, question or background work, and that the shell is bash, zsh, sh, dash or ksh, types /exit, proves Claude left, runs `claude --resume <session>` under the target account, and proves Claude runs again under the same session. Any failed check before /exit types nothing and prints the manual line; a failure after /exit is reported as FAILED with the manual line (exit code 1). A running turn is never interrupted.',
+      '--timeout <seconds> (with --restart; default 180) is ONE idle-wait budget shared by all selected terminal panes, not per pane: once it is spent, later busy panes are skipped with the manual line.',
+      '--restart with --all-on or --with-workers changes nothing unless --yes is given: without it the command only lists the panes and what it would do. Try --restart first on one disposable pane with --chat terminal:<pane>.',
+      '--all-on selects a terminal tab by its pin (or its coordinator\'s); an unpinned terminal tab is skipped and listed, since Orca cannot tell which account its running Claude uses. Select it with --chat instead.',
+      '--dry-run changes nothing and types nothing; with --restart it runs the same checks as the real run (locks, screen, shell, foreground) and says per pane whether it would restart or why not.',
+      'In a Claude chat, /orca-account shows the chat\'s account, /orca-account <account|auto> pins or unpins it, and /orca-migrate <account|auto> [--with-workers] does the same with its workers.'
+    ],
+    examples: [
+      'orca account migrate --to team@example.com --chat 0f3c... --dry-run',
+      'orca account migrate --to me@example.com --with-workers 0f3c...',
+      'orca account migrate --to me@example.com --all-on team@example.com',
+      'orca account migrate --unpin --chat 0f3c...',
+      'orca account migrate --to me@example.com --chat terminal:<tab-id>:<leaf-id> --restart --dry-run',
+      'orca account migrate --to me@example.com --chat terminal:<tab-id>:<leaf-id> --restart --timeout 300'
+    ]
+  },
+  {
     path: ['account', 'rm'],
     aliases: [['account', 'remove']],
     destructive: true,

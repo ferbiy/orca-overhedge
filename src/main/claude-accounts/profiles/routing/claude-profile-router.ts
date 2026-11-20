@@ -1,5 +1,6 @@
 import { claudeAccountUsagePreparation } from './claude-account-usage-preparation'
 import { claudeProfileSelectionHomes } from './claude-profile-selection-homes'
+import { claudeAccountPreparation } from '../../chat-pins/claude-chat-account-preparation'
 import { prepareClaudeProfileForLaunch } from './claude-profile-launch-preparation'
 import { getClaudeAgentViewService } from '../../../claude/agent-view/agent-view-service'
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
@@ -324,6 +325,18 @@ export class ClaudeProfileRouter {
       findClaudeAccount(this.args.getSettings(), profile.accountId)
     const systemDefault = this.systemDefaultLogin(5_000)
     return !selected || !systemDefault || !isSameClaudeLogin(selected, systemDefault)
+  }
+
+  // Overhedge: per-chat pins (claude-chat-account-pins.ts); launch under `accountId`, not the selection.
+  listAccounts = (): readonly ClaudeManagedAccount[] =>
+    this.args.getSettings().claudeManagedAccounts
+  async prepareLaunchForAccount(accountId: string): Promise<ClaudeRuntimeAuthPreparation> {
+    await this.envReady
+    if (!this.coveredBySystemDefault(accountId)) {
+      const profile = this.describe(accountId)
+      await prepareClaudeProfileForLaunch(profile, (v) => this.setUp(v), this.args.refreshWaitMs)
+    }
+    return claudeAccountPreparation(this, accountId)
   }
 
   routesToAccount(): boolean {

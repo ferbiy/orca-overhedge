@@ -25,6 +25,7 @@ import * as conversation from '../delivery/structured-agent-session-host-deliver
 import { wireStructuredAgentSessionQueuedMessages as wireQueuedMessages } from '../delivery/structured-agent-session-queued-wiring'
 import * as sessionLogger from './structured-agent-session-logger'
 import { createStructuredAgentSessionWorkspaceSleeper } from '../termination/structured-agent-session-workspace-sleep'
+import { hostOrcaNotices } from '../orca-commands/structured-agent-session-remote-control'
 
 export class StructuredAgentSessionHost {
   private readonly conversationCommands = new CommandController(() => this.mutationContext(), this)
@@ -343,6 +344,8 @@ export class StructuredAgentSessionHost {
   readUsageLimitContinue = async (id: string) =>
     this.usageLimitContinue.readState(id, await this.clientDelivery.readUsageLimitCut(id))
   publishedWork = this.clientDelivery.readPublishedWork
+
+  appendOrcaNotice = hostOrcaNotices(() => [this.lifetime, this.deps.store, this.clientDelivery], this.sessions, this.now)
 
   private collaborators = () => ({
     deps: this.deps,

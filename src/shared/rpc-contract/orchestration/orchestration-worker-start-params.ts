@@ -39,7 +39,10 @@ export const WorkerStartParams = z
     /** Only from the paired Orca coordinating this Run: its own ID for the Task this start creates or reopens. */
     adoptTaskId: OptionalString,
     /** Only from the paired Orca coordinating this Run: its own workspace, the parent of a new-child here. */
-    crossStoreParent: CrossStoreParentRefSchema.optional()
+    crossStoreParent: CrossStoreParentRefSchema.optional(),
+    /** Overhedge: an Orca-managed Claude account (id or full email) the new worker is pinned to
+     *  before it starts. Gate on overhedge.claude-launch-account.v1; older hosts strip it. */
+    account: OptionalWorkerLaunchPreference
   })
   .superRefine((params, ctx) => {
     if (!params.task && !params.spec) {

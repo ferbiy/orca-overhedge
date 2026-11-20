@@ -42,6 +42,7 @@ import type { WorkerStartMutation } from './worker-start-mutation'
 import { prepareWorkerStartCard } from '../../../../../orchestration/workers/launch/worker-start-card'
 import { rebindReusedStructuredWorker } from '../../structured-workers/orchestration-structured-worker-session'
 import { placedWorkerParty, type WorkerFollowUp } from '../follow-up/worker-follow-up-placement'
+import { workerClaudeAccountFor } from './worker-start-claude-account'
 
 export async function startLocalWorker(args: {
   params: WorkerStartInput
@@ -59,6 +60,8 @@ export async function startLocalWorker(args: {
   /** Set when a worker starts its own helper; the helper reports to this Dispatch. */
   helperCreator?: DispatchContextRow
   followUp?: WorkerFollowUp
+  /** Overhedge: an explicit, already validated `--account` (managed Claude account id). */
+  claudeAccountId?: string
 }): Promise<unknown> {
   const { runtime, db, coordinator, callerSession, orchestrationMutation } = args
   const recordStart = prepareWorkerStartCard(runtime, callerSession)
@@ -104,6 +107,8 @@ export async function startLocalWorker(args: {
     runtime,
     openCodeModelLaunchSupported
   })
+  // Overhedge: decided before the Run is bound, so a refused --account creates nothing.
+  const claudeAccountId = workerClaudeAccountFor(args, agent)
 
   const creationTarget = createsWorktree
     ? await creationTargetFor(coordinatorWorktreeId)
@@ -176,7 +181,8 @@ export async function startLocalWorker(args: {
       launch,
       effects,
       onStage,
-      followUp: args.followUp
+      followUp: args.followUp,
+      claudeAccountId
     })
     // New worktrees resolve host support after creation, so the final mode receipt may differ from preflight.
     mode = placed.mode
