@@ -84,7 +84,7 @@ async function restartLocked(
       kind: 'refused',
       reason: shell
         ? `the pane's shell is ${shell}; only bash, zsh, sh, dash and ksh are restarted automatically`
-        : "Orca cannot tell which shell runs in this pane"
+        : 'Orca cannot tell which shell runs in this pane'
     }
   }
   try {
@@ -103,7 +103,8 @@ async function restartLocked(
     if (options.dryRun) {
       return {
         kind: 'would-restart',
-        detail: 'Claude is busy now; a real run waits for the turn to end (shared --timeout budget), then repeats every check before typing'
+        detail:
+          'Claude is busy now; a real run waits for the turn to end (shared --timeout budget), then repeats every check before typing'
       }
     }
     const seen: { state: 'idle' | 'working' | 'question' } = { state }
@@ -175,20 +176,28 @@ async function typeRestart(
   if (!shows || !samePty(port, input.paneKey, terminal)) {
     return midway(
       port,
-      'typed /exit but the input box did not show exactly /exit, so Enter was NOT pressed; /exit is left in Claude\'s input box: delete it by hand'
+      "typed /exit but the input box did not show exactly /exit, so Enter was NOT pressed; /exit is left in Claude's input box: delete it by hand"
     )
   }
   if (!(await port.write(terminal.ptyId, '\r'))) {
-    return midway(port, "typed /exit but the terminal refused Enter; /exit is left in Claude's input box")
+    return midway(
+      port,
+      "typed /exit but the terminal refused Enter; /exit is left in Claude's input box"
+    )
   }
   const seen: { shell: string | null } = { shell: null }
-  const exited = await until(port, port.now() + (options.exitTimeoutMs ?? 20_000), pollMs, async () => {
-    if (!samePty(port, input.paneKey, terminal)) {
-      return false
+  const exited = await until(
+    port,
+    port.now() + (options.exitTimeoutMs ?? 20_000),
+    pollMs,
+    async () => {
+      if (!samePty(port, input.paneKey, terminal)) {
+        return false
+      }
+      seen.shell = await port.foregroundProcess(terminal.handle)
+      return seen.shell !== null && isShellProcess(seen.shell)
     }
-    seen.shell = await port.foregroundProcess(terminal.handle)
-    return seen.shell !== null && isShellProcess(seen.shell)
-  })
+  )
   if (!exited || !samePty(port, input.paneKey, terminal)) {
     return midway(
       port,
@@ -196,12 +205,18 @@ async function typeRestart(
     )
   }
   if (!isPosixEnvPrefixShell(seen.shell)) {
-    return midway(port, `Claude exited but the shell in front is ${seen.shell ?? 'unknown'}, so the resume line was not typed`)
+    return midway(
+      port,
+      `Claude exited but the shell in front is ${seen.shell ?? 'unknown'}, so the resume line was not typed`
+    )
   }
   // Last check right before the write: still the same PTY with a shell in front.
   const front = await port.foregroundProcess(terminal.handle)
   if (!samePty(port, input.paneKey, terminal) || !isPosixEnvPrefixShell(front)) {
-    return midway(port, 'Claude exited but the shell was no longer in front, so the resume line was not typed')
+    return midway(
+      port,
+      'Claude exited but the shell was no longer in front, so the resume line was not typed'
+    )
   }
   const typedAt = port.now()
   if (!(await port.write(terminal.ptyId, `${input.resumeLine}\r`))) {
@@ -209,22 +224,30 @@ async function typeRestart(
   }
   // Let the starting Claude get its terminal query replies; the hold has done its job.
   release()
-  const started = await until(port, port.now() + (options.startTimeoutMs ?? 30_000), pollMs, async () => {
-    if (!samePty(port, input.paneKey, terminal)) {
-      return false
+  const started = await until(
+    port,
+    port.now() + (options.startTimeoutMs ?? 30_000),
+    pollMs,
+    async () => {
+      if (!samePty(port, input.paneKey, terminal)) {
+        return false
+      }
+      return (
+        isClaudeForegroundProcess(await port.foregroundProcess(terminal.handle)) &&
+        port.sessionIdSince(input.paneKey, typedAt) === sessionId
+      )
     }
-    return (
-      isClaudeForegroundProcess(await port.foregroundProcess(terminal.handle)) &&
-      port.sessionIdSince(input.paneKey, typedAt) === sessionId
-    )
-  })
+  )
   if (!started) {
     return midway(
       port,
       `typed the resume line but could not prove Claude runs again under session ${sessionId}.${await screenTail(port, terminal.handle)}`
     )
   }
-  return { kind: 'restarted', detail: `restarted in place; Claude runs again under session ${sessionId}` }
+  return {
+    kind: 'restarted',
+    detail: `restarted in place; Claude runs again under session ${sessionId}`
+  }
 }
 
 function midway(port: ClaudeTerminalRestartPort, reason: string): ClaudeTerminalRestartOutcome {

@@ -5,7 +5,10 @@
 import { readFile } from 'node:fs/promises'
 import type { RpcContext } from '../../core'
 import type { ClaudeTerminalRestartPort } from '../../../../claude-accounts/terminal-restart/claude-terminal-restart'
-import { getProviderForPty, hasPtyProviderForInspection } from '../../../../ipc/pty/provider/registry'
+import {
+  getProviderForPty,
+  hasPtyProviderForInspection
+} from '../../../../ipc/pty/provider/registry'
 import { assertLegacyAiVaultResumeCommandAllowed } from '../../../../ai-vault/structured-sessions/structured-session-ownership'
 import { holdTerminalInputExclusively } from '../../../terminal/input/terminal-input-exclusive-hold'
 
@@ -21,7 +24,10 @@ function hookRows(value: unknown): HookRow[] {
   return Array.isArray(value)
     ? value.filter(
         (row): row is HookRow =>
-          row !== null && typeof row === 'object' && 'paneKey' in row && typeof row.paneKey === 'string'
+          row !== null &&
+          typeof row === 'object' &&
+          'paneKey' in row &&
+          typeof row.paneKey === 'string'
       )
     : []
 }
@@ -46,7 +52,9 @@ function promptDeliveryInFlight(ctx: RpcContext, ptyId: string): boolean | null 
   if (!(tails instanceof Map)) {
     return null
   }
-  return [...tails.keys()].some((key) => typeof key === 'string' && key.startsWith(`${ptyId}\u0000`))
+  return [...tails.keys()].some(
+    (key) => typeof key === 'string' && key.startsWith(`${ptyId}\u0000`)
+  )
 }
 
 /** The PTY's root process name (its shell) from /proc; null off Linux or when not reported. */
@@ -116,7 +124,9 @@ export function terminalRestartPort(ctx: RpcContext): ClaudeTerminalRestartPort 
         if (read.source !== 'screen') {
           return null
         }
-        return read.draft === undefined ? { lines: read.tail } : { lines: read.tail, draft: read.draft }
+        return read.draft === undefined
+          ? { lines: read.tail }
+          : { lines: read.tail, draft: read.draft }
       } catch {
         return null
       }
@@ -135,7 +145,9 @@ export function terminalRestartPort(ctx: RpcContext): ClaudeTerminalRestartPort 
       }
     },
     assertResumeAllowed: (line) =>
-      assertLegacyAiVaultResumeCommandAllowed(line, () => runtime.ensureStructuredAgentSessionHost()),
+      assertLegacyAiVaultResumeCommandAllowed(line, () =>
+        runtime.ensureStructuredAgentSessionHost()
+      ),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     now: () => Date.now(),
     log: (message) => console.warn(message)

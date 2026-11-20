@@ -14,7 +14,9 @@ import type { ClaudeChatAccountPins } from './claude-chat-account-pin-store'
 export function claudeAccountNames(accounts: readonly ClaudeManagedAccount[]): string {
   return (
     accounts
-      .map((account) => (account.email ? `${account.email} (id ${account.id})` : `id ${account.id}`))
+      .map((account) =>
+        account.email ? `${account.email} (id ${account.id})` : `id ${account.id}`
+      )
       .join(', ') || 'none'
   )
 }

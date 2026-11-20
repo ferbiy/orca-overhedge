@@ -3,7 +3,10 @@
 // Chat pins are keyed by the chat's /clear lineage root (its canonical Orca session id), the id
 // orchestration's dispatch rows use, so a /clear keeps the pin and workers still find coordinators.
 import type { ClaudeManagedAccount } from '../../../shared/agent-accounts/managed-account-types'
-import { claudeChatAccountPinsFor, type ClaudeChatAccountPins } from './claude-chat-account-pin-store'
+import {
+  claudeChatAccountPinsFor,
+  type ClaudeChatAccountPins
+} from './claude-chat-account-pin-store'
 
 export function terminalChatPinKey(handle: string): string {
   return `terminal:${handle}`

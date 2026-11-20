@@ -89,7 +89,10 @@ export function orcaCommandHost(
     // The Set already holds `write`; this only returns its remover.
     noteHost = { host, remove: claudeRemoteControl.addNoteWriter(write) }
   }
-  return { sessionAgent: (sessionId) => host.sessionAgent(sessionId), appendOrcaNotice: orcaNotices(host) }
+  return {
+    sessionAgent: (sessionId) => host.sessionAgent(sessionId),
+    appendOrcaNotice: orcaNotices(host)
+  }
 }
 
 type SendLike = {

@@ -237,7 +237,8 @@ export function runClaudeChatMigration(
     const chatExists = deps.chatExists
     if (chatExists) {
       pins.prune(
-        (chatId) => chatId.startsWith(TERMINAL_PREFIX) || byCanonical.has(chatId) || chatExists(chatId)
+        (chatId) =>
+          chatId.startsWith(TERMINAL_PREFIX) || byCanonical.has(chatId) || chatExists(chatId)
       )
     }
     if (movable.some((step) => !terminals.has(step.orcaSessionId))) {
@@ -258,7 +259,10 @@ export function runClaudeChatMigration(
 
 /** The shell line that resumes a terminal chat under `home` (null: the global selection). Clearing
  *  Orca's injected marker makes the pane's claude function keep this config dir. */
-export function claudeTerminalResumeLine(home: string | null, claudeSessionId: string | null): string {
+export function claudeTerminalResumeLine(
+  home: string | null,
+  claudeSessionId: string | null
+): string {
   const resume = claudeSessionId ? ` --resume ${quotePosixShell(claudeSessionId)}` : ''
   return home === null
     ? `CLAUDE_CONFIG_DIR= claude${resume}`

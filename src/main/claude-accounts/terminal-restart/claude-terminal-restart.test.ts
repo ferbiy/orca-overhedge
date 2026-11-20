@@ -176,7 +176,10 @@ describe('terminal restart in place', () => {
 
   it('waits for the turn to end before typing anything', async () => {
     const { port, state } = fakePane({ hook: 'working', title: 'working', idleAfterMs: 3000 })
-    const outcome = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 10_000, pollMs: 500 })
+    const outcome = await restartClaudeTerminalInPlace(port, INPUT, {
+      idleDeadline: 10_000,
+      pollMs: 500
+    })
     expect(outcome.kind).toBe('restarted')
     expect(state.clock).toBeGreaterThanOrEqual(3000)
     expect(state.sent[0]).toBe('/exit')
@@ -185,7 +188,10 @@ describe('terminal restart in place', () => {
   it('never interrupts a running turn: it times out untouched', async () => {
     const { port, state } = fakePane({ hook: 'working', title: 'working' })
     const outcome = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 2000 })
-    expect(outcome).toEqual({ kind: 'refused', reason: 'Claude was still working when the wait timed out' })
+    expect(outcome).toEqual({
+      kind: 'refused',
+      reason: 'Claude was still working when the wait timed out'
+    })
     expect(state.sent).toEqual([])
   })
 
@@ -199,16 +205,28 @@ describe('terminal restart in place', () => {
     ['a terminal that refuses input', { refuseInput: true }, 'refused input'],
     ['an unreadable screen', { screen: null }, 'could not be read'],
     ['a draft in the input box', { screen: idleScreen('> please also fix the') }, 'not empty'],
-    ['a multi-line draft', { screen: ['x', RULE, '> line one', '  line two', RULE] }, 'not recognised'],
+    [
+      'a multi-line draft',
+      { screen: ['x', RULE, '> line one', '  line two', RULE] },
+      'not recognised'
+    ],
     [
       'an open picker',
       { screen: ['Select model', '❯ 1. Default', '  2. Opus', 'Enter to select · Esc to cancel'] },
       'not recognised'
     ],
-    ['a dialog under the box', { screen: idleScreen('> ', '  Enter to confirm · Esc to cancel') }, 'menu or dialog'],
-    ['background shells', { screen: idleScreen('> ', '  2 background shells running') }, 'background'],
+    [
+      'a dialog under the box',
+      { screen: idleScreen('> ', '  Enter to confirm · Esc to cancel') },
+      'menu or dialog'
+    ],
+    [
+      'background shells',
+      { screen: idleScreen('> ', '  2 background shells running') },
+      'background'
+    ],
     ['vim NORMAL mode', { screen: idleScreen('> ', '  -- NORMAL --') }, 'vim'],
-    ['a fish shell', { shell: 'fish' }, 'the pane\'s shell is fish'],
+    ['a fish shell', { shell: 'fish' }, "the pane's shell is fish"],
     ['PowerShell', { shell: 'pwsh' }, 'shell is pwsh'],
     ['an unknown shell', { shell: null }, 'cannot tell which shell'],
     ['a prompt delivery in flight', { inFlight: true }, 'delivering a prompt'],
@@ -237,7 +255,9 @@ describe('terminal restart in place', () => {
       { ...INPUT, claudeSessionId: "x'; rm -rf ~" },
       { ...INPUT, paneKey: 'gone:pane' }
     ]) {
-      expect((await restartClaudeTerminalInPlace(port, input, { idleDeadline: 0 })).kind).toBe('refused')
+      expect((await restartClaudeTerminalInPlace(port, input, { idleDeadline: 0 })).kind).toBe(
+        'refused'
+      )
     }
     expect(state.sent).toEqual([])
   })
@@ -246,7 +266,10 @@ describe('terminal restart in place', () => {
     const { port, state } = fakePane({ hook: 'working', title: 'working', idleAfterMs: 2000 })
     const first = restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 10_000 })
     const second = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 10_000 })
-    expect(second).toEqual({ kind: 'refused', reason: 'another migration is already restarting this pane' })
+    expect(second).toEqual({
+      kind: 'refused',
+      reason: 'another migration is already restarting this pane'
+    })
     expect((await first).kind).toBe('restarted')
     expect(state.sent.filter((data) => data === '/exit')).toHaveLength(1)
   })
@@ -269,14 +292,18 @@ describe('terminal restart in place', () => {
 
   it('dry run runs the checks, takes and releases the hold, and types nothing', async () => {
     const { port, state } = fakePane()
-    const outcome = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 0, dryRun: true })
+    const outcome = await restartClaudeTerminalInPlace(port, INPUT, {
+      idleDeadline: 0,
+      dryRun: true
+    })
     expect(outcome.kind).toBe('would-restart')
     expect(state.sent).toEqual([])
     expect([state.holds, state.released]).toEqual([1, 1])
     const refused = fakePane({ shell: 'fish' })
-    expect((await restartClaudeTerminalInPlace(refused.port, INPUT, { idleDeadline: 0, dryRun: true })).kind).toBe(
-      'refused'
-    )
+    expect(
+      (await restartClaudeTerminalInPlace(refused.port, INPUT, { idleDeadline: 0, dryRun: true }))
+        .kind
+    ).toBe('refused')
   })
 
   it('does not press Enter when /exit does not show in the input box', async () => {
@@ -304,7 +331,10 @@ describe('terminal restart in place', () => {
       }
       return ok
     }
-    const outcome = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 0, exitTimeoutMs: 2000 })
+    const outcome = await restartClaudeTerminalInPlace(port, INPUT, {
+      idleDeadline: 0,
+      exitTimeoutMs: 2000
+    })
     expect(outcome.kind).toBe('stopped-midway')
     expect(outcome.kind === 'stopped-midway' && outcome.reason).toContain('Exit anyway?')
     expect(state.sent).toEqual(['/exit', '\r'])
@@ -320,15 +350,24 @@ describe('terminal restart in place', () => {
       }
       return ok
     }
-    const outcome = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 0, exitTimeoutMs: 1000 })
+    const outcome = await restartClaudeTerminalInPlace(port, INPUT, {
+      idleDeadline: 0,
+      exitTimeoutMs: 1000
+    })
     expect(outcome.kind).toBe('stopped-midway')
     expect(state.sent).toEqual(['/exit', '\r'])
   })
 
   it('reports failure (never success) when Claude does not come back under the same session', async () => {
-    for (const init of [{ resumeStarts: false }, { resumeSession: '99999999-1111-4222-8333-944455556666' }]) {
+    for (const init of [
+      { resumeStarts: false },
+      { resumeSession: '99999999-1111-4222-8333-944455556666' }
+    ]) {
       const { port } = fakePane(init)
-      const outcome = await restartClaudeTerminalInPlace(port, INPUT, { idleDeadline: 0, startTimeoutMs: 2000 })
+      const outcome = await restartClaudeTerminalInPlace(port, INPUT, {
+        idleDeadline: 0,
+        startTimeoutMs: 2000
+      })
       expect(outcome.kind).toBe('stopped-midway')
     }
   })
@@ -352,7 +391,9 @@ describe('terminal restart in place', () => {
 describe('shell and screen proofs', () => {
   it('accepts only POSIX env-prefix shells', () => {
     expect(['bash', '-zsh', '/bin/sh', 'dash', 'ksh'].every(isPosixEnvPrefixShell)).toBe(true)
-    expect(['fish', 'pwsh', 'nu', 'csh', 'tcsh', 'xonsh', null].some(isPosixEnvPrefixShell)).toBe(false)
+    expect(['fish', 'pwsh', 'nu', 'csh', 'tcsh', 'xonsh', null].some(isPosixEnvPrefixShell)).toBe(
+      false
+    )
   })
 
   it('reads a rounded box and the bypass-permissions footer as an empty prompt', () => {
@@ -369,7 +410,9 @@ describe('shell and screen proofs', () => {
   })
 
   it('refuses while the spinner line above the box says Claude is working', () => {
-    expect(proveClaudeEmptyPrompt({ lines: ['✻ Thinking… (esc to interrupt)', ...idleScreen()] }).ok).toBe(false)
+    expect(
+      proveClaudeEmptyPrompt({ lines: ['✻ Thinking… (esc to interrupt)', ...idleScreen()] }).ok
+    ).toBe(false)
   })
 })
 
@@ -378,11 +421,16 @@ describe('resume line', () => {
     expect(claudeTerminalResumeLine('/p/home', 'sess-1')).toBe(
       "ORCA_CLAUDE_INJECTED_CONFIG_DIR= CLAUDE_CONFIG_DIR='/p/home' claude --resume 'sess-1'"
     )
-    expect(claudeTerminalResumeLine(null, 'sess-1')).toBe("CLAUDE_CONFIG_DIR= claude --resume 'sess-1'")
+    expect(claudeTerminalResumeLine(null, 'sess-1')).toBe(
+      "CLAUDE_CONFIG_DIR= claude --resume 'sess-1'"
+    )
   })
 })
 
-function terminalDeps(router: ReturnType<typeof routerFixture>, panes: string[]): ClaudeChatAccountDeps {
+function terminalDeps(
+  router: ReturnType<typeof routerFixture>,
+  panes: string[]
+): ClaudeChatAccountDeps {
   return {
     router,
     records: () => [],
@@ -416,7 +464,12 @@ describe('migrate with terminal restarts', () => {
     const { port, state } = fakePane()
     const result = await runClaudeChatMigrationWithRestarts(
       terminalDeps(router, ['tab1:leaf1', 'tab2:leaf2']),
-      { to: PERSONAL.id, chatIds: ['terminal:tab1:leaf1', 'terminal:tab2:leaf2'], restart: true, dryRun: true },
+      {
+        to: PERSONAL.id,
+        chatIds: ['terminal:tab1:leaf1', 'terminal:tab2:leaf2'],
+        restart: true,
+        dryRun: true
+      },
       port
     )
     expect(result.lines.slice(-3)).toEqual([
@@ -433,7 +486,11 @@ describe('migrate with terminal restarts', () => {
     const { port } = fakePane()
     const result = await runClaudeChatMigrationWithRestarts(
       terminalDeps(router, ['tab1:leaf1', 'tab2:leaf2']),
-      { to: 'me@example.com', chatIds: ['terminal:tab1:leaf1', 'terminal:tab2:leaf2'], restart: true },
+      {
+        to: 'me@example.com',
+        chatIds: ['terminal:tab1:leaf1', 'terminal:tab2:leaf2'],
+        restart: true
+      },
       port
     )
     expect(result.ok).toBe(false)
@@ -481,7 +538,9 @@ describe('migrate with terminal restarts', () => {
       null
     )
     expect(result.moved).toEqual(['terminal:tab2:leaf2'])
-    expect(result.lines.some((line) => line.includes('skipped terminal:tab1:leaf1: not pinned'))).toBe(true)
+    expect(
+      result.lines.some((line) => line.includes('skipped terminal:tab1:leaf1: not pinned'))
+    ).toBe(true)
   })
 })
 
@@ -499,7 +558,10 @@ describe('terminal workers', () => {
     })
     expect(pinnedClaudeTerminalHome(router, 'w:1')).toBe(`/profiles/${PERSONAL.id}/home`)
     pins.set('terminal:w:1', TEAM.id)
-    expect(pinnedClaudeAccountForTerminal(router, 'w:1')).toEqual({ accountId: TEAM.id, source: 'pin' })
+    expect(pinnedClaudeAccountForTerminal(router, 'w:1')).toEqual({
+      accountId: TEAM.id,
+      source: 'pin'
+    })
     expect(pinnedClaudeTerminalHome(router, 'other:pane')).toBeNull()
   })
 
@@ -523,7 +585,9 @@ describe('terminal workers', () => {
       }
     }
     expect(workersOfCoordinator(db, 'terminal:c:1')).toEqual(['terminal:w:1'])
-    expect(queries.every((query) => query.arg === 'c:1' && query.sql.includes('creator_pane_key = ?'))).toBe(true)
+    expect(
+      queries.every((query) => query.arg === 'c:1' && query.sql.includes('creator_pane_key = ?'))
+    ).toBe(true)
     queries.length = 0
     coordinatorCandidatesOfWorker(db, 'terminal:w:1')
     expect(queries.every((query) => query.sql.includes('assignee_pane_key = ?'))).toBe(true)

@@ -87,7 +87,11 @@ export type Check = { ok: true } | { ok: false; reason: string }
 
 export type PaneTerminal = { handle: string; ptyId: string }
 
-export function samePty(port: ClaudeTerminalRestartPort, paneKey: string, terminal: PaneTerminal): boolean {
+export function samePty(
+  port: ClaudeTerminalRestartPort,
+  paneKey: string,
+  terminal: PaneTerminal
+): boolean {
   return port.terminalForPane(paneKey)?.ptyId === terminal.ptyId
 }
 
@@ -192,7 +196,9 @@ export async function claudeReadyForKeys(
 /** Lines at the bottom of the screen, for a report (never answered). */
 export async function screenTail(port: ClaudeTerminalRestartPort, handle: string): Promise<string> {
   const screen = await port.readScreen(handle).catch(() => null)
-  const lines = (screen?.lines ?? []).map((line) => line.trim()).filter(Boolean).slice(-3)
+  const lines = (screen?.lines ?? [])
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-3)
   return lines.length > 0 ? ` Screen shows: ${lines.join(' | ').slice(0, 240)}` : ''
 }
-

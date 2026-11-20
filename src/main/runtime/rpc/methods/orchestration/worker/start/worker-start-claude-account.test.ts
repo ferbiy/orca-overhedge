@@ -31,9 +31,12 @@ const state = vi.hoisted(
   } => ({ router: undefined, sessionCreates: [] })
 )
 
-vi.mock('../../../../../../claude-accounts/profiles/routing/claude-profile-installed-router', () => ({
-  getClaudeProfileRouter: () => state.router
-}))
+vi.mock(
+  '../../../../../../claude-accounts/profiles/routing/claude-profile-installed-router',
+  () => ({
+    getClaudeProfileRouter: () => state.router
+  })
+)
 
 vi.mock('../../../structured-sessions/creation/structured-agent-session-create', () => ({
   createStructuredAgentSessionForWorktree: async (args: { envelope: { sessionId: string } }) => {
@@ -50,9 +53,8 @@ vi.mock('../../../structured-sessions/creation/structured-agent-session-create',
 }))
 
 const { placeWorkerAgent } = await import('./placement/worker-start-agent-placement')
-const { resolveWorkerStartClaudeAccount, workerClaudeLaunchAccount } = await import(
-  './worker-start-claude-account'
-)
+const { resolveWorkerStartClaudeAccount, workerClaudeLaunchAccount } =
+  await import('./worker-start-claude-account')
 
 function account(id: string, email: string): ClaudeManagedAccount {
   return {

@@ -46,7 +46,9 @@ export async function runClaudeChatMigrationWithRestarts(
   if (!port) {
     const result = runClaudeChatMigration(deps, request)
     if (result.ok && (result.terminalPanes?.length ?? 0) > 0) {
-      result.lines.push('  (--restart: automatic restart is not available on this host; nothing was typed)')
+      result.lines.push(
+        '  (--restart: automatic restart is not available on this host; nothing was typed)'
+      )
       return { ...result, ok: false }
     }
     return result
@@ -71,7 +73,9 @@ export async function runClaudeChatMigrationWithRestarts(
   for (const pane of panes) {
     const manual = claudeTerminalResumeLine(home, pane.claudeSessionId)
     if (signal?.aborted === true) {
-      lines.push(terminalMigrationInstruction(pane, home, 'the request was cancelled before this pane'))
+      lines.push(
+        terminalMigrationInstruction(pane, home, 'the request was cancelled before this pane')
+      )
       continue
     }
     const outcome = await restartClaudeTerminalInPlace(
@@ -108,7 +112,9 @@ export async function runClaudeChatMigrationWithRestarts(
   lines.push(`Restarted ${restarted} of ${panes.length} terminal pane(s) in place.`)
   if (signal?.aborted === true) {
     // The client is gone; keep the outcome where an operator can find it.
-    port.log?.(`[overhedge] account migrate cancelled by the client: ${lines.slice(-panes.length - 1).join(' / ')}`)
+    port.log?.(
+      `[overhedge] account migrate cancelled by the client: ${lines.slice(-panes.length - 1).join(' / ')}`
+    )
   }
   return { ...result, ok: restarted === panes.length, lines }
 }

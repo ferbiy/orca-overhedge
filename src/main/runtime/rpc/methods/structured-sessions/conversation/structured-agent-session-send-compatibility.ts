@@ -13,7 +13,10 @@ import {
 import { readsQueuedImageCards } from '../attachments/structured-agent-session-queued-image-capability'
 import { recordMobileChatSend } from '../../../../../telemetry/mobile-client-telemetry'
 import { typedByOf } from '../../../callers/rpc-caller-typed-by'
-import { interceptRemoteControlSend, orcaCommandHost } from '../../../../../native-chat/agent-session-wire/orca-commands/structured-agent-session-remote-control'
+import {
+  interceptRemoteControlSend,
+  orcaCommandHost
+} from '../../../../../native-chat/agent-session-wire/orca-commands/structured-agent-session-remote-control'
 import { interceptClaudeAccountSlashCommand } from '../../accounts/claude-chat-account-rpc'
 
 /** Older clients wait past acceptance until handoff/rejection because they cannot show later failure.

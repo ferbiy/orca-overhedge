@@ -22,7 +22,8 @@ export const HOST_ACCOUNT_SIGN_IN_RUNTIME_CAPABILITY = 'accounts.host-sign-in.v1
 export const HOST_ACCOUNT_REAUTH_RUNTIME_CAPABILITY = 'accounts.host-sign-in-reauth.v1' as const
 // Overhedge: agent.launch `claudeAccount` and orchestration.workerStart `account` pin the new
 // Claude chat before it starts. Older hosts strip both fields, so the CLI refuses without this.
-export const CLAUDE_LAUNCH_ACCOUNT_RUNTIME_CAPABILITY = 'overhedge.claude-launch-account.v1' as const
+export const CLAUDE_LAUNCH_ACCOUNT_RUNTIME_CAPABILITY =
+  'overhedge.claude-launch-account.v1' as const
 
 export const ACCOUNT_RUNTIME_CAPABILITIES = [
   ACCOUNT_IMPORT_RUNTIME_CAPABILITY,

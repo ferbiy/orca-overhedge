@@ -54,10 +54,16 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
   const yes = ctx.flags.get('yes') === true
   // --pin-only is the default now; it stays accepted as a no-op alias.
   if (ctx.flags.get('pin-only') === true && restart) {
-    throw new RuntimeClientError('invalid_argument', '--pin-only cannot be combined with --restart.')
+    throw new RuntimeClientError(
+      'invalid_argument',
+      '--pin-only cannot be combined with --restart.'
+    )
   }
   if (!restart && (timeoutSeconds !== undefined || yes)) {
-    throw new RuntimeClientError('invalid_argument', '--timeout and --yes apply only with --restart.')
+    throw new RuntimeClientError(
+      'invalid_argument',
+      '--timeout and --yes apply only with --restart.'
+    )
   }
   const result = await ctx.client.call<{ ok: boolean; lines: string[]; moved: string[] }>(
     'accounts.migrateClaudeChats',

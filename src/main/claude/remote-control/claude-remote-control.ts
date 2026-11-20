@@ -69,8 +69,7 @@ export function claudeQueryRemoteControl(
 ): ((enabled: boolean, name?: string) => Promise<ClaudeRemoteControlResponse>) | null {
   const enable = 'enableRemoteControl' in query ? query.enableRemoteControl : null
   return typeof enable === 'function'
-    ? async (enabled, name) =>
-        readRemoteControlResponse(await enable.call(query, enabled, name))
+    ? async (enabled, name) => readRemoteControlResponse(await enable.call(query, enabled, name))
     : null
 }
 

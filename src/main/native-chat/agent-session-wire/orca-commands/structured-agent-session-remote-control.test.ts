@@ -6,7 +6,10 @@ import {
   remoteControlCommandOf,
   REMOTE_CONTROL_ROW_PREFIX
 } from './structured-agent-session-remote-control'
-import { acceptedOrcaCommandReply, OrcaCommandReplyLedger } from './structured-agent-session-orca-notice'
+import {
+  acceptedOrcaCommandReply,
+  OrcaCommandReplyLedger
+} from './structured-agent-session-orca-notice'
 import type { AgentJournalCursor } from '../../../../shared/agent-session/journal/agent-session-journal-identity'
 import { structuredAgentSessionSendEvidence } from '../../../../shared/agent-session/requests/structured-agent-session-send-evidence'
 
@@ -35,11 +38,19 @@ describe('interceptRemoteControlSend', () => {
   it('leaves other messages and other agents alone', async () => {
     const registry = new ClaudeRemoteControlRegistry()
     const claude = noticeHost('claude')
-    await expect(interceptRemoteControlSend(claude.host, send([text('hello')]), registry)).resolves.toBeNull()
-    await expect(interceptRemoteControlSend(claude.host, send([text('/orca-account')]), registry)).resolves.toBeNull()
-    await expect(interceptRemoteControlSend(claude.host, send([text('/rc please look at CI')]), registry)).resolves.toBeNull()
+    await expect(
+      interceptRemoteControlSend(claude.host, send([text('hello')]), registry)
+    ).resolves.toBeNull()
+    await expect(
+      interceptRemoteControlSend(claude.host, send([text('/orca-account')]), registry)
+    ).resolves.toBeNull()
+    await expect(
+      interceptRemoteControlSend(claude.host, send([text('/rc please look at CI')]), registry)
+    ).resolves.toBeNull()
     const codex = noticeHost('codex')
-    await expect(interceptRemoteControlSend(codex.host, send([text('/rc')]), registry)).resolves.toBeNull()
+    await expect(
+      interceptRemoteControlSend(codex.host, send([text('/rc')]), registry)
+    ).resolves.toBeNull()
     expect(claude.appendOrcaNotice).not.toHaveBeenCalled()
     expect(codex.appendOrcaNotice).not.toHaveBeenCalled()
   })
@@ -103,7 +114,12 @@ describe('interceptRemoteControlSend', () => {
       new ClaudeRemoteControlRegistry(),
       new OrcaCommandReplyLedger()
     )
-    expect(appendOrcaNotice).toHaveBeenCalledWith('s', expect.any(String), expect.any(String), 'warning')
+    expect(appendOrcaNotice).toHaveBeenCalledWith(
+      's',
+      expect.any(String),
+      expect.any(String),
+      'warning'
+    )
     expect(result?.ok).toBe(true)
   })
 

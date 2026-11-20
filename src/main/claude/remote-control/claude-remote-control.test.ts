@@ -130,7 +130,10 @@ describe('ClaudeRemoteControlRegistry', () => {
   it('explains an account without Remote Control and an SDK without the request', async () => {
     const registry = new ClaudeRemoteControlRegistry()
     const remoteControl = vi.fn()
-    registry.observeConnection('a', fakeConnection(remoteControl, { remote_control_available: false }))
+    registry.observeConnection(
+      'a',
+      fakeConnection(remoteControl, { remote_control_available: false })
+    )
     const refused = await registry.run('a', { action: 'enable' })
     expect(refused).toMatchObject({ tone: 'error', text: expect.stringContaining('API key') })
     expect(remoteControl).not.toHaveBeenCalled()
@@ -153,7 +156,10 @@ describe('ClaudeRemoteControlRegistry', () => {
     const registry = new ClaudeRemoteControlRegistry()
     const notes: string[] = []
     registry.addNoteWriter(async (_id, note) => (notes.push(note.text), true))
-    registry.observeConnection('s', fakeConnection(async () => ({ session_url: 'u1' })))
+    registry.observeConnection(
+      's',
+      fakeConnection(async () => ({ session_url: 'u1' }))
+    )
     await registry.run('s', { action: 'enable', name: 'kept' })
     const second = vi.fn(async () => ({ session_url: 'u2' }))
     registry.observeConnection('s', fakeConnection(second))
@@ -167,7 +173,10 @@ describe('ClaudeRemoteControlRegistry', () => {
     const registry = new ClaudeRemoteControlRegistry()
     const notes: { text: string; tone?: string }[] = []
     registry.addNoteWriter(async (_id, note) => (notes.push(note), true))
-    registry.observeConnection('s', fakeConnection(async () => ({ session_url: 'u1' })))
+    registry.observeConnection(
+      's',
+      fakeConnection(async () => ({ session_url: 'u1' }))
+    )
     await registry.run('s', { action: 'enable' })
     registry.observeConnection(
       's',
@@ -183,7 +192,10 @@ describe('ClaudeRemoteControlRegistry', () => {
   it('reports off once the child exits, and forgets a chat that never wanted it', async () => {
     const registry = new ClaudeRemoteControlRegistry()
     const exited = Promise.withResolvers<Error>()
-    const connection = { ...fakeConnection(async () => ({ session_url: 'u1' })), exited: exited.promise }
+    const connection = {
+      ...fakeConnection(async () => ({ session_url: 'u1' })),
+      exited: exited.promise
+    }
     registry.observeConnection('s', connection)
     await registry.run('s', { action: 'enable' })
     exited.resolve(new Error('gone'))

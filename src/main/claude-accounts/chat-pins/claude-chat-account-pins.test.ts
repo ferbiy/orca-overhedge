@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -194,7 +202,10 @@ describe('slash parsing', () => {
   it.each([
     ['/orca-account', { kind: 'show' }],
     ['  /orca-account  ', { kind: 'show' }],
-    ['/orca-account team@example.com', { kind: 'move', to: 'team@example.com', withWorkers: false }],
+    [
+      '/orca-account team@example.com',
+      { kind: 'move', to: 'team@example.com', withWorkers: false }
+    ],
     ['/orca-account AUTO', { kind: 'unpin', withWorkers: false }],
     ['/orca-migrate me', { kind: 'move', to: 'me', withWorkers: false }],
     ['/orca-migrate me --with-workers', { kind: 'move', to: 'me', withWorkers: true }],
@@ -348,7 +359,10 @@ describe('pins across /clear', () => {
     }
     runClaudeChatMigration(deps, { to: PERSONAL.id, chatIds: ['A2'] })
     expect(claudeChatAccountPinsFor(router).all()).toEqual({ A: PERSONAL.id })
-    expect(pinnedClaudeAccountForChat(router, 'A3')).toEqual({ accountId: PERSONAL.id, source: 'pin' })
+    expect(pinnedClaudeAccountForChat(router, 'A3')).toEqual({
+      accountId: PERSONAL.id,
+      source: 'pin'
+    })
     runClaudeChatMigration(deps, { unpin: true, chatIds: ['A3'] })
     expect(claudeChatAccountPinsFor(router).all()).toEqual({})
     expect(pinnedClaudeAccountForChat(router, 'A3')).toBeNull()

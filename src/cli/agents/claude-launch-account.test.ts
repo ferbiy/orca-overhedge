@@ -61,9 +61,9 @@ describe('--account on orchestration worker-start', () => {
     expect(() =>
       readWorkerClaudeAccount(flags({ account: 'me@example.com', agent: 'codex' }), undefined)
     ).toThrow(/only to --agent claude/)
-    expect(() =>
-      readWorkerClaudeAccount(flags({ account: 'me@example.com' }), 'term_1')
-    ).toThrow(/--terminal/)
+    expect(() => readWorkerClaudeAccount(flags({ account: 'me@example.com' }), 'term_1')).toThrow(
+      /--terminal/
+    )
     expect(() =>
       readWorkerClaudeAccount(flags({ account: 'me@example.com', on: 'server-2' }), undefined)
     ).toThrow(/--on/)

@@ -138,7 +138,9 @@ describe('agent.launch claudeAccount', () => {
     expect(computeAgentLaunchFingerprint(retry.params)).toBe(
       computeAgentLaunchFingerprint(first.params)
     )
-    expect(reserveClaudeLaunchIdentity(undefined)).not.toEqual(reserveClaudeLaunchIdentity(undefined))
+    expect(reserveClaudeLaunchIdentity(undefined)).not.toEqual(
+      reserveClaudeLaunchIdentity(undefined)
+    )
   })
 
   it('leaves a launch without claudeAccount untouched', () => {
@@ -211,7 +213,9 @@ describe('agent.launch claudeAccount', () => {
 describe('coordinatorClaudeLaunchAccount', () => {
   it('reads the coordinator session pin, then its pane pin, else null', () => {
     const r = router()
-    expect(coordinatorClaudeLaunchAccount(r, { orcaSessionId: 's1', paneKey: 'tab:leaf' })).toBeNull()
+    expect(
+      coordinatorClaudeLaunchAccount(r, { orcaSessionId: 's1', paneKey: 'tab:leaf' })
+    ).toBeNull()
     claudeChatAccountPinsFor(r).set('terminal:tab:leaf', TEAM.id)
     expect(coordinatorClaudeLaunchAccount(r, { orcaSessionId: 's1', paneKey: 'tab:leaf' })).toBe(
       TEAM.id

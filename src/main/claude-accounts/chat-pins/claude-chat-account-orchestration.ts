@@ -62,7 +62,9 @@ export const TERMINAL_PREFIX = 'terminal:'
  *  `terminal:<pane>` and chat-UI workers as their Orca session id. */
 export function workersOfCoordinator(db: OrchestrationDbLike, coordinator: string): string[] {
   const terminal = coordinator.startsWith(TERMINAL_PREFIX)
-  const root = terminal ? coordinator.slice(TERMINAL_PREFIX.length) : canonicalClaudeChatId(coordinator)
+  const root = terminal
+    ? coordinator.slice(TERMINAL_PREFIX.length)
+    : canonicalClaudeChatId(coordinator)
   const creator = terminal ? 'creator_pane_key' : 'creator_orca_session_id'
   const workers = [
     ...rows(

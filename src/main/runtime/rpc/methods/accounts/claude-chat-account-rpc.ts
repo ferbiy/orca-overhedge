@@ -66,7 +66,11 @@ type SendParamsLike = {
 /** What a pin change from chat needs: the permission `accounts.migrateClaudeChats` needs. The whole
  *  command is refused without it (not narrowed to this chat), the safer of the two choices. */
 function moveDenial(ctx: RpcContext): string | null {
-  return denyRpcMethodForCaller(ctx.callerScope ?? OWNER_RPC_CALLER_SCOPE, MIGRATE_METHOD, 'accounts-admin')
+  return denyRpcMethodForCaller(
+    ctx.callerScope ?? OWNER_RPC_CALLER_SCOPE,
+    MIGRATE_METHOD,
+    'accounts-admin'
+  )
     ? 'This client may not change Claude accounts (it lacks the accounts-admin permission). Nothing changed.'
     : null
 }
@@ -124,7 +128,9 @@ export async function interceptClaudeAccountSlashCommand(
     const rowId = `overhedge-account:${clientOperationId}`
     const writeNotice = orcaNotices(host)
     const changes = command.kind === 'move' || command.kind === 'unpin'
-    const first = changes ? "Changing this chat's Claude account\u2026" : runAccountCommand(command, sessionId, ctx, host)
+    const first = changes
+      ? "Changing this chat's Claude account\u2026"
+      : runAccountCommand(command, sessionId, ctx, host)
     const notice = await writeNotice(sessionId, rowId, first).catch(() => null)
     if (!notice) {
       return {

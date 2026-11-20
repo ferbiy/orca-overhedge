@@ -1,5 +1,8 @@
 // overhedge: per-chat Claude Code Remote Control state (see claude-remote-control.ts).
-import type { ClaudeRemoteControlCommand, ClaudeRemoteControlResponse } from './claude-remote-control'
+import type {
+  ClaudeRemoteControlCommand,
+  ClaudeRemoteControlResponse
+} from './claude-remote-control'
 
 /** The part of a Claude connection this feature uses. */
 export type ClaudeRemoteControlConnection = {
@@ -78,7 +81,10 @@ function availabilityProblem(initialization: unknown): string | null {
 }
 
 /** A child still starting answers its initialization late; never wait on it without a limit. */
-function initialized(connection: ClaudeRemoteControlConnection, timeoutMs: number): Promise<unknown> {
+function initialized(
+  connection: ClaudeRemoteControlConnection,
+  timeoutMs: number
+): Promise<unknown> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
@@ -146,7 +152,10 @@ export class ClaudeRemoteControlRegistry {
   }
 
   /** The answer when no request to Claude is needed (status, or no running child); else null. */
-  immediate(sessionId: string, command: ClaudeRemoteControlCommand): ClaudeRemoteControlNote | null {
+  immediate(
+    sessionId: string,
+    command: ClaudeRemoteControlCommand
+  ): ClaudeRemoteControlNote | null {
     const state = this.sessions.get(sessionId)
     if (state && !running(state.connection) && state.connection) {
       this.observeExit(sessionId, state.connection)
@@ -173,7 +182,10 @@ export class ClaudeRemoteControlRegistry {
     return { text: `Turning Remote Control ${command.action === 'disable' ? 'off' : 'on'}\u2026` }
   }
 
-  async run(sessionId: string, command: ClaudeRemoteControlCommand): Promise<ClaudeRemoteControlNote> {
+  async run(
+    sessionId: string,
+    command: ClaudeRemoteControlCommand
+  ): Promise<ClaudeRemoteControlNote> {
     const immediate = this.immediate(sessionId, command)
     const state = this.sessions.get(sessionId)
     if (immediate || !state) {
@@ -213,7 +225,11 @@ export class ClaudeRemoteControlRegistry {
       if (problem) {
         return { text: unsupportedNote(problem), tone: 'error' }
       }
-      const response = await this.request(connection, true, command.action === 'enable' ? command.name : undefined)
+      const response = await this.request(
+        connection,
+        true,
+        command.action === 'enable' ? command.name : undefined
+      )
       state.wanted = true
       state.name = (command.action === 'enable' ? command.name : undefined) ?? state.name
       state.url = response.session_url ?? response.connect_url

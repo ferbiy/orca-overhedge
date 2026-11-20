@@ -2,9 +2,7 @@
 // cannot recognise (a draft, a picker, a dialog, a question, vim NORMAL mode, background work, an
 // unknown layout) is NOT proof, and the restart then types nothing.
 
-export type ClaudePromptScreenProof =
-  | { ok: true }
-  | { ok: false; reason: string }
+export type ClaudePromptScreenProof = { ok: true } | { ok: false; reason: string }
 
 // The input box is drawn between two horizontal rules (newer Claude Code) or inside a rounded box.
 // Why String.raw: the orcad bundle must stay ASCII, and the formatter unescapes regex literals.
@@ -26,12 +24,21 @@ const BLOCKING_PATTERNS: readonly [RegExp, string][] = [
   ],
   [new RegExp(String.raw`^\s*\u276F\s*\d+\.\s|^\s+\d+\.\s`), 'a choice list is open'],
   // Case-sensitive on purpose: the footer `bypass permissions on` is a mode, not a question.
-  [/Do you want|Would you like|\bAllow\b|\bApprove\b|\?\s*$/, 'Claude is asking a question or for a permission'],
+  [
+    /Do you want|Would you like|\bAllow\b|\bApprove\b|\?\s*$/,
+    'Claude is asking a question or for a permission'
+  ],
   [/ready to code\?|proceed\?/i, 'a plan approval may be open'],
-  [/background|shells? running|bash(?:es)? running|agents? running|tasks? running|\d+\s+(?:shell|task|agent)s?\b/i, 'background shells, tasks or agents may be running'],
+  [
+    /background|shells? running|bash(?:es)? running|agents? running|tasks? running|\d+\s+(?:shell|task|agent)s?\b/i,
+    'background shells, tasks or agents may be running'
+  ],
   [/-- NORMAL --|-- VISUAL --/, 'Claude input is in vim NORMAL/VISUAL mode'],
   [/esc to interrupt|interrupt/i, 'Claude is working'],
-  [/exit anyway|really exit|press ctrl-c again|press ctrl-d again/i, 'an exit confirmation is showing'],
+  [
+    /exit anyway|really exit|press ctrl-c again|press ctrl-d again/i,
+    'an exit confirmation is showing'
+  ],
   [/search:|reverse-i-search|history search/i, 'a history search is open']
 ]
 const NO_BREAK_SPACE_RE = new RegExp(String.raw`\u00A0`, 'g')
@@ -64,10 +71,7 @@ function findInputBox(lines: readonly string[], maxFooterLines = 4): InputBox | 
 }
 
 /** What the prompt line shows after its marker; null when Claude's input box is not recognised. */
-export function claudePromptLineText(
-  lines: readonly string[],
-  maxFooterLines = 4
-): string | null {
+export function claudePromptLineText(lines: readonly string[], maxFooterLines = 4): string | null {
   const box = findInputBox(lines, maxFooterLines)
   if (!box) {
     return null
@@ -90,7 +94,8 @@ export function proveClaudeEmptyPrompt(
   if (!box) {
     return {
       ok: false,
-      reason: "Claude's empty input box was not recognised on screen (a dialog, picker or multi-line draft may be open)"
+      reason:
+        "Claude's empty input box was not recognised on screen (a dialog, picker or multi-line draft may be open)"
     }
   }
   const boxAndFooter = box.region.slice(box.index - 1)
@@ -101,11 +106,17 @@ export function proveClaudeEmptyPrompt(
   }
   const above = box.region.slice(Math.max(0, box.index - 1 - WORKING_ABOVE_LINES), box.index - 1)
   if (above.some((line) => WORKING_ABOVE_RE.test(line))) {
-    return { ok: false, reason: 'the screen does not show an idle empty prompt (Claude is working)' }
+    return {
+      ok: false,
+      reason: 'the screen does not show an idle empty prompt (Claude is working)'
+    }
   }
   const text = claudePromptLineText(screen.lines)
   if (text !== '') {
-    return { ok: false, reason: "Claude's input box is not empty (a draft or placeholder is showing)" }
+    return {
+      ok: false,
+      reason: "Claude's input box is not empty (a draft or placeholder is showing)"
+    }
   }
   return { ok: true }
 }
