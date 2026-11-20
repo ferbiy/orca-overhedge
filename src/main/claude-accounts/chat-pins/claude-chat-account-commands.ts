@@ -14,6 +14,7 @@ import {
 } from './claude-chat-account-pins'
 import { claudeAccountPreparation } from './claude-chat-account-preparation'
 import { claudeChatAccountPinsFor } from './claude-chat-account-pin-store'
+import { claudeChatLineage } from './claude-chat-account-lineage'
 import { quotePosixShell } from '../../../shared/shell/launch/shell-argument-quoting'
 import { CLAUDE_INJECTED_CONFIG_DIR_ENV } from '../../../shared/agent-accounts/claude/claude-profile-routing'
 import {
@@ -74,6 +75,11 @@ export function installClaudeChatWorkerInheritance(
   installClaudeChatCoordinatorLookup((worker) =>
     coordinatorCandidatesOfWorker(orchestrationDbOf(db()), worker)
   )
+}
+
+/** The runtime's one call: workers inherit their coordinator's pin, and pins follow /clear. */
+export function installClaudeChatPinWiring(db: () => unknown): void {
+  installClaudeChatWorkerInheritance(db, claudeChatLineage)
 }
 
 function acquiredManagedAccountId(record: ClaudeChatRecordLike): string | null {
