@@ -21,6 +21,7 @@ import {
   pinnedClaudeAccountForChat,
   pinnedClaudeAccountForTerminal
 } from '../../../../../../claude-accounts/chat-pins/claude-chat-account-pins'
+import { createWorkerLaunchReceipt } from './launch/worker-launch-preferences'
 import type { WorkerEffect } from './placement/worker-placement-topology'
 
 const state = vi.hoisted(
@@ -168,7 +169,7 @@ function place(
     resolvedWorktree: args.existing ? { id: 'wt_existing', repoId: 'repo_1' } : undefined,
     mode: args.mode,
     agent: 'claude',
-    launchPreferences: undefined,
+    launch: { preferences: undefined, receipt: createWorkerLaunchReceipt({ agent: 'claude' }) },
     effects,
     onStage: () => {},
     ...(args.claudeAccountId ? { claudeAccountId: args.claudeAccountId } : {})

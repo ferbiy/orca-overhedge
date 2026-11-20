@@ -11,7 +11,7 @@ import {
 } from '../../../../../../claude-accounts/chat-pins/claude-chat-account-launch'
 import { OrchestrationError } from '../../../../../orchestration/orchestration-error'
 import type { DispatchCreator } from '../../../../../orchestration/db/dispatch-depth'
-import type { OrchestrationSessionCaller } from '../../../../../orchestration/addressing/orchestration-caller-identity'
+import type { OrchestrationEntryCaller } from '../../../../../orchestration/addressing/orchestration-caller-identity'
 import type { OrcaRuntimeService } from '../../../../../orca-runtime'
 import { resolveDispatchCreator } from '../../runs/dispatch-creator'
 import type { RpcContext } from '../../../../core'
@@ -103,7 +103,7 @@ export function workerClaudeAccountFor(
   start: {
     params: Pick<WorkerStartInput, 'from' | 'terminal'>
     runtime: OrcaRuntimeService
-    callerSession?: OrchestrationSessionCaller
+    callerSession?: OrchestrationEntryCaller
     claudeAccountId?: string
   },
   agent: TuiAgent | undefined
