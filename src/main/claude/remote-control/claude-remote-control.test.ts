@@ -26,14 +26,27 @@ describe('parseClaudeRemoteControlCommand', () => {
     })
   })
 
-  it('passes anything else after /rc through to Claude', () => {
-    expect(parseClaudeRemoteControlCommand('/rc 1.4 failed on CI, please look')).toBeNull()
-    expect(parseClaudeRemoteControlCommand('/rc on\nsecond line')).toBeNull()
+  it('takes a bare name, for both command words', () => {
+    expect(parseClaudeRemoteControlCommand('/remote-control my-test')).toEqual({
+      action: 'enable',
+      name: 'my-test'
+    })
+    expect(parseClaudeRemoteControlCommand('/rc Laptop chat 2')).toEqual({
+      action: 'enable',
+      name: 'Laptop chat 2'
+    })
     expect(parseClaudeRemoteControlCommand('/rc status\n')).toEqual({ action: 'status' })
-    expect(parseClaudeRemoteControlCommand('/rc\noff')).toBeNull()
-    expect(parseClaudeRemoteControlCommand('/rc start')).toBeNull()
-    expect(parseClaudeRemoteControlCommand('/rc disable')).toBeNull()
-    expect(parseClaudeRemoteControlCommand(`/rc on ${'x'.repeat(201)}`)).toBeNull()
+  })
+
+  it('answers with usage instead of passing a malformed command to Claude', () => {
+    const usage = { action: 'usage' }
+    expect(parseClaudeRemoteControlCommand('/rc on\nsecond line')).toEqual(usage)
+    expect(parseClaudeRemoteControlCommand('/rc\noff')).toEqual(usage)
+    expect(parseClaudeRemoteControlCommand('/remote-control my\ntest')).toEqual(usage)
+    expect(parseClaudeRemoteControlCommand('/rc start')).toEqual(usage)
+    expect(parseClaudeRemoteControlCommand('/rc Disable')).toEqual(usage)
+    expect(parseClaudeRemoteControlCommand(`/rc on ${'x'.repeat(201)}`)).toEqual(usage)
+    expect(parseClaudeRemoteControlCommand(`/rc ${'x'.repeat(201)}`)).toEqual(usage)
   })
 
   it('ignores anything else', () => {
@@ -89,6 +102,8 @@ describe('withClaudeRemoteControlCommands', () => {
     const added = withClaudeRemoteControlCommands(live(base, () => {}))
     expect(added?.map((c) => c.name)).toEqual(['compact', 'remote-control', 'rc'])
     expect(withClaudeRemoteControlCommands(live(added, () => {}))).toBe(added)
+    // Subscribers compare catalogs by identity: the same report must give the same copy.
+    expect(withClaudeRemoteControlCommands(live(base, () => {}))).toBe(added)
   })
 })
 
@@ -103,6 +118,20 @@ function fakeConnection(
 }
 
 describe('ClaudeRemoteControlRegistry', () => {
+  it('answers usage without a request, even with no child', async () => {
+    const registry = new ClaudeRemoteControlRegistry()
+    const remoteControl = vi.fn()
+    expect(registry.immediate('s', { action: 'usage' })).toMatchObject({
+      tone: 'warning',
+      text: expect.stringContaining('Usage: /rc')
+    })
+    registry.observeConnection('s', fakeConnection(remoteControl))
+    await expect(registry.run('s', { action: 'usage' })).resolves.toMatchObject({
+      text: expect.stringContaining('Usage: /rc')
+    })
+    expect(remoteControl).not.toHaveBeenCalled()
+  })
+
   it('needs a live child', async () => {
     const registry = new ClaudeRemoteControlRegistry()
     await expect(registry.run('s', { action: 'enable' })).resolves.toMatchObject({

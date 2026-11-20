@@ -7,9 +7,13 @@ tag `v1.4.266`; the patch is `overhedge/patch-266`. (The previous 1.4.251 port: 
 
 ## What the patch adds (server side)
 
-- `/rc` and `/remote-control [on [name]|off|status]` in native Claude chats: Orca toggles Claude
-  Code Remote Control on the chat's live Claude child (Agent SDK `enableRemoteControl`) and answers
-  with a status row; nothing reaches Claude.
+- `/rc` and `/remote-control [on [name]|<name>|off|status]` in native Claude chats: Orca toggles
+  Claude Code Remote Control on the chat's live Claude child (Agent SDK `enableRemoteControl`) and
+  answers with a status row; nothing reaches Claude (a malformed form gets a usage row). While it is
+  on, prompts typed in claude.ai or the Claude app show in the Orca chat as user rows, and their
+  replies as normal turns (`claude-remote-control-user-turn.ts`).
+- The slash menu of a Claude chat lists `/rc`, `/remote-control` (live child only),
+  `/orca-account` and `/orca-migrate`, appended to the catalog the server already reports.
 - Per-chat Claude account pins: `/orca-account [<account>|auto]` and
   `/orca-migrate <account>|auto [--with-workers]` in a Claude chat; `orca account migrate` on the
   CLI (with opt-in `--restart` for terminal Claude tabs). Workers inherit their coordinator's pin.

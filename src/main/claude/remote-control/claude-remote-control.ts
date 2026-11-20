@@ -9,18 +9,33 @@ export type ClaudeRemoteControlCommand =
   | { action: 'enable'; name?: string }
   | { action: 'disable' }
   | { action: 'status' }
+  /** `/rc` or `/remote-control` with arguments Orca cannot read: answered with how to use it. */
+  | { action: 'usage' }
 
 // `.` never matches a line break, so the whole command sits on one line.
 const COMMAND = /^\/(?:remote-control|rc)(?:[ \t]+(.*))?$/u
+/** The message starts with the command word, on any number of lines. */
+const ADDRESSED = /^\/(?:remote-control|rc)(?:\s|$)/u
 const NAMED = /^on[ \t]+(.+)$/iu
 const MAX_NAME_LENGTH = 200
+/** Words a person likely meant as an action, not as a session name. */
+const NOT_NAMES = new Set(['start', 'enable', 'disable', 'help'])
 
-/** The command when the whole message, on one line, is `/rc` or `/remote-control` followed by
- *  nothing, `on`, `off`, `stop`, `status` or `on <name>`. Null otherwise: the text goes to Claude. */
+export const CLAUDE_REMOTE_CONTROL_USAGE =
+  'Usage: /rc (or /remote-control) [on [name] | <name> | off | status], on one line. A name is at most 200 characters.'
+
+/** The command when the whole message is `/rc` or `/remote-control`, alone or followed by `on`,
+ *  `off`, `stop`, `status`, `on <name>` or `<name>`. A message addressed to the command that does
+ *  not read as one of those (several lines, a too long name, `start`) is `usage`, so it never
+ *  reaches Claude, which does not know the command. Null when the message is not the command. */
 export function parseClaudeRemoteControlCommand(text: string): ClaudeRemoteControlCommand | null {
-  const match = COMMAND.exec(text.trim())
-  if (!match) {
+  const trimmed = text.trim()
+  if (!ADDRESSED.test(trimmed)) {
     return null
+  }
+  const match = COMMAND.exec(trimmed)
+  if (!match) {
+    return { action: 'usage' }
   }
   const argument = (match[1] ?? '').trim()
   const word = argument.toLowerCase()
@@ -33,8 +48,10 @@ export function parseClaudeRemoteControlCommand(text: string): ClaudeRemoteContr
   if (word === 'status') {
     return { action: 'status' }
   }
-  const name = NAMED.exec(argument)?.[1]?.trim()
-  return name && name.length <= MAX_NAME_LENGTH ? { action: 'enable', name } : null
+  const name = (NAMED.exec(argument)?.[1] ?? argument).trim()
+  return name.length > 0 && name.length <= MAX_NAME_LENGTH && !NOT_NAMES.has(name.toLowerCase())
+    ? { action: 'enable', name }
+    : { action: 'usage' }
 }
 
 export type ClaudeRemoteControlResponse = {
@@ -78,15 +95,18 @@ export const CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS: AgentSessionSlashCommand[] = 
     name: 'remote-control',
     kind: 'command',
     description: 'Orca: turn Claude Code Remote Control on (off, status) for this chat',
-    argumentHint: '[on [name]|off|status]'
+    argumentHint: '[on [name]|<name>|off|status]'
   },
   {
     name: 'rc',
     kind: 'command',
     description: 'Orca: alias for /remote-control',
-    argumentHint: '[on [name]|off|status]'
+    argumentHint: '[on [name]|<name>|off|status]'
   }
 ]
+
+// Subscribers compare catalogs by identity, so one reported catalog keeps one extended copy.
+const extended = new WeakMap<AgentSessionSlashCommand[], AgentSessionSlashCommand[]>()
 
 /** Live catalogs gain Orca's commands when the child can take the request; unknown stays unknown. */
 export function withClaudeRemoteControlCommands(
@@ -101,7 +121,13 @@ export function withClaudeRemoteControlCommands(
   if (commands === undefined || typeof session?.connection.remoteControl !== 'function') {
     return commands
   }
+  const known = extended.get(commands)
+  if (known) {
+    return known
+  }
   const names = new Set(commands.map((command) => command.name))
   const added = CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS.filter((command) => !names.has(command.name))
-  return added.length === 0 ? commands : [...commands, ...added]
+  const result = added.length === 0 ? commands : [...commands, ...added]
+  extended.set(commands, result)
+  return result
 }

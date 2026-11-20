@@ -1,7 +1,8 @@
 // overhedge: per-chat Claude Code Remote Control state (see claude-remote-control.ts).
-import type {
-  ClaudeRemoteControlCommand,
-  ClaudeRemoteControlResponse
+import {
+  CLAUDE_REMOTE_CONTROL_USAGE,
+  type ClaudeRemoteControlCommand,
+  type ClaudeRemoteControlResponse
 } from './claude-remote-control'
 
 /** The part of a Claude connection this feature uses. */
@@ -151,11 +152,24 @@ export class ClaudeRemoteControlRegistry {
     return this.sessions.has(sessionId)
   }
 
+  /** True while Remote Control runs on this child: prompts can then arrive that Orca did not send. */
+  isOnFor(connection: unknown): boolean {
+    for (const state of this.sessions.values()) {
+      if (state.wanted && state.connection === connection && state.enabledOn === connection) {
+        return true
+      }
+    }
+    return false
+  }
+
   /** The answer when no request to Claude is needed (status, or no running child); else null. */
   immediate(
     sessionId: string,
     command: ClaudeRemoteControlCommand
   ): ClaudeRemoteControlNote | null {
+    if (command.action === 'usage') {
+      return { text: CLAUDE_REMOTE_CONTROL_USAGE, tone: 'warning' }
+    }
     const state = this.sessions.get(sessionId)
     if (state && !running(state.connection) && state.connection) {
       this.observeExit(sessionId, state.connection)

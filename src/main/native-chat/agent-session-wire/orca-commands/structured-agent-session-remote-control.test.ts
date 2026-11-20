@@ -45,7 +45,7 @@ describe('interceptRemoteControlSend', () => {
       interceptRemoteControlSend(claude.host, send([text('/orca-account')]), registry)
     ).resolves.toBeNull()
     await expect(
-      interceptRemoteControlSend(claude.host, send([text('/rc please look at CI')]), registry)
+      interceptRemoteControlSend(claude.host, send([text('/rcx please look at CI')]), registry)
     ).resolves.toBeNull()
     const codex = noticeHost('codex')
     await expect(
@@ -53,6 +53,31 @@ describe('interceptRemoteControlSend', () => {
     ).resolves.toBeNull()
     expect(claude.appendOrcaNotice).not.toHaveBeenCalled()
     expect(codex.appendOrcaNotice).not.toHaveBeenCalled()
+  })
+
+  it('answers a malformed command with a usage row and never sends it to Claude', async () => {
+    const registry = new ClaudeRemoteControlRegistry()
+    const remoteControl = vi.fn()
+    registry.observeConnection('s', {
+      remoteControl,
+      initializationResult: async () => ({})
+    })
+    const claude = noticeHost('claude')
+    const result = await interceptRemoteControlSend(
+      claude.host,
+      send([text('/remote-control on\nmy test')]),
+      registry,
+      new OrcaCommandReplyLedger()
+    )
+    expect(result?.ok).toBe(true)
+    expect(claude.appendOrcaNotice).toHaveBeenCalledTimes(1)
+    expect(claude.appendOrcaNotice).toHaveBeenCalledWith(
+      's',
+      `${REMOTE_CONTROL_ROW_PREFIX}op-1`,
+      expect.stringContaining('Usage: /rc'),
+      'warning'
+    )
+    expect(remoteControl).not.toHaveBeenCalled()
   })
 
   it('answers at once, then revises its row with the result', async () => {
