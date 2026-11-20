@@ -35,14 +35,15 @@ jobs:
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
       version: ${{ steps.resolve.outputs.version }}
+      base: ${{ steps.resolve.outputs.base }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
-      # Why build metadata: dpkg sorts 1.4.251+overhedge.N above the official 1.4.251, while the
-      # app's own version compare (src/shared/app-version.ts, plugin engine ranges) ignores `+…`
-      # and keeps treating the build as 1.4.251.
+      # Why build metadata: dpkg sorts <base>+overhedge.N above the official <base> (e.g. 1.4.266),
+      # while the app's own version compare (plugin engine ranges, update checks) ignores `+...`
+      # and keeps treating the build as <base>.
       - id: resolve
         shell: bash
         run: |
@@ -55,6 +56,7 @@ jobs:
           version="${base}+overhedge.${GITHUB_RUN_NUMBER}.g${sha:0:10}"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "Building ${{ inputs.ref || github.ref }} at $sha as $version" >> "$GITHUB_STEP_SUMMARY"
 
   # The server runs orca serve on the plain-Node orcad slot materialized from this template, so
@@ -163,7 +165,7 @@ jobs:
           retry_wait_seconds: 30
           command: node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron && pnpm exec electron-builder --config config/electron-builder.config.cjs --linux deb --x64 --publish never
 
-      # electron-builder drops semver build metadata from the deb Version (it emits 1.4.251), so
+      # electron-builder drops semver build metadata from the deb Version (it emits <base>), so
       # dpkg would treat the fork build as the official one. Rewrite only the control Version;
       # sudo keeps root ownership and the setuid chrome-sandbox through the repack.
       - name: Stamp the fork version into the deb
@@ -192,11 +194,13 @@ jobs:
 
       - name: Describe the package
         id: describe
+        env:
+          BASE_VERSION: ${{ needs.resolve.outputs.base }}
         run: |
           set -euo pipefail
           deb="$(ls dist/orca-ide_*_amd64.deb)"
           dpkg-deb --field "$deb" Package Version Architecture
-          dpkg --compare-versions "$(dpkg-deb --field "$deb" Version)" gt 1.4.251
+          dpkg --compare-versions "$(dpkg-deb --field "$deb" Version)" gt "$BASE_VERSION"
           sha256sum "$deb" | tee "$deb.sha256"
           echo "name=$(basename "$deb" .deb)" >> "$GITHUB_OUTPUT"
           {
