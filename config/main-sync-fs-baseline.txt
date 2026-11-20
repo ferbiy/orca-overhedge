@@ -78,6 +78,7 @@
 4 src/main/browser/routing/partitions/browser-route-partition-pending-deletes.ts
 4 src/main/browser/sessions/profiles/browser-session-meta-store.ts
 2 src/main/browser/site-settings/browser-profile-site-store.ts
+6 src/main/claude-accounts/chat-pins/claude-chat-account-pin-store.ts # overhedge fork: per-chat Claude account pin file (small JSON, ids only), read on Claude launch and written on /orca-account or account migrate
 2 src/main/claude-accounts/profiles/claude-profile-homes.ts
 7 src/main/claude-accounts/profiles/claude-profile-paths.ts
 1 src/main/claude-accounts/profiles/routing/claude-observed-config-dirs.ts

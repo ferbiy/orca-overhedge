@@ -25,8 +25,10 @@ import {
   acceptedOrcaCommandReply,
   orcaCommandReplies,
   orcaNotices,
-  type OrcaCommandReplyLedger
+  type OrcaCommandReplyLedger,
+  type OrcaNoticeHost
 } from './structured-agent-session-orca-notice'
+import type { StructuredAgentSessionHost } from '../host/structured-agent-session-host'
 
 export const REMOTE_CONTROL_ROW_PREFIX = 'overhedge-remote-control:'
 
@@ -35,7 +37,9 @@ type NoteJournal = Pick<AgentSessionJournal, 'appendItem'>
 /** Bind a host's journals as a place Remote Control notes can land; returns the writer. Each note
  *  is published to the chat's open clients, as `appendOrcaNotice` rows are. */
 export function createRemoteControlNoteWriter<Journal extends NoteJournal>(
-  sessions: { get(sessionId: string): { journal: Journal } | undefined },
+  sessions: {
+    get(sessionId: string): { journal: Journal } | undefined | Promise<{ journal: Journal }>
+  },
   readStore: () => Pick<AgentSessionRecordStore, 'getConversation'>,
   now: () => number,
   registry: ClaudeRemoteControlRegistry = claudeRemoteControl,
@@ -43,9 +47,9 @@ export function createRemoteControlNoteWriter<Journal extends NoteJournal>(
 ): (sessionId: string, note: ClaudeRemoteControlNote) => Promise<boolean> {
   let sequence = 0
   const write = async (sessionId: string, note: ClaudeRemoteControlNote): Promise<boolean> => {
-    const session = sessions.get(sessionId)
     const store = readStore()
-    if (!session || !store.getConversation(sessionId)) {
+    const session = store.getConversation(sessionId) ? await sessions.get(sessionId) : undefined
+    if (!session) {
       return false
     }
     await session.journal.appendItem(
@@ -66,27 +70,26 @@ export function createRemoteControlNoteWriter<Journal extends NoteJournal>(
   return write
 }
 
-let removeHostNoteWriter: (() => void) | null = null
+let noteHost: { host: OrcaNoticeHost; remove: () => void } | null = null
 
-/** The host's Orca rows: `appendOrcaNotice` for command answers, plus Remote Control's restart
- *  notes registered on the same journals, store and client delivery. */
-export function hostOrcaNotices(
-  parts: Parameters<typeof orcaNotices>[0],
-  sessions: { get(sessionId: string): { journal: AgentSessionJournal } | undefined },
-  now: () => number
-): ReturnType<typeof orcaNotices> {
-  // A rebuilt host replaces the previous host's writer instead of adding another one.
-  removeHostNoteWriter?.()
-  const write = createRemoteControlNoteWriter(
-    sessions,
-    () => parts()[1],
-    now,
-    claudeRemoteControl,
-    (sessionId, journal) => parts()[2].publishJournal(sessionId, journal)
-  )
-  // The Set already holds `write`; this only returns its remover.
-  removeHostNoteWriter = claudeRemoteControl.addNoteWriter(write)
-  return orcaNotices(parts)
+/** The host as Orca's chat commands use it: its agent per chat and `appendOrcaNotice` rows. The
+ *  first use with a host also lands Remote Control's restart notes in its chats; a rebuilt host
+ *  replaces the previous host's writer instead of adding another one. */
+export function orcaCommandHost(
+  host: OrcaNoticeHost & Pick<StructuredAgentSessionHost, 'sessionAgent'>
+): RemoteControlInterceptHost {
+  if (noteHost?.host !== host) {
+    noteHost?.remove()
+    const write = createRemoteControlNoteWriter(
+      { get: (sessionId) => host.conversation(sessionId) },
+      () => host.deps.store,
+      () => host.deps.now?.() ?? Date.now(),
+      claudeRemoteControl
+    )
+    // The Set already holds `write`; this only returns its remover.
+    noteHost = { host, remove: claudeRemoteControl.addNoteWriter(write) }
+  }
+  return { sessionAgent: (sessionId) => host.sessionAgent(sessionId), appendOrcaNotice: orcaNotices(host) }
 }
 
 type SendLike = {

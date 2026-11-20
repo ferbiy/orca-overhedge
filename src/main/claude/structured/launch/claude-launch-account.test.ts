@@ -50,7 +50,7 @@ function routerFixture() {
     ...reads,
     listAccounts: () => [X, B],
     prepareLaunch: async () => claudeAccountPreparation(reads, B.id),
-    prepareLaunchForAccount: async (id: string) => claudeAccountPreparation(reads, id)
+    prepareLaunchForAccount: async () => {}
   }
 }
 

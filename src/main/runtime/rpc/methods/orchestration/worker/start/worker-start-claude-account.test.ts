@@ -132,6 +132,7 @@ function fakes(router: ReturnType<typeof fixtureRouter>) {
         }
       }
     ),
+    showRepo: vi.fn(async () => ({ id: 'repo_1' })),
     listTerminals: vi.fn(async () => ({ terminals: [] })),
     createTerminal: vi.fn(async (_selector: string, opts: { tabId?: string; leafId?: string }) => {
       pinnedAtSpawn.push(paneAccount(opts.tabId ? `${opts.tabId}:${opts.leafId}` : undefined))
@@ -141,7 +142,7 @@ function fakes(router: ReturnType<typeof fixtureRouter>) {
     getClientSettings: vi.fn(() => ({})),
     ensureStructuredAgentSessionHost: async () => {}
   }
-  const db = { recordWorkerStage: vi.fn() }
+  const db = { recordWorkerStage: vi.fn(), retainWorkerLaunchObservation: vi.fn() }
   return { runtime, db, pinnedAtSpawn }
 }
 
@@ -166,6 +167,7 @@ function place(
     creationTarget: args.existing
       ? undefined
       : { repoSelector: 'repo_1', parentWorktreeId: 'wt_coord' },
+    orchestrationRunId: 'run_1',
     resolvedWorktree: args.existing ? { id: 'wt_existing', repoId: 'repo_1' } : undefined,
     mode: args.mode,
     agent: 'claude',

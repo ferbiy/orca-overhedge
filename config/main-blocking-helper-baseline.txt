@@ -192,13 +192,14 @@
 1 src/main/browser/site-settings/browser-profile-site-store.ts
 1 src/main/browser/site-settings/display/browser-site-display-store.ts
 1 src/main/browser/site-settings/permissions/browser-site-permission-store.ts
+2 src/main/claude-accounts/chat-pins/claude-chat-account-pin-store.ts # overhedge fork: per-chat Claude account pin file (small JSON, ids only), read on Claude launch and written on /orca-account or account migrate
 1 src/main/claude-accounts/profiles/claude-profile-homes.ts
 11 src/main/claude-accounts/profiles/claude-profile-paths.ts
 3 src/main/claude-accounts/profiles/routing/claude-observed-config-dirs.ts
 1 src/main/claude-accounts/profiles/routing/claude-profile-installed-router.ts
 1 src/main/claude-accounts/profiles/routing/claude-profile-launch-preparation.ts
 1 src/main/claude-accounts/profiles/routing/claude-profile-routed-home.ts
-11 src/main/claude-accounts/profiles/routing/claude-profile-router.ts
+12 src/main/claude-accounts/profiles/routing/claude-profile-router.ts # overhedge fork: prepareLaunchForAccount prepares a pinned account folder exactly as prepareLaunch does for the selection; was 11
 3 src/main/claude-accounts/profiles/setup/claude-profile-history.ts
 14 src/main/claude-accounts/profiles/setup/claude-profile-prompt-history.ts
 11 src/main/claude-accounts/profiles/setup/claude-profile-provisioning.ts

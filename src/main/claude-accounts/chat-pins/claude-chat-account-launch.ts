@@ -13,6 +13,7 @@ import {
   terminalChatPinKey
 } from './claude-chat-account-pins'
 import { resolveClaudeMigrationTarget } from './claude-chat-account-migration'
+import { getClaudeProfileRouter } from '../profiles/routing/claude-profile-installed-router'
 
 export type ClaudeLaunchAccountRouter = {
   pointerPath: string
@@ -132,4 +133,19 @@ export function coordinatorClaudeLaunchAccount(
     // Pins unreadable: the worker follows the global selection, as before.
     return null
   }
+}
+
+/** A new orchestration worker: reserve its pane and chat session id and pin both before anything
+ *  starts; `settle` drops the pin of the one the launch did not use. */
+export function pinNewClaudeWorker(accountId: string | null | undefined): {
+  keys: { paneKey: string; sessionId: string }
+  settle: (used: 'terminal' | 'structured') => void
+} | null {
+  const router = accountId ? getClaudeProfileRouter() : undefined
+  if (!accountId || !router) {
+    return null
+  }
+  const keys = { paneKey: makePaneKey(randomUUID(), randomUUID()), sessionId: randomUUID() }
+  pinClaudeLaunch(router, accountId, keys)
+  return { keys, settle: (used) => dropUnusedClaudeLaunchPin(router, keys, used) }
 }

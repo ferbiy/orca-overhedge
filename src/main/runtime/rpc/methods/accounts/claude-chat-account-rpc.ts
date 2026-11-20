@@ -17,7 +17,8 @@ import type { StructuredAgentSessionHost } from '../../../../native-chat/agent-s
 import { getStructuredAgentSessionHost } from '../../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import {
   acceptedOrcaCommandReply,
-  orcaCommandReplies
+  orcaCommandReplies,
+  orcaNotices
 } from '../../../../native-chat/agent-session-wire/orca-commands/structured-agent-session-orca-notice'
 import { refuseUnclassified } from '../../../../../shared/agent-session/failures/agent-session-wire-refusals'
 import { defineMethod, type RpcContext } from '../../core'
@@ -121,9 +122,10 @@ export async function interceptClaudeAccountSlashCommand(
   }
   return orcaCommandReplies.once(sessionId, clientOperationId, async () => {
     const rowId = `overhedge-account:${clientOperationId}`
+    const writeNotice = orcaNotices(host)
     const changes = command.kind === 'move' || command.kind === 'unpin'
     const first = changes ? "Changing this chat's Claude account\u2026" : runAccountCommand(command, sessionId, ctx, host)
-    const notice = await host.appendOrcaNotice(sessionId, rowId, first).catch(() => null)
+    const notice = await writeNotice(sessionId, rowId, first).catch(() => null)
     if (!notice) {
       return {
         ok: false as const,
@@ -144,14 +146,12 @@ export async function interceptClaudeAccountSlashCommand(
     }
     // Never leave the interim "Changing ..." row as the last word: retry once, then a short final row.
     const settled =
-      (await host.appendOrcaNotice(sessionId, rowId, text).catch(() => null)) ??
-      (await host
-        .appendOrcaNotice(
-          sessionId,
-          rowId,
-          "Orca could not record the result here. Run /orca-account to see this chat's Claude account."
-        )
-        .catch(() => null))
+      (await writeNotice(sessionId, rowId, text).catch(() => null)) ??
+      (await writeNotice(
+        sessionId,
+        rowId,
+        "Orca could not record the result here. Run /orca-account to see this chat's Claude account."
+      ).catch(() => null))
     return acceptedOrcaCommandReply(clientOperationId, settled ?? notice)
   })
 }

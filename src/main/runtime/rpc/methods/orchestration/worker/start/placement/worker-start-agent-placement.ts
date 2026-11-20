@@ -1,11 +1,5 @@
 import type { RuntimeTerminalCreate } from '../../../../../../../../shared/terminal/runtime/runtime-terminal-create-contract'
-import { randomUUID } from 'node:crypto'
-import { makePaneKey } from '../../../../../../../../shared/workspace-layout/stable-pane-id'
-import { getClaudeProfileRouter } from '../../../../../../../claude-accounts/profiles/routing/claude-profile-installed-router'
-import {
-  dropUnusedClaudeLaunchPin,
-  pinClaudeLaunch
-} from '../../../../../../../claude-accounts/chat-pins/claude-chat-account-launch'
+import { pinNewClaudeWorker } from '../../../../../../../claude-accounts/chat-pins/claude-chat-account-launch'
 /** Use the shared executor for new workers; structured worktrees omit startup agent, then resolve host support before chat creation.
  * Keep worker lineage/effects and background presentation in factories; caller passes the pre-decided mode.
  * Structured create refusals fail start through the worker error contract instead of silently downgrading. */
@@ -144,7 +138,7 @@ async function launchWorkerAgent(
   existing: PlacedWorktree | undefined
 ): Promise<WorkerAgentPlacement> {
   const agent = requireAgent(args.agent)
-  const claudePin = pinWorkerClaudeAccount(args.claudeAccountId)
+  const claudePin = pinNewClaudeWorker(args.claudeAccountId)
   let created: Awaited<ReturnType<typeof createWorkerWorktree>> | undefined
   let structuredSession: WorkerStructuredSession | null = null
   let terminalCreation: RuntimeTerminalCreate | undefined
@@ -306,21 +300,6 @@ function workerSurfaceFactory(
       }
     }
   }
-}
-
-/** Overhedge: reserve the new worker's pane and chat session id and pin both before anything starts;
- *  `settle` drops the pin of the one the launch did not use. */
-function pinWorkerClaudeAccount(accountId: string | null | undefined): {
-  keys: { paneKey: string; sessionId: string }
-  settle: (used: 'terminal' | 'structured') => void
-} | null {
-  const router = accountId ? getClaudeProfileRouter() : undefined
-  if (!accountId || !router) {
-    return null
-  }
-  const keys = { paneKey: makePaneKey(randomUUID(), randomUUID()), sessionId: randomUUID() }
-  pinClaudeLaunch(router, accountId, keys)
-  return { keys, settle: (used) => dropUnusedClaudeLaunchPin(router, keys, used) }
 }
 
 function requirePlacement<T>(placement: T | undefined): T {

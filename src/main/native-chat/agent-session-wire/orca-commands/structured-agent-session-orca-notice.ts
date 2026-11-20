@@ -4,38 +4,32 @@ import type {
   AgentSessionMutationResult,
   AgentSessionSendResult
 } from '../../../../shared/agent-session/agent-session-wire'
-import type { AgentSessionJournal } from '../../agent-session-journal/journal-store'
 import type { AgentJournalCursor } from '../../../../shared/agent-session/journal/agent-session-journal-identity'
-import type { AgentSessionRecordStore } from '../../../runtime/agent-session/records/agent-session-record-store'
-import type { StructuredAgentSessionHostSession } from '../host/structured-agent-session-host-types'
+import type { StructuredAgentSessionHost } from '../host/structured-agent-session-host'
+import { writeStructuredAgentSessionOrcaNote } from '../structured-agent-session-orca-note'
 
-type OrcaNoticeParts = readonly [
-  { conversation: (sessionId: string) => Promise<StructuredAgentSessionHostSession> },
-  Pick<AgentSessionRecordStore, 'getRecord' | 'getConversation'>,
-  { publishJournal: (sessionId: string, journal: AgentSessionJournal) => void }
-]
+export type OrcaNoticeHost = Pick<StructuredAgentSessionHost, 'deps' | 'conversation'>
 
-/** Bound by the host to its lifetime, record store and client delivery. */
-export function orcaNotices(parts: () => OrcaNoticeParts) {
+/** Writes (or, with the same id, revises) an Orca row through upstream's Orca-note path, which
+ *  delivers it to the chat's open clients; null when the chat has no record. */
+export function orcaNotices(host: OrcaNoticeHost) {
   return async (
     sessionId: string,
     noticeId: string,
     text: string,
     tone = 'notice'
   ): Promise<{ fence: number; cursor: AgentJournalCursor } | null> => {
-    const [lifetime, store, delivery] = parts()
-    const session = await lifetime.conversation(sessionId)
-    const record = store.getRecord(sessionId)
+    const record = host.deps.store.getRecord(sessionId)
     if (!record) {
       return null
     }
-    await session.journal.appendItem(
-      { provider: 'orca', clientMessageId: noticeId },
-      { kind: 'status', tone, text },
-      { fence: record.lease.runtimeFence, turnScope: { kind: 'thread' } }
-    )
-    delivery.publishJournal(sessionId, session.journal)
-    return { fence: record.lease.runtimeFence, cursor: session.journal.cursor() }
+    await writeStructuredAgentSessionOrcaNote(host, sessionId, noticeId, {
+      kind: 'status',
+      tone,
+      text
+    })
+    const { journal } = await host.conversation(sessionId)
+    return { fence: record.lease.runtimeFence, cursor: journal.cursor() }
   }
 }
 

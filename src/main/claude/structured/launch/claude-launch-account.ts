@@ -4,27 +4,54 @@ import { applyClaudeEnvPatch } from '../../../claude-accounts/runtime-auth/envir
 import { claudeConfigDirEnvPatch } from './claude-config-dir-pin'
 import { resolveStructuredClaudeAccountHomePath } from '../../../runtime/agent-session/environment/structured-agent-account-home'
 import { pinnedClaudeAccountForChat } from '../../../claude-accounts/chat-pins/claude-chat-account-pins'
+import { claudeAccountPreparation } from '../../../claude-accounts/chat-pins/claude-chat-account-preparation'
 import { pinnedClaudeLaunchAccountHome } from '../../../claude-accounts/chat-pins/claude-chat-account-pin-home'
+import { requireLegacyAgentSessionAccountHome } from '../../../../shared/agent-session/lifecycle/accounts/agent-session-account-home'
+import type { AgentSessionRecord } from '../../../../shared/agent-session/lifecycle/agent-session-record'
+
+/** Overhedge: a chat launch passes its record, so a pinned chat launches (and is probed) under its
+ *  pin; other callers pass the record's home path, optionally with the chat id. */
+type ClaudeLaunchHome = string | Pick<AgentSessionRecord, 'sessionId' | 'accountHome'>
+
+function launchHomeParts(
+  launchHome: ClaudeLaunchHome,
+  orcaSessionId: string | undefined
+): { recordHome: string; orcaSessionId: string | undefined } {
+  return typeof launchHome === 'string'
+    ? { recordHome: launchHome, orcaSessionId }
+    : {
+        recordHome: requireLegacyAgentSessionAccountHome(launchHome.accountHome).path,
+        orcaSessionId: launchHome.sessionId
+      }
+}
 
 /** The account a launch runs under is the current selection; the receipt records what it used. */
 export async function prepareClaudeLaunchAccount(
   router:
     | Pick<
         ClaudeProfileRouter,
-        'prepareLaunch' | 'prepareLaunchForAccount' | 'systemDefaultHome' | 'pointerPath' | 'listAccounts'
+        | 'prepareLaunch'
+        | 'prepareLaunchForAccount'
+        | 'systemDefaultHome'
+        | 'pointerPath'
+        | 'listAccounts'
+        | 'coveredBySystemDefault'
+        | 'accountHome'
       >
     | undefined,
   env: Record<string, string>,
-  recordHome: string,
-  /** Overhedge: the chat's Orca session id; a pinned chat launches under its pin. */
-  orcaSessionId?: string
+  launchHome: ClaudeLaunchHome,
+  chatId?: string
 ): Promise<ClaudeAccountRecipe> {
+  const { recordHome, orcaSessionId } = launchHomeParts(launchHome, chatId)
   if (!router) {
     return { route: 'system', home: recordHome, configDir: env.CLAUDE_CONFIG_DIR ?? null }
   }
   const pin = pinnedClaudeAccountForChat(router, orcaSessionId)
   const preparation = pin
-    ? await router.prepareLaunchForAccount(pin.accountId)
+    ? await router
+        .prepareLaunchForAccount(pin.accountId)
+        .then(() => claudeAccountPreparation(router, pin.accountId))
     : await router.prepareLaunch()
   // A pin names its account's own folder (the System default login's for a covered account);
   // resolving the home again would read the global selection and launch under that instead.
@@ -48,10 +75,10 @@ export async function prepareClaudeLaunchAccount(
 export async function withClaudeLaunchAccountPin(
   router: ClaudeProfileRouter | undefined,
   env: Record<string, string>,
-  recordHome: string,
-  /** Overhedge: the chat's Orca session id; a pinned chat's flags are checked as its pin. */
-  orcaSessionId?: string
+  launchHome: ClaudeLaunchHome,
+  chatId?: string
 ): Promise<Record<string, string>> {
+  const { recordHome, orcaSessionId } = launchHomeParts(launchHome, chatId)
   const pinned =
     router && orcaSessionId ? pinnedClaudeLaunchAccountHome(orcaSessionId, router) : null
   const home = pinned
