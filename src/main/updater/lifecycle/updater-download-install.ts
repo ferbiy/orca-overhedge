@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { releaseUpdatesEnabled } from '../overhedge-release-updates'
 import {
   beginMacUpdateDownload,
   deferMacQuitUntilInstallerReady,
@@ -171,7 +171,7 @@ export abstract class UpdaterDownloadInstall extends UpdaterRequiredRestart {
 
   private canDownloadAutomatically(version: string): boolean {
     return (
-      app.isPackaged &&
+      releaseUpdatesEnabled() &&
       this.getAutomaticUpdates?.() === true &&
       this.implicitInstallOnQuit &&
       this.automaticDownloadOfferVersion === version &&

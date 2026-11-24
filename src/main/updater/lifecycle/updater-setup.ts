@@ -1,4 +1,5 @@
 import { app, powerMonitor } from 'electron'
+import { releaseUpdatesEnabled } from '../overhedge-release-updates'
 import type { BrowserWindow } from 'electron'
 import type { ReleaseBuild, ReleaseChannel } from '../../../shared/updater/release-channel'
 import type { ReleaseBuildListOptions } from '../releases/updater-release-build-cache'
@@ -170,7 +171,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       this.sendErrorStatus(`The server update did not complete: ${serveHandoffFailure}`, true)
     }
 
-    if (!app.isPackaged) {
+    if (!releaseUpdatesEnabled()) {
       return
     }
 
