@@ -84,11 +84,11 @@ pending=""
 # The build host (first "local" entry of hosts.conf) still waiting for a build of this release.
 # Remote hosts' markers do not hold up new ports: a newer build replaces them.
 local_host=$(ovh_hosts | awk '$2 == "local" {print $1; exit}')
-for m in "$OVH_STATE/pending/${local_host:-orca-ide}"; do
-  [ -f "$m" ] || continue
+m="$OVH_STATE/pending/${local_host:-orca-ide}"
+if [ -f "$m" ]; then
   d=$(sed -n 's/^DEB=//p' "$m")
-  [[ "$(basename "$d")" == orca-ide_"$ver"+overhedge.* ]] && pending="$d ($(basename "$m"))"
-done
+  if [[ "$(basename "$d")" == orca-ide_"$ver"+overhedge.* ]]; then pending="$d ($(basename "$m"))"; fi
+fi
 failed=no
 [ -f "$OVH_STATE/stopped-$rid" ] && failed=yes
 

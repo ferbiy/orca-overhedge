@@ -3,7 +3,7 @@
 set -uo pipefail
 B=~/overhedge-build; T=${OVH_TEST_DIR:-$(cd "$(dirname "$0")" && pwd)}; C=ovh-deploy-test
 OK=orca-ide_1.4.273+overhedge.18.ge5c6fe334d_amd64.deb; OFF=orca-ide_1.4.273_amd64.deb
-cd "$T"
+cd "$T" || exit 1
 docker build -q -t ovh-deploy-test:1 . >/dev/null || exit 1
 # broken deb: same package, higher version, binary that exits 1
 if [ ! -f work/broken.deb ]; then
