@@ -1,3 +1,36 @@
+## Overhedge fork of Orca
+
+This is official [Orca](https://github.com/stablyai/orca) plus a small patch, mostly server-side
+(main process), re-applied onto each upstream release we adopt. The patch branch is
+`overhedge/patch-<release>` on `overhedge/base-<release>` (the upstream tag); builds carry the
+version suffix `+overhedge.<n>.g<sha>` (for example `1.4.273+overhedge.21.g0123456789`).
+
+What the fork adds:
+
+- Remote Control in native Claude chats: `/rc` and `/remote-control [on [name]|<name>|off|status]`
+  turn Claude Code Remote Control on for the chat; prompts sent from claude.ai or the Claude phone
+  app show in the Orca chat with their replies; both commands appear in the chat's slash menu.
+- Per-chat Claude account pins: `/orca-account [<id|email>|auto]` in a Claude chat, and
+  `--account <id|email>` on `orca agent launch`, `orca worktree create --agent claude` and
+  `orca orchestration worker-start`. Workers inherit their coordinator's pin.
+- Migration between accounts: `/orca-migrate <id|email>|auto [--with-workers]` in a chat, and
+  `orca account migrate (--to <id|email> | --unpin) (--chat <id>... | --with-workers <id>... |
+  --all-on <id|email>) [--restart [--timeout <s>] [--yes]] [--dry-run]` on the CLI.
+- Cross-account peer messaging: Claude chats and terminals under different managed accounts see
+  and message each other, because the accounts share Claude's `sessions` folder.
+- The fork's macOS build never updates itself to an official release.
+
+Left to upstream: host-wide account switching and restarting running terminal Claude tabs on a
+switch (Settings, Claude). `orca account migrate --restart` now uses upstream's restart-in-place
+(new terminal in the same pane) instead of the fork's own sequence, on headless servers only.
+
+Details, the overlap with upstream, rollout and how to re-apply on a new release:
+[OVERHEDGE.md](OVERHEDGE.md). Builds: dispatch `overhedge-server-deb.yml` (Linux server deb) or
+`overhedge-mac-app.yml` (ad-hoc-signed macOS app) from branch `overhedge/ci`, for example
+`gh workflow run overhedge-server-deb.yml -R ferbiy/orca-overhedge --ref overhedge/ci -f ref=<sha>`.
+
+---
+
 <h1 align="center">
   <a href="https://orca.dev"><img src="resources/build/icon.png" alt="Orca" width="64" valign="middle" /></a> Orca
 </h1>
