@@ -46,8 +46,8 @@ echo "installed on host: $(ovh_installed_version)"
 
 if [ -n "$MAC_RUN" ]; then
   M=$A/mac; mkdir -p "$M"
-  MNAME=$(gh api "repos/$OVH_FORK_REPO/actions/runs/$MAC_RUN/artifacts" --jq '[.artifacts[].name] | first // empty')
-  [ -n "$MNAME" ] || { echo "FAIL no artifact in mac run $MAC_RUN"; exit 1; }
+  MNAME=$(gh api "repos/$OVH_FORK_REPO/actions/runs/$MAC_RUN/artifacts" --jq '[.artifacts[].name | select(startswith("Orca-") and contains("-mac-"))] | first // empty')
+  [ -n "$MNAME" ] || { echo "FAIL no Orca-*-mac-* artifact in mac run $MAC_RUN"; exit 1; }
   rm -rf "$DL/mac"; gh run download "$MAC_RUN" -R "$OVH_FORK_REPO" -n "$MNAME" -D "$DL/mac"
   zip=$(find "$DL/mac" -name '*.zip' | head -1); [ -n "$zip" ] || { echo "FAIL no zip in mac artifact"; exit 1; }
   mv "$zip" "$zip.sha256" "$M/"

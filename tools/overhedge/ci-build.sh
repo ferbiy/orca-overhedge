@@ -39,7 +39,8 @@ dispatch() { # <workflow> <extra -f args...> ; prints run id
   done
   echo "could not find the dispatched $wf run" >&2; return 1
 }
-artifact_of() { gh api "repos/$R/actions/runs/$1/artifacts" --jq '[.artifacts[].name] | join(",")'; }
+# The product artifact only (the runs also upload orcad-* build intermediates).
+artifact_of() { gh api "repos/$R/actions/runs/$1/artifacts" --jq '[.artifacts[].name | select(startswith("orca-ide_") or startswith("Orca-"))] | join(",")'; }
 
 deb_run=$(dispatch overhedge-server-deb.yml)
 log "deb run $deb_run: https://github.com/$R/actions/runs/$deb_run"
