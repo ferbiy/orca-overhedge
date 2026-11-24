@@ -1,7 +1,8 @@
-// Overhedge: `orca account migrate`, with opt-in (`--restart`) in-place restarts of terminal Claude
-// chats. Pins are written first (as before); without --restart every terminal pane gets the manual
-// command. With --restart each terminal pane in the plan is restarted in its own shell, one at a
-// time and workers first, or gets the manual command when an automatic restart is not provably safe.
+// Overhedge: `orca account migrate`, with opt-in (`--restart`) restarts of terminal Claude chats.
+// Pins are written first (as before); without --restart every terminal pane gets the manual command.
+// With --restart each terminal pane in the plan, one at a time and workers first, waits for its turn
+// to end and is restarted through upstream's restart-in-place (a new terminal in the same pane, which
+// the pin routes to the account), or gets the manual command when that is refused.
 import {
   claudeTerminalResumeLine,
   runClaudeChatMigration,
@@ -80,11 +81,11 @@ export async function runClaudeChatMigrationWithRestarts(
     }
     const outcome = await restartClaudeTerminalInPlace(
       port,
-      { paneKey: pane.paneKey, claudeSessionId: pane.claudeSessionId, resumeLine: manual },
+      { paneKey: pane.paneKey, claudeSessionId: pane.claudeSessionId },
       { idleDeadline, dryRun, signal }
     )
     if (outcome.kind === 'would-restart') {
-      lines.push(`  terminal ${pane.paneKey}: would restart in place (${outcome.detail})`)
+      lines.push(`  terminal ${pane.paneKey}: would restart (${outcome.detail})`)
     } else if (outcome.kind === 'refused') {
       lines.push(
         dryRun
@@ -93,11 +94,11 @@ export async function runClaudeChatMigrationWithRestarts(
       )
     } else if (outcome.kind === 'stopped-midway') {
       lines.push(
-        `  terminal ${pane.paneKey}: FAILED midway: ${outcome.reason}. The pin is kept; check the pane, and when the shell prompt is back run: ${manual}`
+        `  terminal ${pane.paneKey}: FAILED: ${outcome.reason}. The pin is kept; check the pane; if it shows a shell prompt, run: ${manual}`
       )
     } else {
       restarted += 1
-      lines.push(`  terminal ${pane.paneKey}: ${outcome.detail} (same shell and terminal)`)
+      lines.push(`  terminal ${pane.paneKey}: ${outcome.detail}`)
     }
   }
   if (unconfirmed) {
@@ -109,7 +110,7 @@ export async function runClaudeChatMigrationWithRestarts(
   if (dryRun || panes.length === 0) {
     return { ...result, lines }
   }
-  lines.push(`Restarted ${restarted} of ${panes.length} terminal pane(s) in place.`)
+  lines.push(`Restarted ${restarted} of ${panes.length} terminal pane(s).`)
   if (signal?.aborted === true) {
     // The client is gone; keep the outcome where an operator can find it.
     port.log?.(

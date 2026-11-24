@@ -40,7 +40,10 @@ function orchestrationDb(ctx: RpcContext) {
 function claudeTerminalChats(ctx: RpcContext) {
   return agentStatusRows(ctx)
     .filter((row) => row.agentType === 'claude' && row.paneKey)
-    .map((row) => ({ paneKey: row.paneKey, claudeSessionId: row.providerSession?.id ?? null }))
+    .map((row) => {
+      const id = row.providerSession?.id
+      return { paneKey: row.paneKey, claudeSessionId: typeof id === 'string' ? id : null }
+    })
 }
 
 function depsFor(ctx: RpcContext, host: StructuredAgentSessionHost): ClaudeChatAccountDeps | null {

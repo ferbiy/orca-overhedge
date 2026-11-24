@@ -16,7 +16,10 @@ tag `v1.4.266`; the patch is `overhedge/patch-266`. (The previous 1.4.251 port: 
   `/orca-account` and `/orca-migrate`, appended to the catalog the server already reports.
 - Per-chat Claude account pins: `/orca-account [<account>|auto]` and
   `/orca-migrate <account>|auto [--with-workers]` in a Claude chat; `orca account migrate` on the
-  CLI (with opt-in `--restart` for terminal Claude tabs). Workers inherit their coordinator's pin.
+  CLI (with opt-in `--restart` for terminal Claude tabs: on a headless server, once the turn has
+  ended, upstream's restart-in-place stops the tab's terminal and resumes the conversation in a new
+  terminal in the same pane, which the pin routes to the account). Workers inherit their
+  coordinator's pin.
 - `--account <id|email>` on `orca agent launch`, `orca worktree create --agent claude` and
   `orca orchestration worker-start`: the new Claude chat or terminal is pinned before it starts.
   This differs from upstream's `orca account select --agent claude --account ...` (new in 1.4.266),

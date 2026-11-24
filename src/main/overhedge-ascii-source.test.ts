@@ -58,7 +58,7 @@ describe('overhedge source files', () => {
     )
     expect(guarded.map((path) => relative(src, path).replaceAll('\\', '/'))).toEqual(
       expect.arrayContaining([
-        'main/claude-accounts/terminal-restart/claude-terminal-screen-proof.ts',
+        'main/claude-accounts/terminal-restart/claude-terminal-restart.ts',
         'main/runtime/rpc/methods/accounts/claude-chat-account-rpc.ts',
         ...UNMARKED_FORK_FILES
       ])

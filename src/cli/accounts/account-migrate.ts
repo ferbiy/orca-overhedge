@@ -78,7 +78,7 @@ export async function migrateClaudeChats(ctx: HandlerContext): Promise<void> {
       ...(yes ? { yes: true } : {}),
       ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {})
     },
-    // Terminal restarts wait for idle agents (one shared budget) plus exit/start checks per pane.
+    // Terminal restarts wait for idle agents (one shared budget) plus a stop and respawn per pane.
     // Ctrl-C or a dropped connection cancels the server side at its next safe point.
     { timeoutMs: ((timeoutSeconds ?? DEFAULT_IDLE_WAIT_SECONDS) + MIGRATE_GRACE_SECONDS) * 1000 }
   )
