@@ -261,7 +261,9 @@ same steps on `overhedge/rehearsal/base-<id>` and `overhedge/rehearsal/patch-<id
 rehearsal branches only if the CI build is part of the rehearsal; at the end delete them
 (`git -C ~/overhedge-build/fork push origin :overhedge/rehearsal/base-<id> :overhedge/rehearsal/patch-<id>`, the guard
 allows deleting only `overhedge/rehearsal/*`) and remove the rehearsal worktrees
-(`git -C ~/overhedge-build/fork worktree remove --force <dir>`) and local branches. A rehearsal of the release that
+(`git -C ~/overhedge-build/fork worktree remove --force <dir>`) and local branches. `run-update.sh` deletes the rehearsal deb (and mac zip) after the run, so it never takes a
+keep slot or sorts above a real build. Build the mac app in a rehearsal only from a ref that has the
+updater guard (the mac workflow refuses others, e.g. a re-port of 266). A rehearsal of the release that
 is already deployed re-ports it from the previous patch branch (e.g. 266 -> 273), so it meets the
 same conflicts as the real port did; compare the result with the real `overhedge/patch-<id>`
 (`git diff origin/overhedge/patch-<id> <rehearsal patch> --stat`) and describe the differences in the report. Keep `overhedge/ci` unchanged in a rehearsal

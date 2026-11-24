@@ -126,8 +126,19 @@ case "$RESULT" in
       summary "FAILED validation for $TAG: $why" <<<"$report"$'\n\n'"$tail_note"
       exit 1
     fi
-    if [ "$nodeploy" = 1 ]; then
-      summary "${rehearsal:+REHEARSAL }build of $TAG verified, not deployed (no-deploy run)" <<<"$report"$'\n\n'"$tail_note"
+    if [ -n "$rehearsal" ]; then
+      # Rehearsal builds never stay around: they would take a keep slot and sort above real builds.
+      rm -f "$DEB" "$DEB.sha256"
+      (cd "$OVH_ARTIFACTS" && if ls ./*.deb >/dev/null 2>&1; then sha256sum ./*.deb | sed 's# \./# #' > SHA256SUMS; fi)
+      [ -z "$MAC_ZIP" ] || rm -f "$MAC_ZIP" "$MAC_ZIP.sha256"
+      for d in "$OVH_HOME/rehearsal-base-$RID" "$OVH_HOME/rehearsal-patch-$RID"; do
+        if [ -d "$d" ] && [ ! -e "$d/.git" ]; then rm -rf "$d"; fi
+      done
+      git -C "$OVH_HOME/fork" worktree prune 2>/dev/null || true
+      tail_note+=" Rehearsal deb $(basename "$DEB") deleted after verification."
+      summary "REHEARSAL build of $TAG verified, not deployed" <<<"$report"$'\n\n'"$tail_note"
+    elif [ "$nodeploy" = 1 ]; then
+      summary "build of $TAG verified, not deployed (no-deploy run)" <<<"$report"$'\n\n'"$tail_note"
     else
       mkdir -p "$OVH_STATE/pending"
       hosts=""
