@@ -53,8 +53,9 @@ link an earlier build made, so a chat sees only peers under the same account.
   v1.4.273 has the same `claude-profile-history.ts`; onto `overhedge/patch-273` the commits apply
   except that 273 deleted `claude-profile-history.test.ts` (resolve with `git rm` of that file).
   Drop this change if upstream starts sharing `sessions` itself.
-- `~/relink-sessions.sh` on the server (a manual workaround that relinks one account's `sessions`) is no longer
-  needed with this build; its `sessions.plain-*` / `sessions.bak-*` folders are left alone.
+- `~/relink-sessions.sh` on the server (a manual workaround that relinks one account's
+  `sessions`) is no longer needed with this build; its `sessions.plain-*` / `sessions.bak-*`
+  folders are left alone.
 
 ## Build a branch
 
