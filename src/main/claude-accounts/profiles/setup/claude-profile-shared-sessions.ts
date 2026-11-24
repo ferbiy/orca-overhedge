@@ -10,7 +10,7 @@
 // home's (`~/.claude/sessions`, or the user's own CLAUDE_CONFIG_DIR), the folder System default
 // sessions already use. Nothing else becomes shared: the login, `.claude.json`, the daemon
 // and jobs stay per folder.
-import { mkdirSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { mergeDirectoryIntoLink } from '../../../filesystem/merged-directory-link'
 import {
@@ -36,7 +36,7 @@ export async function shareClaudeProfileSessions(args: {
 }): Promise<ClaudeProfileSurfaceOutcome> {
   const destination = join(args.defaultHome, CLAUDE_SHARED_SESSIONS_DIR)
   // Claude makes this folder owner-only; keep it so when Orca makes it first.
-  mkdirSync(destination, { recursive: true, mode: 0o700 })
+  await mkdir(destination, { recursive: true, mode: 0o700 })
   return mergeDirectoryIntoLink({
     source: join(args.profileHome, CLAUDE_SHARED_SESSIONS_DIR),
     destination,
