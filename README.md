@@ -45,7 +45,7 @@ ends, in the same tab with the same session and history.
 
 ```mermaid
 flowchart LR
-  cmd["/orca-migrate &lt;account&gt;<br/>--with-workers"] --> w["Workers re-pinned first"]
+  cmd["/orca-migrate #lt;account#gt;<br/>--with-workers"] --> w["Workers re-pinned first"]
   w --> c["Coordinator re-pinned last"]
   c --> next["Each chat's next message runs on the new account<br/>same tab, same session, same history"]
 ```
