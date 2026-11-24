@@ -40,7 +40,7 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
   },
   {
     name: 'account',
-    keys: ['account add', 'account list', 'account select', 'account rm'],
+    keys: ['account add', 'account list', 'account select', 'account migrate', 'account rm'],
     load: async () => (await import('../accounts/account.js')).ACCOUNT_HANDLERS
   },
   AUTH_HANDLER_GROUP,

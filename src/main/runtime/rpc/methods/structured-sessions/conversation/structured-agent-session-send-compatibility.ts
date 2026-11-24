@@ -13,6 +13,11 @@ import {
 import { readsQueuedImageCards } from '../attachments/structured-agent-session-queued-image-capability'
 import { recordMobileChatSend } from '../../../../../telemetry/mobile-client-telemetry'
 import { typedByOf } from '../../../callers/rpc-caller-typed-by'
+import {
+  interceptRemoteControlSend,
+  orcaCommandHost
+} from '../../../../../native-chat/agent-session-wire/orca-commands/structured-agent-session-remote-control'
+import { interceptClaudeAccountSlashCommand } from '../../accounts/claude-chat-account-rpc'
 
 /** Older clients wait past acceptance until handoff/rejection because they cannot show later failure.
  * Command-queued replies avoid request timeout; clients predating pending replies still wait for provider response. */
@@ -24,6 +29,13 @@ export async function sendStructuredAgentSessionForClient(
     throw new Error('Send through the group conversation to preserve its audience and provenance.')
   }
   const host = requireStructuredSessionHost(context, params.envelope.sessionId)
+  // overhedge: chat commands answered by Orca (disjoint names); null means a normal send.
+  const intercepted =
+    (await interceptRemoteControlSend(orcaCommandHost(host), params)) ??
+    (await interceptClaudeAccountSlashCommand(params, context, host))
+  if (intercepted) {
+    return intercepted
+  }
   // Person provenance lets undelivered text recover as an ordinary queued card.
   const typedBy = typedByOf(context)
   const result = await host.send(structuredCallerFor(context), {

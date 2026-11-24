@@ -1,6 +1,7 @@
 import { crewChatStatusChange } from '../../orchestration/crew/crew-changes'
 import { getRepoHostIdentityForParts } from '../../../../shared/repository/repo-host-identity'
 import { createRepoRowExecutionHostLookup } from '../../../../shared/execution-host/worktree-execution-host-resolution'
+import { installClaudeChatPinWiring } from '../../../claude-accounts/chat-pins/claude-chat-account-commands'
 import { resolveWorktreeHostRouting } from '../catalog/worktree-launch-host-repo'
 import { resolveHostStructuredAgentLaunchEnvironment } from '../../agent-session/launch/structured-agent-launch-support'
 import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
@@ -259,6 +260,9 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends RuntimeChatWorkerEven
           logger
         )
       )
+      // Overhedge: orchestration workers inherit their coordinator's pinned Claude account; pins
+      // follow a chat across /clear.
+      installClaudeChatPinWiring(() => this.getOrchestrationDbIfAvailable?.() ?? null)
       return {
         legacySessionTabIds: this.legacyStructuredSessionTabIds,
         hostId: LOCAL_EXECUTION_HOST_ID,

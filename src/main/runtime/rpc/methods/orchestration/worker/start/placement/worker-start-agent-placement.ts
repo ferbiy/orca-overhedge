@@ -1,4 +1,5 @@
 import type { RuntimeTerminalCreate } from '../../../../../../../../shared/terminal/runtime/runtime-terminal-create-contract'
+import { pinNewClaudeWorker } from '../../../../../../../claude-accounts/chat-pins/claude-chat-account-launch'
 /** Use the shared executor for new workers; structured worktrees omit startup agent, then resolve host support before chat creation.
  * Keep worker lineage/effects and background presentation in factories; caller passes the pre-decided mode.
  * Structured create refusals fail start through the worker error contract instead of silently downgrading. */
@@ -72,6 +73,8 @@ type WorkerAgentPlacementArgs = {
   onStage: (stage: string) => void
   /** A follow-up continuing a worker; a closed one is brought back in place of a launch. */
   followUp?: WorkerFollowUp | undefined
+  /** Overhedge: the managed Claude account the new worker is pinned to before it starts. */
+  claudeAccountId?: string | null
 }
 
 /** Setup evidence for existing placements and failures before placement creation. */
@@ -135,6 +138,7 @@ async function launchWorkerAgent(
   existing: PlacedWorktree | undefined
 ): Promise<WorkerAgentPlacement> {
   const agent = requireAgent(args.agent)
+  const claudePin = pinNewClaudeWorker(args.claudeAccountId)
   let created: Awaited<ReturnType<typeof createWorkerWorktree>> | undefined
   let structuredSession: WorkerStructuredSession | null = null
   let terminalCreation: RuntimeTerminalCreate | undefined
@@ -185,6 +189,7 @@ async function launchWorkerAgent(
             promisedAgentChat,
             onWorkspaceCreated,
             ...(args.launch.preferences ? { launchPreferences: args.launch.preferences } : {}),
+            ...(claudePin ? { startupPaneKey: claudePin.keys.paneKey } : {}),
             effects: args.effects
           })
           return {
@@ -202,7 +207,8 @@ async function launchWorkerAgent(
         },
         (session) => {
           structuredSession = session
-        }
+        },
+        claudePin?.keys
       )
     })
   } catch (error) {
@@ -215,6 +221,7 @@ async function launchWorkerAgent(
     })
     throw error
   }
+  claudePin?.settle(launched.outcome.kind)
   return {
     mode: launched.receipt,
     launch: launchedWorkerReceipt(args, structuredSession),
@@ -244,7 +251,8 @@ function workerSurfaceFactory(
   args: WorkerAgentPlacementArgs,
   agent: TuiAgent,
   onTerminalCreation: (terminal: RuntimeTerminalCreate) => void,
-  onStructuredSession: (session: WorkerStructuredSession) => void
+  onStructuredSession: (session: WorkerStructuredSession) => void,
+  claudePinKeys?: { paneKey: string; sessionId: string }
 ): AgentLaunchSurfaceFactory {
   const recordSurfaceStage = (worktreeId: string): void => {
     args.db.recordWorkerStage({
@@ -263,6 +271,7 @@ function workerSurfaceFactory(
         agent,
         dispatchId: args.dispatchId,
         ...(args.launch.preferences ? { launchPreferences: args.launch.preferences } : {}),
+        ...(claudePinKeys ? { sessionId: claudePinKeys.sessionId } : {}),
         effects: args.effects
       })
       onStructuredSession(session)
@@ -280,6 +289,7 @@ function workerSurfaceFactory(
         agent,
         ...(args.launch.preferences ? { launchPreferences: args.launch.preferences } : {}),
         taskId: args.taskId,
+        ...(claudePinKeys ? { paneKey: claudePinKeys.paneKey } : {}),
         effects: args.effects
       })
       onTerminalCreation(terminal)

@@ -1,4 +1,5 @@
 import type { OrcaRuntimeService } from '../../orca-runtime'
+import { isTerminalInputHeldExclusively } from './terminal-input-exclusive-hold'
 
 export type TerminalInputSource = 'desktop' | 'programmatic' | 'mobile' | 'legacy'
 export class TerminalInputPausedError extends Error {}
@@ -10,6 +11,10 @@ export function isTerminalInputPaused(
   ptyId: string,
   source: TerminalInputSource = 'programmatic'
 ): boolean {
+  // Overhedge: a held PTY (in-place Claude account restart) refuses every source.
+  if (isTerminalInputHeldExclusively(ptyId)) {
+    return true
+  }
   return source === 'desktop' && runtime.getDriver(ptyId).kind === 'mobile'
 }
 

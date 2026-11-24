@@ -34,10 +34,15 @@ import {
   withOpenQuestion,
   withQuestionLink
 } from './start/worker-question-link'
+import { resolveWorkerStartClaudeAccount } from './start/worker-start-claude-account'
 
 type WorkerStartContext = Pick<
   RpcContext,
-  'runtime' | 'orchestrationMutation' | 'orchestrationCompatibilityEvidence' | 'orchestrationCaller'
+  | 'runtime'
+  | 'orchestrationMutation'
+  | 'orchestrationCompatibilityEvidence'
+  | 'orchestrationCaller'
+  | 'callerScope'
 >
 
 export const ORCHESTRATION_WORKER_START_METHODS = [
@@ -89,6 +94,7 @@ export async function startWorker(
   )
   const { params, followUp, coordinator, bindRun, helperCreator, taskDeps, existingTask, withRun } =
     prepared
+  const { claudeAccountId } = prepared
   const db = runtime.getOrchestrationDb()
   const questionLink =
     params.forQuestion !== undefined
@@ -133,7 +139,8 @@ export async function startWorker(
     mode,
     chatLineage,
     helperCreator,
-    followUp
+    followUp,
+    ...(claudeAccountId ? { claudeAccountId } : {})
   })
   await stopHelperAfterStart(runtime, receipt, orchestrationMutation)
   const note = { itemUid: checked?.itemUid, chatLineage, terminal: params.terminal }
@@ -151,7 +158,8 @@ export async function prepareWorkerStart(
   {
     runtime,
     orchestrationCompatibilityEvidence,
-    orchestrationCaller
+    orchestrationCaller,
+    callerScope
   }: Omit<WorkerStartContext, 'orchestrationMutation'>,
   followUp?: WorkerFollowUp
 ) {
@@ -161,6 +169,8 @@ export async function prepareWorkerStart(
       '--timeout-ms is too large for worker-start transport grace; the derived timeout must fit within the timer limit.'
     )
   }
+  // Overhedge: an explicit --account is checked before any Run, Task or Dispatch exists.
+  const claudeAccountId = resolveWorkerStartClaudeAccount(params, { callerScope })
   if (params.on && params.terminal?.startsWith(ORCA_SESSION_ADDRESS_PREFIX)) {
     // Refused here, before any remote call: an Orca session ID names a chat only on its own host.
     throw new OrchestrationError(
@@ -305,7 +315,8 @@ export async function prepareWorkerStart(
     helperCreator,
     taskDeps,
     existingTask,
-    withRun
+    withRun,
+    ...(claudeAccountId ? { claudeAccountId } : {})
   }
 }
 

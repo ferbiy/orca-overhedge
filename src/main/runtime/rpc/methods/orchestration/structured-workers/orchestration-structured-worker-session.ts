@@ -132,6 +132,8 @@ export async function createStructuredWorkerSession(args: {
   dispatchId: string
   /** The dispatch's own `--model`/`--effort`, already narrowed to the seedable string subset. */
   options?: Readonly<Record<string, string>>
+  /** Overhedge: a caller-reserved session id, already pinned to a Claude account. */
+  sessionId?: string
 }): Promise<{
   identity: StructuredWorkerIdentity
   host: StructuredAgentSessionHost
@@ -140,7 +142,7 @@ export async function createStructuredWorkerSession(args: {
   /** The provider options the session launches with: the dispatch's own over the seeded saved selection, or in its place for a leveled Antigravity model, which a saved listing turns into its family and effort. */
   options?: Readonly<Record<string, string>>
 }> {
-  const sessionId = randomUUID()
+  const sessionId = args.sessionId ?? randomUUID()
   // Register before attach builds child env or missing ORCA_TERMINAL_HANDLE can misroute orchestration to the coordinator.
   // Assert the provisional local scope against the created record; discard non-local sessions.
   const identity = structuredWorkerIdentities.register({

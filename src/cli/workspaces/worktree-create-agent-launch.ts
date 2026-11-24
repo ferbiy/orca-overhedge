@@ -19,6 +19,7 @@ import {
   hasLaunchModelFlags,
   getAgentLaunchCapabilities,
   type CliAgentLaunch,
+  assertClaudeAccountSupported,
   SURFACE_UNSUPPORTED_MESSAGE
 } from '../agents/agent-launch-request'
 import { formatWorktreeShow } from './workspace-format'
@@ -68,6 +69,8 @@ export async function createWorktreeWithAgent(args: {
     if (launch.surface) {
       throw new RuntimeClientError('incompatible_runtime', SURFACE_UNSUPPORTED_MESSAGE)
     }
+    // Overhedge: the older create path has no way to pin the startup agent.
+    assertClaudeAccountSupported(launch.claudeAccount, null)
     const params = {
       ...create,
       startupAgent: launch.agent,
