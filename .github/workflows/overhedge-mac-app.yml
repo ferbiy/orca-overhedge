@@ -1,0 +1,237 @@
+name: Overhedge mac app
+
+# Fork-only: build an ad-hoc-signed (not notarized) macOS Orca.app from any ref of this fork and
+# keep it as a workflow artifact. Mirrors upstream's release-mac-build.yml (same orcad template
+# qualification, build and electron-builder commands) minus Developer ID signing, notarization,
+# telemetry secrets and publishing. Same app id (com.stablyai.orca) and product name as the
+# official app, so it uses the same user-data folder. The ref must contain the overhedge updater
+# guard (src/main/updater/overhedge-release-updates.ts), which keeps it off the official update
+# feed; the build fails otherwise. See OVERHEDGE.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA of this fork to build (default is the branch this runs on)
+        required: false
+        type: string
+        default: ''
+      arch:
+        description: Mac architecture
+        required: false
+        type: choice
+        options: [arm64, x64]
+        default: arm64
+  # Why: GitHub lists a workflow for dispatch only once it exists on the default branch (upstream
+  # main here) or has run on push; a push run only registers it and skips every job.
+  push:
+    branches: ['overhedge/**']
+    paths: ['.github/workflows/overhedge-mac-app.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: overhedge-mac-app-${{ inputs.ref || github.ref }}-${{ inputs.arch }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      # Same stamp as the server deb: <base>+overhedge.<run>.g<sha10>. The updater guard keys on it.
+      - id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          base="$(node -p "require('./package.json').version")"
+          case "$base" in
+            *+*) echo "::error::package.json version $base already has build metadata"; exit 1 ;;
+          esac
+          if ! grep -q 'overhedge' src/main/updater/overhedge-release-updates.ts 2>/dev/null; then
+            echo "::error::This ref has no overhedge updater guard; its mac app would update itself to official Orca."
+            exit 1
+          fi
+          version="${base}+overhedge.${GITHUB_RUN_NUMBER}.g${sha:0:10}"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building ${{ inputs.ref || github.ref }} at $sha as $version (${{ inputs.arch }})" >> "$GITHUB_STEP_SUMMARY"
+
+  # The packaged app ships the orcad template (SSH hosts, local orcad); release builds require it.
+  orcad-template:
+    needs: resolve
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/qualified-orcad-template.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+      fast_runners: false
+
+  mac:
+    needs: [resolve, orcad-template]
+    runs-on: ${{ inputs.arch == 'x64' && 'macos-15-intel' || 'macos-15' }}
+    timeout-minutes: 120
+    env:
+      ORCA_BACKGROUND_LAUNCH: '1'
+      NODE_OPTIONS: --max-old-space-size=4096
+      ORCA_BUILD_COMMIT: ${{ needs.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/setup@v2
+        with:
+          install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          check-latest: true
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+
+      - name: Locate the pinned Node runtime cache
+        shell: bash
+        run: echo "ORCA_NODE_RUNTIME_CACHE_DIR=$HOME/Library/Caches/orca-node-runtime" >>"$GITHUB_ENV"
+
+      - name: Cache the pinned Node runtime
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/orca-node-runtime
+          key: overhedge-orca-node-runtime-mac-${{ hashFiles('src/shared/node-runtime/node-runtime-pin.ts') }}
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: overhedge-electron-builder-mac-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            overhedge-electron-builder-mac-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile --cpu=current,x64,arm64
+
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Verify macOS entitlements
+        run: pnpm verify:macos-entitlements
+
+      # Not committed: the version exists only in this build, like release-cut's tag commit.
+      - name: Stamp the fork version
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          node -p "require('./package.json').version"
+
+      # No ORCA_BUILD_IDENTITY / ORCA_POSTHOG_WRITE_KEY: non-official builds compile telemetry to null.
+      - name: Build app
+        run: pnpm run build:release
+
+      - name: Download the orcad deployment template
+        uses: actions/download-artifact@v8
+        with:
+          name: orcad-template
+          path: out/orcad-template
+
+      - name: Gate runtime file-watcher process isolation
+        run: |
+          node config/scripts/diagnostics/runtime-watchers/runtime-file-watcher-fault-harness.mjs
+          ELECTRON_RUN_AS_NODE=1 pnpm exec electron config/scripts/diagnostics/runtime-watchers/runtime-file-watcher-fault-harness.mjs
+
+      # Not ORCA_MAC_RELEASE: no hardened runtime, notarization or Developer ID. identity "-" makes
+      # electron-builder ad-hoc sign the whole bundle (an unsigned arm64 app is killed at launch);
+      # afterPack already ad-hoc signs the nested helpers outside release builds.
+      - name: Package the app (ad-hoc signed)
+        uses: nick-fields/retry@v4
+        env:
+          ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        with:
+          timeout_minutes: 45
+          max_attempts: 2
+          retry_wait_seconds: 30
+          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/orcad-distribution/prebuilds/pinned-node-downloads.mjs darwin-arm64 darwin-x64 && node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron && pnpm exec electron-builder --config config/electron-builder.config.cjs --mac zip --${{ inputs.arch }} --publish never -c.mac.identity=-
+
+      - name: Verify the packaged app
+        id: verify
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          ARCH: ${{ inputs.arch }}
+        run: |
+          set -euo pipefail
+          zip="$(ls dist/*.zip | head -1)"
+          app="$(ls -d dist/mac*/Orca.app | head -1)"
+          echo "zip=$zip app=$app"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" = com.stablyai.orca
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app" 2>&1 | grep -E 'Signature=adhoc|Identifier|Format'
+          file "$app/Contents/MacOS/Orca"
+          # The updater guard keys on the version Electron reads from app.asar's package.json.
+          node -e '
+            const fs = require("fs")
+            const asar = process.argv[1]
+            const fd = fs.openSync(asar, "r")
+            const head = Buffer.alloc(16)
+            fs.readSync(fd, head, 0, 16, 0)
+            const headerSize = head.readUInt32LE(4)
+            const jsonSize = head.readUInt32LE(12)
+            const json = Buffer.alloc(jsonSize)
+            fs.readSync(fd, json, 0, jsonSize, 16)
+            const header = JSON.parse(json.toString("utf8"))
+            const entry = header.files["package.json"]
+            const body = Buffer.alloc(entry.size)
+            fs.readSync(fd, body, 0, entry.size, 8 + headerSize + Number(entry.offset))
+            const version = JSON.parse(body.toString("utf8")).version
+            console.log("app.asar package.json version:", version)
+            if (version !== process.env.VERSION) { console.error("expected", process.env.VERSION); process.exit(1) }
+          ' "$app/Contents/Resources/app.asar"
+          name="Orca-${VERSION}-mac-${ARCH}"
+          name="${name//+/_}"
+          mkdir -p out-artifact
+          cp "$zip" "out-artifact/${name}.zip"
+          (cd out-artifact && shasum -a 256 "${name}.zip" | tee "${name}.zip.sha256")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Orca mac app (ad-hoc signed, not notarized)'
+            echo '```'
+            ls -l "out-artifact/${name}.zip"
+            cat "out-artifact/${name}.zip.sha256"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.verify.outputs.name }}
+          path: |
+            out-artifact/*.zip
+            out-artifact/*.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
