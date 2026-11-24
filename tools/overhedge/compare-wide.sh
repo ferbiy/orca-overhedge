@@ -32,8 +32,9 @@ if [ -n "$new" ]; then
   files=$(printf '%s\n' "$new" | sed 's/ :: .*//' | sort -u | tr '\n' ' ')
   echo "re-running once in both trees: $files" >> "$out"
   for t in "$b" "$p"; do
-    docker run --rm --cpus 6 -e CI=1 -v "$t":/w -w /w node:24 bash -lc \
-      "git config --global --add safe.directory /w; export COREPACK_ENABLE_DOWNLOAD_PROMPT=0; corepack enable >/dev/null 2>&1; pnpm exec vitest run --config config/vitest.config.ts --reporter=json --outputFile=.chk/rerun.json $files > .chk/rerun.log 2>&1; true"
+    common=$(cd "$t" && readlink -f "$(git rev-parse --git-common-dir)")
+    docker run --rm --cpus 6 -e CI=1 -v "$common":"$common" -v "$t":/w -w /w node:24 bash -lc \
+      "git config --global --add safe.directory '*'; export COREPACK_ENABLE_DOWNLOAD_PROMPT=0; corepack enable >/dev/null 2>&1; pnpm exec vitest run --config config/vitest.config.ts --reporter=json --outputFile=.chk/rerun.json $files > .chk/rerun.log 2>&1; true"
     if [ -f "$t/.chk/rerun.json" ]; then python3 "$here/wide-summary.py" "$t/.chk/rerun.json" "$t/.chk/rerun.txt" >/dev/null; else : > "$t/.chk/rerun.txt"; fi
   done
   # Still failing in the patch, and not failing in the base re-run either.

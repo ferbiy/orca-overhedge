@@ -109,7 +109,8 @@
       "Edit(~/overhedge-build/**)",
       "Write(~/overhedge-build/**)",
       "Edit(//tmp/**)",
-      "Write(//tmp/**)"
+      "Write(//tmp/**)",
+      "Read(~/.claude-team/projects/**)"
     ],
     "deny": [
       "Read(~/.config/orca/**)",

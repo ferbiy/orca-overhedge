@@ -26,6 +26,9 @@ case "$tree" in /*) ;; *) tree=$OVH_HOME/$tree ;; esac
 case "$(readlink -f "$tree")" in "$(readlink -f "$OVH_HOME")"/*) ;; *) echo "tree must be under $OVH_HOME" >&2; exit 2 ;; esac
 steps=("$@"); [ ${#steps[@]} -gt 0 ] || steps=(install gen fmt tc lint ours mobile wide)
 base_sha=$(git -C "$tree" rev-parse "$base^{commit}")
+# A worktree's .git is a file pointing into the main clone's .git: mount that too, same path.
+common=$(cd "$tree" && readlink -f "$(git rev-parse --git-common-dir)")
+gitmount=(); [ "$common" = "$(readlink -f "$tree/.git")" ] || gitmount=(-v "$common":"$common")
 
 mkdir -p "$tree/.chk"
 # Our test files: tests added or changed by the patch.
@@ -33,7 +36,7 @@ git -C "$tree" diff --name-only --diff-filter=AM "$base_sha" HEAD -- '*.test.ts'
 git -C "$tree" diff --name-only --diff-filter=AM "$base_sha" HEAD -- 'mobile/*.test.ts' 'mobile/*.test.tsx' | sed 's#^mobile/##' > "$tree/.chk/mobile-files.txt" || true
 git -C "$tree" diff --name-only --diff-filter=AM "$base_sha" HEAD -- '*.ts' '*.tsx' > "$tree/.chk/changed-ts.txt" || true
 
-cmds='set -u; git config --global --add safe.directory /w; export COREPACK_ENABLE_DOWNLOAD_PROMPT=0; corepack enable >/dev/null 2>&1;'
+cmds='set -u; git config --global --add safe.directory "*"; export COREPACK_ENABLE_DOWNLOAD_PROMPT=0; corepack enable >/dev/null 2>&1;'
 for s in "${steps[@]}"; do
   case "$s" in
     install) cmds+=' pnpm install --frozen-lockfile > .chk/install.log 2>&1; echo install=$?;' ;;
@@ -52,7 +55,7 @@ name=ovh-chk-$(basename "$tree")-$$
 log "checks: $tree on $base ($base_sha) steps: ${steps[*]} (container $name)"
 docker run --rm --name "$name" --cpus 6 --memory 24g -e CI=1 -e ORCA_CODE_QUALITY_BASE="$base_sha" \
   -e npm_config_store_dir=/pnpm-store -v "$OVH_HOME/.pnpm-store":/pnpm-store \
-  -v "$tree":/w -w /w node:24 bash -lc "$cmds" > "$tree/.chk/summary.txt" 2>&1 || true
+  "${gitmount[@]}" -v "$tree":"$tree" -v "$tree":/w -w /w node:24 bash -lc "$cmds" > "$tree/.chk/summary.txt" 2>&1 || true
 cat "$tree/.chk/summary.txt"
 if [ -f "$tree/.chk/wide.json" ] && printf '%s\n' "${steps[@]}" | grep -qx wide; then
   python3 "$here/wide-summary.py" "$tree/.chk/wide.json" "$tree/.chk/wide.txt" | tee -a "$tree/.chk/summary.txt"
