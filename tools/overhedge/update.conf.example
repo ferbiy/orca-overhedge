@@ -1,0 +1,26 @@
+# ~/overhedge-build/update.conf — settings for run-update.sh / deploy-pending.sh (bash syntax).
+
+# Deploy policy (the one switch):
+#   confirm     build + verify automatically; deploy only after approve.sh
+#   night-idle  deploy automatically inside the window when no UI chat is busy (recommended)
+#   always      deploy at the next 15-minute slot even if a UI chat is mid-turn
+#   off         never deploy (build + verify only)
+DEPLOY_POLICY=night-idle
+DEPLOY_WINDOW_START=02:00
+DEPLOY_WINDOW_END=06:00
+DEPLOY_TZ=Europe/Berlin
+DEPLOY_RETRY_MINUTES=15
+
+# Housekeeping
+KEEP_BUILDS=3
+KEEP_BACKUPS=3
+KEEP_PORT_TREES=2
+MIN_FREE_GB=60
+
+# Headless Claude for the port
+CLAUDE_CONFIG_DIR_FOR_UPDATES=$HOME/.claude-team
+CLAUDE_MODEL=opus
+CLAUDE_MAX_HOURS=10
+
+# Notifier: a shell command; gets the subject as $1 and the body on stdin. Empty = log file only.
+NOTIFY_CMD=

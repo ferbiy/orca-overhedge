@@ -1,0 +1,12 @@
+# ~/overhedge-build/hosts.conf — hosts the verified build is deployed to, one per line:
+#   <name>  <ssh-target or "local">  <transfer>  [key=<ssh private key path on orca-ide>]
+# name:       label used in logs, update-log.md and state/pending/<name>
+# ssh-target: "local" for orca-ide itself (where the build runs), otherwise user@host reachable
+#             from orca-ide non-interactively (key auth, BatchMode, host key already accepted)
+# transfer:   "local" or "scp" (the deb is copied to the host's ~/overhedge-build/artifacts/)
+# key=:       optional identity file (path only; the key itself never goes in this file)
+# Each host is deployed independently by deploy-pending.sh with the same policy. A remote host
+# without orca-serve.service or without ~/overhedge-build/scripts/deploy.sh is skipped with a
+# "not ready" log line. See docs/overhedge/UPDATE-RUNBOOK.md "Adding a host".
+orca-ide      local                local
+team-server   admin@159.195.209.86 scp   key=~/.ssh/team-server-admin

@@ -1,0 +1,12 @@
+[Unit]
+Description=Overhedge Orca fork update, every 5 days at 21:00 Europe/Berlin
+
+[Timer]
+# Days 1,6,11,16,21,26 of each month: 5-day steps (a 5- or 6-day gap at the month boundary).
+# 21:00 so a port normally finishes before the 02:00-06:00 deploy window.
+OnCalendar=*-*-01,06,11,16,21,26 21:00:00 Europe/Berlin
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

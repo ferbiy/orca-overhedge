@@ -1,0 +1,13 @@
+[Unit]
+Description=Overhedge Orca fork: deploy a verified pending build per DEPLOY_POLICY (no-op without one)
+Documentation=file:///home/ubuntu/overhedge-build/UPDATE-RUNBOOK.md
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/overhedge-build
+Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/ubuntu/overhedge-build/scripts/deploy-pending.sh
+TimeoutStartSec=2h
