@@ -48,8 +48,11 @@ link an earlier build made, so a chat sees only peers under the same account.
   stay per folder, as upstream has them.
 - Re-apply after an Orca update: cherry-pick the `overhedge/peers` commits. If upstream changed
   `shareClaudeProfileHistory`, keep its other steps and put the `shareClaudeProfileSessions` call
-  where the `sessions` step is. Unchanged in v1.4.273. Drop this change if upstream starts
-  sharing `sessions` itself.
+  where the `sessions` step is, then re-run `pnpm check:main-sync-fs-ratchet --prune` and the
+  blocking-helper ratchet with `--prune` (the change shrinks `claude-profile-history.ts`'s counts).
+  v1.4.273 has the same `claude-profile-history.ts`; onto `overhedge/patch-273` the commits apply
+  except that 273 deleted `claude-profile-history.test.ts` (resolve with `git rm` of that file).
+  Drop this change if upstream starts sharing `sessions` itself.
 - `~/relink-sessions.sh` on the server (a manual workaround that relinks one account's `sessions`) is no longer
   needed with this build; its `sessions.plain-*` / `sessions.bak-*` folders are left alone.
 
