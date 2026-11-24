@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://overhedge.xyz"><img src="docs/overhedge/overhedge-logo.png" alt="Overhedge logo" width="96" height="96" /></a>
+</p>
+
 <h1 align="center">Orca, Overhedge fork</h1>
 
 <p align="center">
