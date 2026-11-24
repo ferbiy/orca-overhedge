@@ -21,6 +21,37 @@ tag `v1.4.266`; the patch is `overhedge/patch-266`. (The previous 1.4.251 port: 
   `orca orchestration worker-start`: the new Claude chat or terminal is pinned before it starts.
   This differs from upstream's `orca account select --agent claude --account ...` (new in 1.4.266),
   which changes the host-wide selection for every later launch.
+- Cross-account Claude peers: every Claude chat or terminal on the host lists and messages every
+  other one (ListAgents / SendMessage), whatever managed account or System default it runs under.
+  See "Cross-account Claude peers" below.
+
+## Cross-account Claude peers
+
+Claude Code finds its peers in `<CLAUDE_CONFIG_DIR>/sessions/`: one `<pid>.json` per running
+session (pid, session id, cwd, name, status, version, inbox socket path) and one
+`<pid>.<sha256 of socket path>.key` (a per-session random peer token, mode 600). The inbox sockets
+are already shared (`/tmp/cc-socks/<pid>.sock`). Upstream gives each managed account folder
+(`~/.config/orca/claude-profiles/<id>/home`) a private `sessions` and, on every launch, removes a
+link an earlier build made, so a chat sees only peers under the same account.
+
+- What it touches: `src/main/claude-accounts/profiles/setup/claude-profile-shared-sessions.ts`
+  (new) and one call in `claude-profile-history.ts` (`shareClaudeProfileHistory`), which replaces
+  upstream's `unlinkSharedSessions`. Test: `claude-profile-shared-sessions.test.ts`; upstream's
+  "keeps Claude's live sessions per folder" case is removed from `claude-profile-history.test.ts`.
+- Effect: on every Claude launch (chat, terminal, worker, pinned chat, account switch or migrate),
+  account setup links `<profile>/sessions` to `~/.claude/sessions` (or the user's own
+  CLAUDE_CONFIG_DIR's), the folder System default sessions use, moving the records of running
+  sessions there by hard link. Running Claude processes resolve the folder by path, so they follow
+  the link without a restart.
+- Shared: only that one folder, i.e. the session records and peer keys above. The login
+  (`.credentials.json`), `.claude.json`, `daemon*`, `jobs`, `state`, settings and everything else
+  stay per folder, as upstream has them.
+- Re-apply after an Orca update: cherry-pick the `overhedge/peers` commits. If upstream changed
+  `shareClaudeProfileHistory`, keep its other steps and put the `shareClaudeProfileSessions` call
+  where the `sessions` step is. Unchanged in v1.4.273. Drop this change if upstream starts
+  sharing `sessions` itself.
+- `~/relink-sessions.sh` on the server (a manual workaround that relinks one account's `sessions`) is no longer
+  needed with this build; its `sessions.plain-*` / `sessions.bak-*` folders are left alone.
 
 ## Build a branch
 
