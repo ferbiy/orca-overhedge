@@ -1,35 +1,189 @@
-## Overhedge fork of Orca
+<h1 align="center">Orca, Overhedge fork</h1>
 
-This is official [Orca](https://github.com/stablyai/orca) plus a small patch, mostly server-side
-(main process), re-applied onto each upstream release we adopt. The patch branch is
-`overhedge/patch-<release>` on `overhedge/base-<release>` (the upstream tag); builds carry the
-version suffix `+overhedge.<n>.g<sha>` (for example `1.4.273+overhedge.21.g0123456789`).
+<p align="center">
+  <b>Several Claude subscriptions on one Orca server, and one command to move work between them.</b>
+</p>
 
-What the fork adds:
+<p align="center">
+  <a href="https://github.com/stablyai/orca/releases/tag/v1.4.273"><img src="https://img.shields.io/badge/upstream-Orca%20v1.4.273-08C?style=flat-square" alt="Based on upstream Orca v1.4.273" /></a>
+  <img src="https://img.shields.io/badge/patch-server--side-6f42c1?style=flat-square" alt="Patch: server-side (main process)" />
+  <img src="https://img.shields.io/badge/builds-Linux%20server%20.deb%20%7C%20macOS%20arm64-4493F8?style=flat-square" alt="Builds: Linux server .deb and macOS arm64 app" />
+  <a href="OVERHEDGE.md"><img src="https://img.shields.io/badge/docs-OVERHEDGE.md-555?style=flat-square" alt="Fork documentation: OVERHEDGE.md" /></a>
+</p>
 
-- Remote Control in native Claude chats: `/rc` and `/remote-control [on [name]|<name>|off|status]`
-  turn Claude Code Remote Control on for the chat; prompts sent from claude.ai or the Claude phone
-  app show in the Orca chat with their replies; both commands appear in the chat's slash menu.
-- Per-chat Claude account pins: `/orca-account [<id|email>|auto]` in a Claude chat, and
-  `--account <id|email>` on `orca agent launch`, `orca worktree create --agent claude` and
-  `orca orchestration worker-start`. Workers inherit their coordinator's pin.
-- Migration between accounts: `/orca-migrate <id|email>|auto [--with-workers]` in a chat, and
-  `orca account migrate (--to <id|email> | --unpin) (--chat <id>... | --with-workers <id>... |
-  --all-on <id|email>) [--restart [--timeout <s>] [--yes]] [--dry-run]` on the CLI.
-- Cross-account peer messaging: Claude chats and terminals under different managed accounts see
-  and message each other, because the accounts share Claude's `sessions` folder.
-- The fork's macOS build never updates itself to an official release.
+This is official [Orca](https://github.com/stablyai/orca) plus a small patch, re-applied onto each
+upstream release we adopt. It is built for one setup: a headless Orca server that runs a
+coordinator chat and its workers on several Claude accounts.
 
-Left to upstream: host-wide account switching and restarting running terminal Claude tabs on a
-switch (Settings, Claude). `orca account migrate --restart` now uses upstream's restart-in-place
-(new terminal in the same pane) instead of the fork's own sequence, on headless servers only.
+**Why**
 
-Details, the overlap with upstream, rollout and how to re-apply on a new release:
-[OVERHEDGE.md](OVERHEDGE.md). Builds: dispatch `overhedge-server-deb.yml` (Linux server deb) or
-`overhedge-mac-app.yml` (ad-hoc-signed macOS app) from branch `overhedge/ci`, for example
-`gh workflow run overhedge-server-deb.yml -R ferbiy/orca-overhedge --ref overhedge/ci -f ref=<sha>`.
+- **A usage limit no longer stops the team.** Move a coordinator and all its workers to another
+  Claude account in one command. Same tabs, same sessions, same history.
+- **Pin each chat to the account it should use**, instead of one host-wide account for everything.
+- **Drive Orca chats from your phone.** Claude Code Remote Control works in Orca's native chats.
+- **Agents on different accounts can talk.** Chats see and message each other across accounts,
+  while every account keeps its own login.
+
+<p align="center">
+  <img src="docs/overhedge/slash-menu.svg" alt="Mockup of the slash menu in an Orca Claude chat listing /rc, /remote-control, /orca-account and /orca-migrate" />
+  <br /><sub>Every command is in the chat's slash menu. All mockups use placeholder data.</sub>
+</p>
+
+### Move a team of chats to another account
+
+`/orca-migrate` re-pins a chat, and with `--with-workers` every worker it dispatched. Workers move
+first and the coordinator last; each chat switches at its next message, after its current turn
+ends, in the same tab with the same session and history.
+
+```text
+/orca-migrate team@example.com --with-workers
+```
+
+<p align="center">
+  <img src="docs/overhedge/migrate-with-workers.svg" alt="Mockup: /orca-migrate team@example.com --with-workers moves three workers, then the coordinator, to another account" />
+</p>
+
+```mermaid
+flowchart LR
+  cmd["/orca-migrate &lt;account&gt;<br/>--with-workers"] --> w["Workers re-pinned first"]
+  w --> c["Coordinator re-pinned last"]
+  c --> next["Each chat's next message runs on the new account<br/>same tab, same session, same history"]
+```
+
+<details>
+<summary><b>The same from the CLI</b> (<code>orca account migrate</code>)</summary>
+
+```text
+orca account migrate (--to <id|email> | --unpin)
+                     (--chat <orca-session-id|terminal:<pane>>... | --with-workers <coordinator-id>... | --all-on <id|email>)
+                     [--restart [--timeout <seconds>] [--yes]] [--dry-run] [--json]
+```
+
+```bash
+orca account migrate --to team@example.com --with-workers 0f3c... --dry-run   # show the plan, change nothing
+orca account migrate --to team@example.com --all-on personal@example.com      # everything on one account
+orca account migrate --unpin --chat 0f3c...                                   # follow the global account again
+```
+
+- Accounts are named exactly: the account id or its full email.
+- Terminal Claude tabs are pinned too. Without `--restart` the command prints the line to run in
+  each tab after `/exit`. With `--restart` (headless servers only) Orca waits for the turn to end
+  and uses upstream's restart-in-place: a new terminal in the same pane resumes the conversation on
+  the new account. `--restart` with `--all-on` or `--with-workers` needs `--yes`.
+
+</details>
+
+### Pin a chat to an account
+
+`/orca-account` shows which account a chat uses and why; `/orca-account <id|email>` pins it and
+`/orca-account auto` removes the pin. A pinned chat ignores the global account switch. Workers
+inherit their coordinator's pin.
+
+```text
+/orca-account
+/orca-account team@example.com
+```
+
+<p align="center">
+  <img src="docs/overhedge/account-pin.svg" alt="Mockup: /orca-account shows the chat's account, then pins the chat to team@example.com" />
+</p>
+
+<details>
+<summary><b>Pin at launch</b> (<code>--account</code>)</summary>
+
+The new Claude chat or terminal is pinned before it starts:
+
+```bash
+orca agent launch ... --account team@example.com
+orca worktree create ... --agent claude --account team@example.com
+orca orchestration worker-start ... --account team@example.com
+```
+
+This differs from upstream's `orca account select --agent claude --account ...`, which changes
+the host-wide selection for every later launch.
+
+</details>
+
+### Remote Control from your phone
+
+`/rc` (or `/remote-control`) turns Claude Code Remote Control on for the chat. Prompts you send from
+claude.ai or the Claude phone app show up in the Orca chat together with their replies. If the
+chat's Claude process restarts, Remote Control is turned back on.
+
+```text
+/rc                  # same as /rc on
+/rc on [name]        # or /rc <name>: name the Remote Control session
+/rc off
+/rc status
+```
+
+<p align="center">
+  <img src="docs/overhedge/remote-control.svg" alt="Mockup: /rc on turns Remote Control on, a prompt sent from the phone appears in the chat with its reply, and Remote Control comes back after Claude restarts" />
+</p>
+
+### Agents on different accounts talk to each other
+
+Claude Code finds its peers through its `sessions` folder. Upstream gives every managed account a
+private one, so a chat only sees chats on the same account. The fork links each account's
+`sessions` to one shared folder, so every Claude chat or terminal on the host lists and messages
+every other one (ListAgents / SendMessage). Only that registry is shared, never credentials.
+
+```mermaid
+flowchart LR
+  subgraph A["Account A profile"]
+    a1["login, .claude.json, settings<br/>(stay private)"]
+  end
+  subgraph B["Account B profile"]
+    b1["login, .claude.json, settings<br/>(stay private)"]
+  end
+  S[("Shared sessions/ registry<br/>one record + peer key per running session")]
+  A -- "sessions link" --> S
+  B -- "sessions link" --> S
+  S --> P["Every Claude chat and terminal on the host<br/>sees and messages every other one"]
+```
+
+### A macOS build that stays on the fork
+
+The fork's macOS app never updates itself to an official release, so it keeps the patch. Linux
+keeps upstream's updater behavior (a server .deb is updated by hand).
+
+### Left to upstream
+
+Host-wide account switching and restarting running terminal Claude tabs on a switch (Settings,
+Claude) are upstream's. `orca account migrate --restart` reuses upstream's restart-in-place.
+
+### Versions, branches and builds
+
+| What            | Name                                                                               |
+| --------------- | ---------------------------------------------------------------------------------- |
+| Upstream base   | `overhedge/base-<release>` (the upstream tag, e.g. `v1.4.273`)                     |
+| Patch (default) | `overhedge/patch-<release>`, e.g. `overhedge/patch-273`                            |
+| CI workflows    | branch `overhedge/ci`                                                              |
+| Build version   | `<upstream version>+overhedge.<n>.g<sha>`, e.g. `1.4.273+overhedge.21.g0123456789` |
+
+<details>
+<summary><b>Get a build</b></summary>
+
+Dispatch a workflow from `overhedge/ci` and point it at a commit of the patch branch (use a full
+40-character SHA):
+
+```bash
+# Linux server .deb
+gh workflow run overhedge-server-deb.yml -R ferbiy/orca-overhedge --ref overhedge/ci -f ref=<sha>
+# macOS app (ad-hoc signed, not notarized)
+gh workflow run overhedge-mac-app.yml -R ferbiy/orca-overhedge --ref overhedge/ci -f ref=<sha> -f arch=arm64
+```
+
+</details>
+
+Details, the overlap with upstream, rollout and how to re-apply the patch on a new release:
+[OVERHEDGE.md](OVERHEDGE.md).
+
+<br />
 
 ---
+
+<p align="center"><sub><b>Upstream README below</b>, unchanged from <a href="https://github.com/stablyai/orca">stablyai/orca</a>.</sub></p>
 
 <h1 align="center">
   <a href="https://orca.dev"><img src="resources/build/icon.png" alt="Orca" width="64" valign="middle" /></a> Orca
@@ -74,7 +228,7 @@ Ask a bot in Slack, Linear, or GitHub to fix a bug, and come back to a tested pu
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/bots"><picture><source srcset="docs/assets/readme-features/bots.webp" type="image/webp"><img src="docs/assets/readme-features/bots.poster.jpg" alt="A bot in Orca that fixed a checkout bug with two workers, linked the pull request, and is waiting on a question under Needs you" width="100%" /></picture></a>
+  <a href="https://orca.dev/bots"><picture><source srcset="docs/assets/readme-features/bots.webp" type="image/webp"><img src="docs/assets/readme-features/bots.poster.jpg" alt="A bot in Orca that fixed a checkout bug with two workers, linked the pull request, and is waiting on a question under Needs you"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -88,7 +242,7 @@ Run any agent in Chat UI or as the raw CLI, and move a conversation between the 
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/agents/native-chat"><picture><source srcset="docs/assets/readme-features/chat-or-terminal.webp" type="image/webp"><img src="docs/assets/readme-features/chat-or-terminal.poster.jpg" alt="The same agent conversation in Chat UI and in the terminal, side by side" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/agents/native-chat"><picture><source srcset="docs/assets/readme-features/chat-or-terminal.webp" type="image/webp"><img src="docs/assets/readme-features/chat-or-terminal.poster.jpg" alt="The same agent conversation in Chat UI and in the terminal, side by side"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -102,7 +256,7 @@ Hand a big task to one agent. It splits the work, starts worker agents in their 
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/cli/orchestration"><picture><source srcset="docs/assets/readme-features/orchestration.webp" type="image/webp"><img src="docs/assets/readme-features/orchestration.poster.jpg" alt="A coordinator agent splitting a task between two worker agents and reporting their results" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/cli/orchestration"><picture><source srcset="docs/assets/readme-features/orchestration.webp" type="image/webp"><img src="docs/assets/readme-features/orchestration.poster.jpg" alt="A coordinator agent splitting a task between two worker agents and reporting their results"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -116,7 +270,7 @@ Pair a Remote Orca Server, work on any SSH host, or give a worktree its own clou
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/ways-to-run"><picture><source srcset="docs/assets/readme-features/remote.webp" type="image/webp"><img src="docs/assets/readme-features/remote.poster.jpg" alt="Choosing which machine a new worktree runs on, from this computer to an SSH host or a per-workspace environment" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/ways-to-run"><picture><source srcset="docs/assets/readme-features/remote.webp" type="image/webp"><img src="docs/assets/readme-features/remote.poster.jpg" alt="Choosing which machine a new worktree runs on, from this computer to an SSH host or a per-workspace environment"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -130,7 +284,7 @@ Pair Orca with the mobile app to get pinged when an agent needs you, reply in ch
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/mobile"><picture><source srcset="docs/assets/readme-features/mobile-companion.webp" type="image/webp"><img src="docs/assets/readme-features/mobile-companion.poster.jpg" alt="The Orca mobile app getting a notification that Claude needs input, opening the session, and replying so the agent opens the PR" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/mobile"><picture><source srcset="docs/assets/readme-features/mobile-companion.webp" type="image/webp"><img src="docs/assets/readme-features/mobile-companion.poster.jpg" alt="The Orca mobile app getting a notification that Claude needs input, opening the session, and replying so the agent opens the PR"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -144,7 +298,7 @@ Review diffs, leave notes on exact changed lines, and send focused feedback back
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/review/annotate-ai-diff"><picture><source srcset="docs/assets/readme-features/annotate-ai-diffs.webp" type="image/webp"><img src="docs/assets/readme-features/annotate-ai-diffs.poster.jpg" alt="A note on a changed diff line sent back to the agent" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/review/annotate-ai-diff"><picture><source srcset="docs/assets/readme-features/annotate-ai-diffs.webp" type="image/webp"><img src="docs/assets/readme-features/annotate-ai-diffs.poster.jpg" alt="A note on a changed diff line sent back to the agent"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -158,7 +312,7 @@ Draft commit messages and pull requests from the diff, then send failing checks 
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/review/commit-push"><picture><source srcset="docs/assets/readme-features/git-integration.webp" type="image/webp"><img src="docs/assets/readme-features/git-integration.poster.jpg" alt="Drafting a commit and pull request, then sending a review comment back to the agent" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/review/commit-push"><picture><source srcset="docs/assets/readme-features/git-integration.webp" type="image/webp"><img src="docs/assets/readme-features/git-integration.poster.jpg" alt="Drafting a commit and pull request, then sending a review comment back to the agent"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -172,7 +326,7 @@ Quickly split tasks into isolated environments, so multiple agents can work side
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/model/worktrees"><picture><source srcset="docs/assets/readme-features/parallel-worktrees.webp" type="image/webp"><img src="docs/assets/readme-features/parallel-worktrees.poster.jpg" alt="Creating a new worktree with its own agent next to other running worktrees" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/model/worktrees"><picture><source srcset="docs/assets/readme-features/parallel-worktrees.webp" type="image/webp"><img src="docs/assets/readme-features/parallel-worktrees.poster.jpg" alt="Creating a new worktree with its own agent next to other running worktrees"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -186,7 +340,7 @@ Click any element in Orca's browser to copy its HTML, styles, and selector, then
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/browser/design-mode"><picture><source srcset="docs/assets/readme-features/design-mode.webp" type="image/webp"><img src="docs/assets/readme-features/design-mode.poster.jpg" alt="Picking a button in Orca's browser and sending it to the agent's chat" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/browser/design-mode"><picture><source srcset="docs/assets/readme-features/design-mode.webp" type="image/webp"><img src="docs/assets/readme-features/design-mode.poster.jpg" alt="Picking a button in Orca's browser and sending it to the agent's chat"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -200,7 +354,7 @@ See your GitHub and Linear tasks in one place, and start a workspace for each wh
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/review/linear"><picture><source srcset="docs/assets/readme-features/github-linear-tasks.webp" type="image/webp"><img src="docs/assets/readme-features/github-linear-tasks.poster.jpg" alt="GitHub and Linear issues in Orca, with a workspace started from a Linear issue" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/review/linear"><picture><source srcset="docs/assets/readme-features/github-linear-tasks.webp" type="image/webp"><img src="docs/assets/readme-features/github-linear-tasks.poster.jpg" alt="GitHub and Linear issues in Orca, with a workspace started from a Linear issue"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -214,7 +368,7 @@ Anything you can do in Orca, your agents can do too: create worktrees, start wor
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/cli/overview"><picture><source srcset="docs/assets/readme-features/orca-cli.webp" type="image/webp"><img src="docs/assets/readme-features/orca-cli.poster.jpg" alt="An agent running orca worktree create to start a worker in a new worktree" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/cli/overview"><picture><source srcset="docs/assets/readme-features/orca-cli.webp" type="image/webp"><img src="docs/assets/readme-features/orca-cli.poster.jpg" alt="An agent running orca worktree create to start a worker in a new worktree"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -228,7 +382,7 @@ Themes, editors, languages, and panels from the community, installed in a click.
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/plugins"><picture><source srcset="docs/assets/readme-features/plugins.webp" type="image/webp"><img src="docs/assets/readme-features/plugins.poster.jpg" alt="Installing the Orca Midnight theme from the plugin catalog" width="100%" /></picture></a>
+  <a href="https://orca.dev/plugins"><picture><source srcset="docs/assets/readme-features/plugins.webp" type="image/webp"><img src="docs/assets/readme-features/plugins.poster.jpg" alt="Installing the Orca Midnight theme from the plugin catalog"" /></picture></a>
 </td>
 </tr>
 <tr>
@@ -242,7 +396,7 @@ Put agents, terminals, browsers, and diffs side by side in split panes shaped to
 
 </td>
 <td width="50%">
-  <a href="https://orca.dev/docs/model/tabs-panes-splits"><picture><source srcset="docs/assets/readme-features/split-anything.webp" type="image/webp"><img src="docs/assets/readme-features/split-anything.poster.jpg" alt="Dragging tabs into split panes with an agent, browser, terminal, and diff" width="100%" /></picture></a>
+  <a href="https://orca.dev/docs/model/tabs-panes-splits"><picture><source srcset="docs/assets/readme-features/split-anything.webp" type="image/webp"><img src="docs/assets/readme-features/split-anything.poster.jpg" alt="Dragging tabs into split panes with an agent, browser, terminal, and diff"" /></picture></a>
 </td>
 </tr>
 </table>
