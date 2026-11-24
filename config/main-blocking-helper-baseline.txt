@@ -189,7 +189,7 @@
 1 src/main/claude-accounts/profiles/routing/claude-profile-launch-preparation.ts
 1 src/main/claude-accounts/profiles/routing/claude-profile-routed-home.ts
 12 src/main/claude-accounts/profiles/routing/claude-profile-router.ts # overhedge fork: prepareLaunchForAccount prepares a pinned account folder exactly as prepareLaunch does for the selection; was 11
-3 src/main/claude-accounts/profiles/setup/claude-profile-history.ts
+1 src/main/claude-accounts/profiles/setup/claude-profile-history.ts
 14 src/main/claude-accounts/profiles/setup/claude-profile-prompt-history.ts
 11 src/main/claude-accounts/profiles/setup/claude-profile-provisioning.ts
 6 src/main/claude-accounts/profiles/setup/claude-profile-settings.ts

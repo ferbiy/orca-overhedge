@@ -77,7 +77,7 @@
 1 src/main/claude-accounts/profiles/routing/claude-observed-config-dirs.ts
 1 src/main/claude-accounts/profiles/routing/claude-profile-launch-preparation.ts
 5 src/main/claude-accounts/profiles/routing/claude-profile-router.ts
-5 src/main/claude-accounts/profiles/setup/claude-profile-history.ts
+1 src/main/claude-accounts/profiles/setup/claude-profile-history.ts
 26 src/main/claude-accounts/profiles/setup/claude-profile-prompt-history.ts
 5 src/main/claude-accounts/profiles/setup/claude-profile-provisioning.ts
 1 src/main/claude-accounts/profiles/setup/claude-profile-settings.ts
