@@ -26,7 +26,7 @@ afterEach(() => {
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
-const KEY = '1001.' + 'a'.repeat(64) + '.key'
+const KEY = `1001.${'a'.repeat(64)}.key`
 // Real symlinks require additional privileges on Windows.
 const itLinks = it.skipIf(process.platform === 'win32')
 
