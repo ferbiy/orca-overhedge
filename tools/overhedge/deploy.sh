@@ -150,10 +150,13 @@ preflight() {
   rs=$(runtime_state); [ "$rs" = ready ] || not_safe+=("runtime state '$rs'")
   sudo -n true 2>/dev/null || not_safe+=("sudo -n does not work")
   command -v pigz >/dev/null || not_safe+=("pigz missing")
-  # dpkg lock held (apt, dpkg, an unattended-upgrade run). The idle unattended-upgrade-shutdown
-  # helper does not hold it.
-  if pgrep -x 'apt-get|dpkg|apt' >/dev/null || { command -v fuser >/dev/null && sudo -n fuser -s /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock 2>/dev/null; }; then
-    not_safe+=("apt/dpkg is running (dpkg lock held)")
+  # The host's dpkg lock is held (apt, dpkg, an unattended-upgrade run). Checked on the lock files,
+  # not by process name: apt-get inside Docker containers is visible to pgrep but irrelevant, and
+  # the idle unattended-upgrade-shutdown helper never holds the lock.
+  if command -v fuser >/dev/null && sudo -n true 2>/dev/null; then
+    if sudo -n fuser -s /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock 2>/dev/null; then not_safe+=("the dpkg lock is held (apt/dpkg running)"); fi
+  else
+    not_safe+=("cannot check the dpkg lock (needs fuser and sudo -n)")
   fi
   free=$(ovh_free_gb "$HOME"); [ "$free" -ge "$MIN_DEPLOY_FREE_GB" ] || not_safe+=("only ${free}G free in \$HOME")
   # A deploy launched from inside a UI chat would kill its own caller on stop.

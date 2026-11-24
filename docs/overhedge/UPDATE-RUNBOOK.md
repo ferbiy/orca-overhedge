@@ -73,8 +73,10 @@ and 8) are deterministic. Canonical copy: `docs/overhedge/UPDATE-RUNBOOK.md` on 
 
 ## 4. The port (what the Claude session does)
 
-Use `S=~/overhedge-build/scripts`, `B=~/overhedge-build`. Call scripts with their full path
-(`~/overhedge-build/scripts/<name>.sh`): the permission allowlist matches that form.
+Write paths literally (`~/overhedge-build/...`) and call scripts with their full path
+(`~/overhedge-build/scripts/<name>.sh`): the permission allowlist matches that form, and the
+permission check denies commands that contain `$(...)`, `$?` or shell variables it cannot resolve.
+Run the inner command first and paste its literal output (e.g. the full sha) into the next one.
 `<id>` is the release id (`1.4.274` -> `274`), `<prev>` the previous port (`PREV_PATCH_BRANCH`).
 `<prefix>` is `overhedge`, or `overhedge/rehearsal` in a rehearsal (section 4.9).
 
@@ -86,9 +88,9 @@ continue from where it is rather than starting over; never delete pushed work.
 1. Read `OVERHEDGE.md` on `origin/<prev>` (what the patch adds, the overlap section, last port notes).
 2. List every stable release between the previous base and the target:
    `gh release list -R stablyai/orca -L 40` and read each one's notes (`gh release view v1.4.N -R stablyai/orca`).
-3. Files our patch touches: `git -C $B/fork diff --stat origin/overhedge/base-<prev>..origin/<prev>`.
+3. Files our patch touches: `git -C ~/overhedge-build/fork diff --stat origin/overhedge/base-<prev>..origin/<prev>`.
    Upstream changes in exactly those files:
-   `git -C $B/fork diff --stat origin/overhedge/base-<prev> v<new> -- <those files>`.
+   `git -C ~/overhedge-build/fork diff --stat origin/overhedge/base-<prev> v<new> -- <those files>`.
 4. Overlap check (stop condition 1). Look for upstream shipping any of our features natively:
    - Remote Control in native Claude chats: `git grep -n enableRemoteControl v<new> -- src`.
    - Per-chat Claude account pins / `--account` on launches (upstream's model is host-wide
@@ -113,14 +115,14 @@ continue from where it is rather than starting over; never delete pushed work.
 ```
 
 It fetches, creates `<prefix>/base-<id>` at the tag and `<prefix>/patch-<id>` from it in worktrees
-`$B/base-<id>` and `$B/patch-<id>` (rehearsal: `rehearsal-base-<id>`, `rehearsal-patch-<id>`), and
+`~/overhedge-build/base-<id>` and `~/overhedge-build/patch-<id>` (rehearsal: `rehearsal-base-<id>`, `rehearsal-patch-<id>`), and
 3-way applies the squashed diff `base-<prev>..<prev>`. Exit 0 = applied and committed; exit 3 =
 conflicts listed in `CONFLICTS=`.
 
 ### 4.3 Resolve conflicts
 
 For each conflicted file:
-1. Read upstream's change: `git -C $B/fork log --oneline overhedge/base-<prev>..v<new> -- <file>` and
+1. Read upstream's change: `git -C ~/overhedge-build/fork log --oneline overhedge/base-<prev>..v<new> -- <file>` and
    the commits' diffs. Understand why upstream changed it.
 2. Re-express our change on top of upstream's new code. Keep upstream's behavior everywhere our
    patch does not deliberately change it. Prefer reusing an upstream mechanism over keeping a
@@ -135,7 +137,7 @@ Then `git add` and commit: `overhedge: re-apply <prev> onto v<new>` with a body 
 hand-resolved files and one line each on how. Generated files: never hand-merge them; the `gen`
 step in 4.4 regenerates (`pnpm generate:rpc-params-catalog`, inside Docker); commit the result.
 Formatting: the `fmt` step checks the changed `.ts/.tsx`; to fix, run
-`docker run --rm --cpus 6 -v $B/patch-<id>:/w -w /w node:24 bash -lc 'corepack enable && xargs pnpm exec oxfmt --write < .chk/changed-ts.txt'`
+`docker run --rm --cpus 6 -v /home/ubuntu/overhedge-build/patch-<id>:/w -w /w node:24 bash -lc 'corepack enable && xargs pnpm exec oxfmt --write < .chk/changed-ts.txt'`
 after an `install`.
 
 Update `OVERHEDGE.md` on the patch branch: versions in the header and the build/rollback examples,
@@ -173,11 +175,12 @@ After 3 fix iterations without meeting the criteria, stop (condition 2).
 ### 4.5 Push and build in CI
 
 ```bash
-git -C $B/base-<id>  push origin <prefix>/base-<id>
-git -C $B/patch-<id> push origin <prefix>/patch-<id>
+git -C ~/overhedge-build/base-<id>  push origin <prefix>/base-<id>
+git -C ~/overhedge-build/patch-<id> push origin <prefix>/patch-<id>
 ~/overhedge-build/scripts/sync-ci.sh v<new> --commit     # upstream CI files on overhedge/ci -> v<new>
-git -C $B/ci push origin overhedge/ci                    # skip in a rehearsal of the deployed release when nothing changed
-~/overhedge-build/scripts/ci-build.sh $(git -C $B/patch-<id> rev-parse HEAD)
+git -C ~/overhedge-build/ci push origin overhedge/ci                    # skip in a rehearsal of the deployed release when nothing changed
+git -C ~/overhedge-build/patch-<id> rev-parse HEAD            # -> <full sha>
+~/overhedge-build/scripts/ci-build.sh <full sha>
 ```
 
 `sync-ci.sh` also reports whether upstream's `release-mac-build.yml` or `release-cut.yml` changed
@@ -196,7 +199,7 @@ the server deb: report it.
 
 ```bash
 ~/overhedge-build/scripts/fetch-and-verify.sh <DEB_RUN> <version> --mac-run <MAC_RUN>
-~/overhedge-build/scripts/static-compare.sh $B/artifacts/<deb> <version>
+~/overhedge-build/scripts/static-compare.sh ~/overhedge-build/artifacts/<deb> <version>
 ~/overhedge-build/scripts/smoke.sh <id> <deb file name> --control orca-ide_<version>_amd64.deb
 ```
 
@@ -255,9 +258,9 @@ No tokens, emails, account or org names; no chat or terminal content.
 same steps on `overhedge/rehearsal/base-<id>` and `overhedge/rehearsal/patch-<id>`, worktrees
 `rehearsal-base-<id>` / `rehearsal-patch-<id>`. Do not change the fork's default branch. Push the
 rehearsal branches only if the CI build is part of the rehearsal; at the end delete them
-(`git -C $B/fork push origin :overhedge/rehearsal/base-<id> :overhedge/rehearsal/patch-<id>`, the guard
+(`git -C ~/overhedge-build/fork push origin :overhedge/rehearsal/base-<id> :overhedge/rehearsal/patch-<id>`, the guard
 allows deleting only `overhedge/rehearsal/*`) and remove the rehearsal worktrees
-(`git -C $B/fork worktree remove --force <dir>`) and local branches. A rehearsal of the release that
+(`git -C ~/overhedge-build/fork worktree remove --force <dir>`) and local branches. A rehearsal of the release that
 is already deployed re-ports it from the previous patch branch (e.g. 266 -> 273), so it meets the
 same conflicts as the real port did; compare the result with the real `overhedge/patch-<id>`
 (`git diff origin/overhedge/patch-<id> <rehearsal patch> --stat`) and describe the differences in the report. Keep `overhedge/ci` unchanged in a rehearsal
