@@ -60,20 +60,21 @@ export type ClaudeTerminalRestartOutcome =
   /** The pane's terminal was (or may have been) stopped but no new one runs Claude. Never ok. */
   | { kind: 'stopped-midway'; reason: string }
 
-export const SESSION_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const QUESTION = 'Claude is waiting for an answer or a permission in this pane'
 export const CANCELLED = 'the request was cancelled before the restart'
 export const NOT_HEADLESS =
   'automatic restart runs only on a headless Orca server; a desktop window restarts the panes it holds itself'
 
-const REFUSALS: Record<Exclude<ClaudePaneRestartRefusal, 'stop_failed' | 'create_failed'>, string> =
-  {
-    not_local: 'the pane is not a live local terminal of this host',
-    viewer_cannot_follow: 'a client viewing the pane could not follow a new terminal',
-    no_resume_command: 'Orca could not build the resume command for this session',
-    busy: 'the pane is busy (another restart, or the session runs in another pane, or it changed)'
-  }
+const REFUSALS: Record<
+  Exclude<ClaudePaneRestartRefusal, 'stop_failed' | 'create_failed'>,
+  string
+> = {
+  not_local: 'the pane is not a live local terminal of this host',
+  viewer_cannot_follow: 'a client viewing the pane could not follow a new terminal',
+  no_resume_command: 'Orca could not build the resume command for this session',
+  busy: 'the pane is busy (another restart, or the session runs in another pane, or it changed)'
+}
 
 type IdleState = 'idle' | 'working' | 'question'
 

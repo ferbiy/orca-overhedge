@@ -1,4 +1,3 @@
-import { releaseUpdatesEnabled } from '../overhedge-release-updates'
 import {
   beginMacUpdateDownload,
   deferMacQuitUntilInstallerReady,
@@ -171,7 +170,7 @@ export abstract class UpdaterDownloadInstall extends UpdaterRequiredRestart {
 
   private canDownloadAutomatically(version: string): boolean {
     return (
-      releaseUpdatesEnabled() &&
+      this.releaseUpdatesAllowed() &&
       this.getAutomaticUpdates?.() === true &&
       this.implicitInstallOnQuit &&
       this.automaticDownloadOfferVersion === version &&

@@ -95,7 +95,8 @@ function fakePane(overrides: Partial<PaneState> = {}): {
     headless: () => state.headless,
     terminalForPane: (paneKey) =>
       state.live && paneKey === 'tab1:leaf1' ? { handle: 'h1', ptyId: 'pty-1' } : null,
-    hookState: () => (state.hooks.length > 1 ? (state.hooks.shift() ?? null) : (state.hooks[0] ?? null)),
+    hookState: () =>
+      state.hooks.length > 1 ? (state.hooks.shift() ?? null) : (state.hooks[0] ?? null),
     providerSession: (_paneKey, id) => ({ key: 'session_id', id, cwd: '/w' }),
     agentStatus: async () => ({ isRunningAgent: state.running, status: state.title }),
     restartPane: async (ptyId, session, stillCurrent) => {

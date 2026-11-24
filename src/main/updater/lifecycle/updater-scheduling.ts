@@ -12,6 +12,11 @@ import { UpdaterCheckFailure } from './updater-check-failure'
 import { getDelayedUpdateWakeDelayMs } from '../releases/updater-release-delay'
 
 export abstract class UpdaterScheduling extends UpdaterCheckFailure {
+  /** Overhedge: `app.isPackaged` for the updater's gates, but false for the fork's macOS build. */
+  protected releaseUpdatesAllowed(): boolean {
+    return releaseUpdatesEnabled()
+  }
+
   protected getAutomaticRetryInterval(): number {
     return AUTO_UPDATE_RETRY_INTERVAL_MS
   }
