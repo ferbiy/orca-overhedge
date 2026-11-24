@@ -29,7 +29,8 @@ and 8) are deterministic. Canonical copy: `docs/overhedge/UPDATE-RUNBOOK.md` on 
 1. Never print, echo, log or copy tokens, passwords, emails, account or organisation names. Never
    run `gh auth token`, `gh auth status --show-token`, `env`/`printenv`. Never read
    `~/.config/orca/orca-runtime.json`, anything else under `~/.config/orca/`, `~/.claude*`,
-   `~/.config/gh/`, `~/.ssh/` or `~/.*-token`.
+   `~/.config/gh/`, `~/.ssh/` or `~/.*-token` (the one exception: this session's own saved tool
+   outputs under `<CLAUDE_CONFIG_DIR>/projects/*/tool-results/`, which Claude Code itself points to).
 2. Heavy work only in Docker under `~/overhedge-build/` with `--cpus 6` (the scripts do this):
    no `pnpm`/`npm`/`node`/`npx` on the host, no builds or tests outside containers.
 3. Git: work only in `~/overhedge-build/fork` and its worktrees. No force-push, no branch deletion

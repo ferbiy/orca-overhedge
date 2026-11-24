@@ -114,8 +114,12 @@
     "deny": [
       "Read(~/.config/orca/**)",
       "Read(~/.claude/**)",
-      "Read(~/.claude-team/**)",
       "Read(~/.claude-personal/**)",
+      "Read(~/.claude-team/.credentials.json)",
+      "Read(~/.claude-team/*.json)",
+      "Read(~/.claude-team/.claude.json)",
+      "Read(~/.claude-team/settings*)",
+      "Read(~/.claude-team/sessions/**)",
       "Read(~/.claude.json)",
       "Read(~/.config/gh/**)",
       "Read(~/.ssh/**)",
