@@ -77,9 +77,11 @@ export function installClaudeChatWorkerInheritance(
   )
 }
 
-/** The runtime's one call: workers inherit their coordinator's pin, and pins follow /clear. */
-export function installClaudeChatPinWiring(db: () => unknown): void {
+/** The runtime's one call: workers inherit their coordinator's pin, and pins follow /clear. Only
+ *  sets lookups (the db is read on use); returns the uninstall. */
+export function installClaudeChatPinWiring(db: () => unknown): () => void {
   installClaudeChatWorkerInheritance(db, claudeChatLineage)
+  return () => installClaudeChatWorkerInheritance(() => null)
 }
 
 function acquiredManagedAccountId(record: ClaudeChatRecordLike): string | null {

@@ -67,14 +67,14 @@ type WorkerAgentPlacementArgs = {
   launch: {
     preferences: AgentLaunchPreferences | undefined
     receipt: OrchestrationWorkerLaunchReceipt
+    /** Overhedge: the managed Claude account the new worker is pinned to before it starts. */
+    claudeAccountId?: string | null
   }
   effects: WorkerEffect[]
   /** Attributes a throw to the step that was running, the way the caller's own stages do. */
   onStage: (stage: string) => void
   /** A follow-up continuing a worker; a closed one is brought back in place of a launch. */
   followUp?: WorkerFollowUp | undefined
-  /** Overhedge: the managed Claude account the new worker is pinned to before it starts. */
-  claudeAccountId?: string | null
 }
 
 /** Setup evidence for existing placements and failures before placement creation. */
@@ -138,7 +138,7 @@ async function launchWorkerAgent(
   existing: PlacedWorktree | undefined
 ): Promise<WorkerAgentPlacement> {
   const agent = requireAgent(args.agent)
-  const claudePin = pinNewClaudeWorker(args.claudeAccountId)
+  const claudePin = pinNewClaudeWorker(args.launch.claudeAccountId)
   let created: Awaited<ReturnType<typeof createWorkerWorktree>> | undefined
   let structuredSession: WorkerStructuredSession | null = null
   let terminalCreation: RuntimeTerminalCreate | undefined

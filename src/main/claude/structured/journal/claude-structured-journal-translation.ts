@@ -228,9 +228,7 @@ export function createClaudeJournalTranslator(
           event.message,
           event.startsTurn === true,
           event.observedAt ?? Date.now(),
-          event.requestedAt,
-          event.clientMessageId,
-          event.remoteControlUser === true
+          event
         )
       ) {
         providerFallback.append(

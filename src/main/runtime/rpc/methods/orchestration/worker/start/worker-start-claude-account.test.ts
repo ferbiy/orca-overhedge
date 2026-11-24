@@ -173,10 +173,13 @@ function place(
     resolvedWorktree: args.existing ? { id: 'wt_existing', repoId: 'repo_1' } : undefined,
     mode: args.mode,
     agent: 'claude',
-    launch: { preferences: undefined, receipt: createWorkerLaunchReceipt({ agent: 'claude' }) },
+    launch: {
+      preferences: undefined,
+      receipt: createWorkerLaunchReceipt({ agent: 'claude' }),
+      ...(args.claudeAccountId ? { claudeAccountId: args.claudeAccountId } : {})
+    },
     effects,
-    onStage: () => {},
-    ...(args.claudeAccountId ? { claudeAccountId: args.claudeAccountId } : {})
+    onStage: () => {}
   })
 }
 

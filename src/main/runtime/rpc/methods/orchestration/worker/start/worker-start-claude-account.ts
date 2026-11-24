@@ -57,6 +57,15 @@ export function resolveWorkerStartClaudeAccount(
   return resolved.account.id
 }
 
+/** worker-start's RPC entry: checks an explicit `account` before anything else runs, and replaces
+ *  it with the id of the managed account it names; startLocalWorker pins the new worker to it. */
+export function withWorkerStartClaudeAccount<
+  P extends Pick<WorkerStartInput, 'account' | 'agent' | 'on' | 'terminal'>
+>(params: P, context: Pick<RpcContext, 'callerScope'>): P {
+  const account = resolveWorkerStartClaudeAccount(params, context)
+  return account === undefined ? params : { ...params, account }
+}
+
 /** The account to pin the new worker to, or null to follow the global selection. Called once the
  *  worker's agent is known (a configured default may resolve it) and before its Run is bound. */
 export function workerClaudeLaunchAccount(args: {
@@ -98,18 +107,18 @@ export function workerClaudeLaunchAccount(args: {
   })
 }
 
-/** worker-start's call: explicit `--account`, else the coordinator's effective account. */
+/** worker-start's call: explicit `--account` (already resolved to an account id by
+ *  withWorkerStartClaudeAccount), else the coordinator's effective account. */
 export function workerClaudeAccountFor(
   start: {
-    params: Pick<WorkerStartInput, 'from' | 'terminal'>
+    params: Pick<WorkerStartInput, 'account' | 'from' | 'terminal'>
     runtime: OrcaRuntimeService
     callerSession?: OrchestrationEntryCaller
-    claudeAccountId?: string
   },
   agent: TuiAgent | undefined
 ): string | null {
   return workerClaudeLaunchAccount({
-    explicitAccountId: start.claudeAccountId,
+    explicitAccountId: start.params.account,
     agent,
     reusesTerminal: Boolean(start.params.terminal),
     creator: () => resolveDispatchCreator(start.runtime, start.params.from, start.callerSession)

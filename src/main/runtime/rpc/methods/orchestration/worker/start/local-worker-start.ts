@@ -70,8 +70,6 @@ export async function startLocalWorker(args: {
   /** Set when a worker starts its own helper; the helper reports to this Dispatch. */
   helperCreator?: DispatchContextRow
   followUp?: WorkerFollowUp
-  /** Overhedge: an explicit, already validated `--account` (managed Claude account id). */
-  claudeAccountId?: string
 }): Promise<unknown> {
   const { runtime, db, coordinator, callerSession, orchestrationMutation } = args
   const recordStart = prepareWorkerStartCard(runtime, callerSession)
@@ -210,11 +208,10 @@ export async function startLocalWorker(args: {
       resolvedWorktree,
       mode,
       agent,
-      launch,
+      launch: { ...launch, claudeAccountId },
       effects,
       onStage,
-      followUp: args.followUp,
-      claudeAccountId
+      followUp: args.followUp
     })
     // New worktrees resolve host support after creation, so the final mode receipt may differ from preflight.
     mode = placed.mode

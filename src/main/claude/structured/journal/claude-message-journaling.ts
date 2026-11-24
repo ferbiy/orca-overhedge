@@ -82,12 +82,12 @@ export function journalClaudeMessage(
   message: Record<string, unknown>,
   startsTurn: boolean,
   observedAt: number,
-  /** Host clock on the submission that produced this send, when known. */
-  requestedAt?: number,
-  clientMessageId?: string,
-  /** overhedge: a prompt from a Remote Control client; no Orca submission wrote its bubble. */
-  remoteControlUser = false
+  /** The submission that produced this send, when known: its host clock and client message id.
+   *  overhedge: `remoteControlUser` marks a prompt from a Remote Control client, whose bubble no
+   *  Orca submission wrote. */
+  send: { requestedAt?: number; clientMessageId?: string; remoteControlUser?: boolean } = {}
 ): boolean {
+  const { requestedAt, clientMessageId, remoteControlUser = false } = send
   const envelope = readClaudeMessageEnvelope(message)
   if (!envelope) {
     return false

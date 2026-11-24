@@ -13,7 +13,7 @@ import {
   resolveWorkerStartRun,
   qualifyLiveWorkerFollowUp
 } from './start/admission/worker-start-authority'
-import { parseTaskDeps } from './start/admission/task-deps-argument'
+import { parseTaskDeps, withWorkerStartClaudeAccount } from './start/admission/task-deps-argument'
 import { WorkerStartParams } from '../../../../../../shared/rpc-contract/orchestration/orchestration-worker-start-params'
 import {
   isWorkerStartTimeoutWithinTimerLimit,
@@ -34,15 +34,10 @@ import {
   withOpenQuestion,
   withQuestionLink
 } from './start/worker-question-link'
-import { resolveWorkerStartClaudeAccount } from './start/worker-start-claude-account'
 
 type WorkerStartContext = Pick<
   RpcContext,
-  | 'runtime'
-  | 'orchestrationMutation'
-  | 'orchestrationCompatibilityEvidence'
-  | 'orchestrationCaller'
-  | 'callerScope'
+  'runtime' | 'orchestrationMutation' | 'orchestrationCompatibilityEvidence' | 'orchestrationCaller'
 >
 
 export const ORCHESTRATION_WORKER_START_METHODS = [
@@ -65,7 +60,7 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
     requires: ['accounts'],
     permission: 'workspace',
     params: WorkerStartParams,
-    handler: async (params, ctx) => startWorker(params, ctx)
+    handler: async (params, ctx) => startWorker(withWorkerStartClaudeAccount(params, ctx), ctx)
   })
 ]
 
@@ -94,7 +89,6 @@ export async function startWorker(
   )
   const { params, followUp, coordinator, bindRun, helperCreator, taskDeps, existingTask, withRun } =
     prepared
-  const { claudeAccountId } = prepared
   const db = runtime.getOrchestrationDb()
   const questionLink =
     params.forQuestion !== undefined
@@ -139,8 +133,7 @@ export async function startWorker(
     mode,
     chatLineage,
     helperCreator,
-    followUp,
-    ...(claudeAccountId ? { claudeAccountId } : {})
+    followUp
   })
   await stopHelperAfterStart(runtime, receipt, orchestrationMutation)
   const note = { itemUid: checked?.itemUid, chatLineage, terminal: params.terminal }
@@ -158,8 +151,7 @@ export async function prepareWorkerStart(
   {
     runtime,
     orchestrationCompatibilityEvidence,
-    orchestrationCaller,
-    callerScope
+    orchestrationCaller
   }: Omit<WorkerStartContext, 'orchestrationMutation'>,
   followUp?: WorkerFollowUp
 ) {
@@ -169,8 +161,6 @@ export async function prepareWorkerStart(
       '--timeout-ms is too large for worker-start transport grace; the derived timeout must fit within the timer limit.'
     )
   }
-  // Overhedge: an explicit --account is checked before any Run, Task or Dispatch exists.
-  const claudeAccountId = resolveWorkerStartClaudeAccount(params, { callerScope })
   if (params.on && params.terminal?.startsWith(ORCA_SESSION_ADDRESS_PREFIX)) {
     // Refused here, before any remote call: an Orca session ID names a chat only on its own host.
     throw new OrchestrationError(
@@ -315,8 +305,7 @@ export async function prepareWorkerStart(
     helperCreator,
     taskDeps,
     existingTask,
-    withRun,
-    ...(claudeAccountId ? { claudeAccountId } : {})
+    withRun
   }
 }
 

@@ -160,6 +160,7 @@ export function fakeClaude(
       },
       supportedModels: async () => {
         connection.calls.push({ subtype: 'list_models' })
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the test routes answer list_models with an array or nothing.
         return (routed('list_models') as unknown[] | undefined) ?? []
       },
       setModel: async (model) => {
@@ -179,6 +180,7 @@ export function fakeClaude(
           subtype: 'interrupt',
           params: interruptOptions?.cancelQueued ? { cancelQueued: true } : {}
         })
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the test routes answer interrupt with the connection's own result shape or nothing.
         return routed('interrupt', interruptOptions) as
           | Awaited<ReturnType<ClaudeStreamJsonConnection['interrupt']>>
           | undefined
