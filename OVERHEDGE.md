@@ -44,6 +44,9 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   See "Cross-account Claude peers" below.
 - Plugin task sources: a plugin's `taskSource.<id>.*` worker commands become its own tab on the
   Tasks page (used by our ClickUp plugin). See "Plugin task sources" below.
+- Plugin status colours: a task source's status and options, and a components panel Badge, can
+  carry a `#rgb`/`#rrggbb` colour that Orca draws like Linear's state pill. See "Plugin status
+  colours" below.
 
 ## Overlap with upstream (checked against v1.4.273)
 
@@ -95,7 +98,7 @@ Contract for a plugin (`execution: "trusted-worker"`, a `main` worker):
   - `list({ query, filters, cursor? })` -> `{ items, nextCursor?, filters?, notice? }`
   - `get({ itemId })` -> `{ item, bodyMarkdown?, actions? }`
   - `action({ itemId, actionId, value? })` -> `{ message?, detail? }`
-- `item`: `{ id, title, status?: { label, tone: open|active|blocked|review|done|closed },
+- `item`: `{ id, title, status?: { label, tone: open|active|blocked|review|done|closed, color? },
   priority?, owner?, labels?, updatedAt?, summary?, url? }` (http(s) only). Items, filters and
   details are the shapes of PR #26282; unknown fields are dropped, so a #26282 `start` recipe does
   no harm. `filters`: `[{ id (kebab), label, options: [{ value, label }], defaultValue? }]`; the
@@ -114,6 +117,39 @@ the workspace on the server. Upstream files touched: `TaskPage.tsx` (wrapped, 3 
 `SourceBar.tsx` (2), `plugin-list-projection.ts` (3), `plugin-list-entry.ts` (3), `en.json`
 (one block at the top). Everything else is in `components/task-page/plugin-sources/` and
 `src/shared/plugins/tasks/`.
+
+## Plugin status colours (branch `overhedge/status-colors`)
+
+Made for our ClickUp plugin (0.4.2), whose statuses have their own colours. A plugin colour is
+untrusted, so it is accepted only as `#rgb` or `#rrggbb` (`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`:
+no names, alpha, `var()`, functions, spaces or `;`) and only ever reaches a React `style` object,
+through Linear's own pill helpers (`getLinearStatePillStyle`, `getLinearStateMarkerStyle`: tinted
+background and border, text and dot mixed toward `--foreground`, so it reads in light and dark).
+The renderer checks it again right before use (`plugin-status-color-style.ts`).
+
+- Tasks page: optional `color` on an item's `status` and on action and filter `options`. An invalid
+  value is dropped (`.catch(undefined)`); the rest of the answer still shows. With a colour the
+  status pill drops its tone classes and gets the tinted pill plus a dot; status menu items, the
+  menu button's current value and filter options get a dot. Without one, the tone pill as before.
+  The page sends `features: ['status-color']` in every command's params (list, get, action), so a
+  plugin can send plain labels plus `color` and keep its own fallback for older builds.
+- Components panels: `Badge` takes an optional `color` beside `tone`. A valid one draws an outline
+  badge in that colour with a dot; an invalid one is dropped with the usual "ignored invalid color"
+  warning, and the tone badge shows. A plugin feature-detects it with `ui.has('Badge', 'color')`
+  (the props table in `plugin-declarative-message-names.ts` that `ui.has` reads). The catalog
+  version (`ui.catalog`, 4) is not bumped: upstream owns that number and may give 5 a different
+  meaning. Stock Orca drops the prop with a warning, so plugins should check `ui.has` first.
+- Component fixtures for both: `components/plugins/status-color/PluginStatusColor.fixture.tsx`
+  (`pnpm fixtures:shot 'PluginStatusColor*' --theme both`).
+
+Upstream files touched: `plugin-declarative-catalog.ts` (Badge schema, 3 lines),
+`plugin-declarative-message-names.ts` (Badge props, 2), `PluginDeclarativeView.tsx` (Badge case
+and import, 6), `orca-components.d.ts` (`BadgeProps`, 5), plus the regenerated
+`orca-runtime.mjs`, `orca-testing.mjs`, `skill-guides/.../components.md` and
+`bundled-skill-guides.ts` (rerun `pnpm generate:plugin-declarative-runtime` and
+`pnpm generate:plugin-authoring-skill-references` after a port). Everything else is in new files
+(`src/shared/plugins/tasks/plugin-status-color.ts`, `src/renderer/src/components/plugins/status-color/`)
+or in our task-source files.
 
 ## Plugin chat send (branch `overhedge/chat-send`)
 
