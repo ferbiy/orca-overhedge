@@ -100,6 +100,9 @@ continue from where it is rather than starting over; never delete pushed work.
      (`src/main/claude-accounts/profiles/setup/claude-profile-history.ts`) still unlinking `sessions`?
    - macOS updater guard: anything upstream added around `releaseUpdatesEnabled`/release channels.
    - Slash-menu entries for `/rc`, `/remote-control`, `/orca-account`, `/orca-migrate`.
+   - Plugin task sources on the Tasks page (`taskSource.<id>.*` worker commands, merged into
+     patch-273 on 2026-11-25): `git grep -n taskSources v<new> -- src`; upstream filling
+     `contributes.taskSources` (community PR #26282 or similar) is a collision to report.
    Partial coverage that our code can simply reuse (as `account migrate --restart` reused upstream's
    `restartAgentPaneInPlace` in 273) is fine; write it down. Upstream doing the same thing
    differently, so that we would have to choose, is a stop.
