@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { PluginTaskSourceOperation } from './plugin-task-source-commands'
-import { pluginOptionalHexColorSchema } from './plugin-status-color'
+import { pluginHexColorSchema } from './plugin-status-color'
 
 /**
  * Overhedge fork: what a plugin task source returns. Items, filters and details follow upstream
@@ -40,6 +40,9 @@ const kebabIdSchema = z
   .min(1)
   .max(64)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'must be kebab-case')
+
+/** An item status or option colour: an invalid one is dropped, the rest of the answer still shows. */
+export const pluginOptionalHexColorSchema = pluginHexColorSchema.optional().catch(undefined)
 
 const optionSchema = z.object({
   value: z.string().max(256),

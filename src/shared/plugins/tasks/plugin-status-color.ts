@@ -16,9 +16,6 @@ export const pluginHexColorSchema = z
   .string()
   .regex(PLUGIN_HEX_COLOR_PATTERN, 'must be a #rgb or #rrggbb colour')
 
-/** In a task source answer: an invalid colour is dropped, the rest of the answer still shows. */
-export const pluginOptionalHexColorSchema = pluginHexColorSchema.optional().catch(undefined)
-
 /** Status colours on the Tasks page: item `status.color` and option `color` are drawn. */
 export const PLUGIN_TASK_SOURCE_STATUS_COLOR_FEATURE = 'status-color'
 

@@ -3486,7 +3486,7 @@ const ORCA_PLUGIN_AUTHORING_COMPONENTS_REFERENCE_MARKDOWN = [
   "- `Heading` (children: text, Text, Link, Code, Badge, RelativeTime): `level?: 1 | 2 | 3`",
   "- `Button` (children: text): `variant?: Variant; tone?: Tone; size?: Size; icon?: IconName; tooltip?: string; disabled?: boolean; onPress?: Press`",
   "- `IconButton` (children: none): `icon: IconName; label: string; tooltip?: string; variant?: Variant; tone?: Tone; size?: Size; disabled?: boolean; onPress?: Press`",
-  "- `Badge` (children: text): `tone?: Tone`",
+  "- `Badge` (children: text): `tone?: Tone; color?: string`",
   "- `Card` (children: any): `title?: string; description?: string`",
   "- `List` (children: ListItem only): `label?: string`",
   "- `ListItem` (children: any): `title?: string; description?: string; icon?: IconName; current?: boolean; disabled?: boolean; onPress?: Press`",

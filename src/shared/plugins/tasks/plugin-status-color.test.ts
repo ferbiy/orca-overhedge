@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { parsePluginDeclarativeTree } from '../declarative/plugin-declarative-tree'
 import { PLUGIN_DECLARATIVE_COMPONENT_PROPS } from '../declarative/plugin-declarative-message-names'
 import { createOrcaSdk } from '../declarative/runtime/declarative-sdk'
-import { isPluginHexColor, pluginOptionalHexColorSchema } from './plugin-status-color'
+import { isPluginHexColor } from './plugin-status-color'
+import { pluginOptionalHexColorSchema } from './plugin-task-source-schema'
 
 const INVALID = [
   '',
