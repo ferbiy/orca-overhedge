@@ -40,6 +40,8 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
 - Cross-account Claude peers: every Claude chat or terminal on the host lists and messages every
   other one (ListAgents / SendMessage), whatever managed account or System default it runs under.
   See "Cross-account Claude peers" below.
+- Plugin task sources: a plugin's `taskSource.<id>.*` worker commands become its own tab on the
+  Tasks page (used by our ClickUp plugin). See "Plugin task sources" below.
 
 ## Overlap with upstream (checked against v1.4.273)
 
@@ -65,8 +67,16 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
 - Cross-session/peer messaging: upstream 1.4.273 adds paired-host peer questions
   (`peer_questions_out`, orchestration schema 50); it does not share Claude's `sessions` folder
   across accounts. Our peers change stays.
+- Plugin task sources on the Tasks page: not in upstream. Upstream keeps `contributes.taskSources`
+  reserved and empty; community PR #26282 (open) would add it. On every port check
+  `git grep -n taskSources v<new> -- src` and whether #26282 or a similar change landed: if
+  upstream ships plugin task sources, the founder decides whether our plugin moves to upstream's
+  contract (our item/filter/detail shapes follow #26282, so that should be a small change).
 
-## Plugin task sources (branch `overhedge/task-sources`)
+## Plugin task sources
+
+Merged into `overhedge/patch-273` from `overhedge/task-sources` (2026-11-25); a port carries it
+like the rest of the patch.
 
 A plugin can add its own tab to the Tasks page next to GitHub, GitLab, Linear and Jira (made for
 our ClickUp plugin). Upstream keeps `contributes.taskSources` reserved and empty (community PR
