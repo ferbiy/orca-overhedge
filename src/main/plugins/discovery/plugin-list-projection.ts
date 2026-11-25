@@ -272,7 +272,8 @@ export async function buildPluginList(
       }
     }
   )
-  const orderedEntries = entries.map(withPluginTaskSources).toSorted(
+  const listed = entries.map(withPluginTaskSources)
+  const orderedEntries = listed.toSorted(
     (a, b) =>
       (lock.plugins[a.pluginKey]?.installedAt ?? Infinity) -
         (lock.plugins[b.pluginKey]?.installedAt ?? Infinity) ||

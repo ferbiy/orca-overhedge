@@ -21,7 +21,9 @@ const STATUSES = [
 ] as const
 
 function field(args: unknown, key: string): unknown {
-  return args && typeof args === 'object' ? Object.entries(args).find(([name]) => name === key)?.[1] : undefined
+  return args && typeof args === 'object'
+    ? Object.entries(args).find(([name]) => name === key)?.[1]
+    : undefined
 }
 
 function text(args: unknown, key: string): string | undefined {
@@ -109,9 +111,7 @@ export function registerDemoTaskSource(
       ]
     }
   })
-  register(DEMO_TASK_SOURCE_COMMANDS[1].id, (args) =>
-    detail(find(field(args, 'itemId')))
-  )
+  register(DEMO_TASK_SOURCE_COMMANDS[1].id, (args) => detail(find(field(args, 'itemId'))))
   register(DEMO_TASK_SOURCE_COMMANDS[2].id, (args) => {
     const task = find(field(args, 'itemId'))
     const actionId = text(args, 'actionId')

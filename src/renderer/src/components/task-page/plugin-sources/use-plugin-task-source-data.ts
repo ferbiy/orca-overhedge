@@ -60,7 +60,10 @@ export function usePluginTaskList(
   // Why: a slow answer for an older query must not replace a newer one.
   const generation = useRef(0)
   // Why from the last answer: the source names its filters, so the first request sends none.
-  const selectedFilters = useMemo(() => effectivePluginTaskFilters(offered, picked), [offered, picked])
+  const selectedFilters = useMemo(
+    () => effectivePluginTaskFilters(offered, picked),
+    [offered, picked]
+  )
   const filtersKey = JSON.stringify(selectedFilters)
 
   const { pluginKey, sourceId } = target

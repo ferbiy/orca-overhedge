@@ -17,7 +17,10 @@ import { useAppStore } from '@/store'
 import { PluginTaskDetailPane } from './PluginTaskDetailPane'
 import { PluginTaskSourceButtons } from './PluginTaskSourceButtons'
 import { PluginTaskStatusPill } from './PluginTaskStatusPill'
-import { type ActivePluginTaskSource, usePluginTaskSourceSelection } from './plugin-task-source-state'
+import {
+  type ActivePluginTaskSource,
+  usePluginTaskSourceSelection
+} from './plugin-task-source-state'
 import { usePluginTaskList } from './use-plugin-task-source-data'
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -102,7 +105,9 @@ export function PluginTaskSourcePage({
             <Select
               key={filter.id}
               value={filters[filter.id] ?? filter.defaultValue ?? filter.options[0]?.value}
-              onValueChange={(value) => setPicked((previous) => ({ ...previous, [filter.id]: value }))}
+              onValueChange={(value) =>
+                setPicked((previous) => ({ ...previous, [filter.id]: value }))
+              }
             >
               <SelectTrigger size="xs" className="w-[160px]" aria-label={filter.label}>
                 <SelectValue placeholder={filter.label} />
@@ -110,7 +115,9 @@ export function PluginTaskSourcePage({
               <SelectContent>
                 {filter.options.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.count === undefined ? option.label : `${option.label} (${option.count})`}
+                    {option.count === undefined
+                      ? option.label
+                      : `${option.label} (${option.count})`}
                   </SelectItem>
                 ))}
               </SelectContent>

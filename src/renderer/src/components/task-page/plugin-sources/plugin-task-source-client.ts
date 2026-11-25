@@ -52,7 +52,9 @@ export async function invokePluginTaskSource<O extends PluginTaskSourceOperation
   }
   const parsed = parsePluginTaskSourceResult(operation, raw)
   if (!parsed.ok) {
-    throw new PluginTaskSourceError(`The plugin sent an invalid ${operation} result (${parsed.error})`)
+    throw new PluginTaskSourceError(
+      `The plugin sent an invalid ${operation} result (${parsed.error})`
+    )
   }
   return parsed.value
 }

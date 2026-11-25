@@ -36,11 +36,7 @@ export function PluginTaskDetailPane({
   onChanged: () => void
 }): React.JSX.Element {
   const t = useTranslate()
-  const { detail, loading, error, setDetail, reload } = usePluginTaskDetail(
-    target,
-    item.id,
-    canGet
-  )
+  const { detail, loading, error, setDetail, reload } = usePluginTaskDetail(target, item.id, canGet)
   const [running, setRunning] = useState<string | null>(null)
   // Why: the row paints at once; the fetched detail may carry a fresher item.
   const shown = detail?.item ?? item
