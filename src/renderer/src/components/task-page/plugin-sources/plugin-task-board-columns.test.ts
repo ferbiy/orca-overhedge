@@ -65,7 +65,10 @@ describe('plugin task board columns', () => {
     ).toBe('review')
     // A value that names no column is not matched by label.
     expect(
-      pluginTaskItemColumn(item('2', { label: 'review', tone: 'review', value: 'x' }), board.columns)
+      pluginTaskItemColumn(
+        item('2', { label: 'review', tone: 'review', value: 'x' }),
+        board.columns
+      )
     ).toBeNull()
   })
 
@@ -106,9 +109,8 @@ describe('plugin task board columns', () => {
 
   it("replaces an item with the source's answer", () => {
     const next = { ...item('2'), title: 'Renamed' }
-    expect(replacePluginTaskItem([item('1'), item('2')], next).map((entry) => entry.title)).toEqual([
-      'Task 1',
-      'Renamed'
-    ])
+    expect(replacePluginTaskItem([item('1'), item('2')], next).map((entry) => entry.title)).toEqual(
+      ['Task 1', 'Renamed']
+    )
   })
 })

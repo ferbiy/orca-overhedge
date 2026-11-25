@@ -42,15 +42,13 @@ export function buildPluginTaskBoardSections(
   items: readonly PluginTaskItem[],
   board: PluginTaskBoard
 ): PluginTaskBoardSection[] {
-  const sections = board.columns.map(
-    (column): PluginTaskBoardSection => ({
-      key: `column:${column.value}`,
-      column,
-      label: column.label,
-      status: { label: column.label, tone: column.tone, color: column.color, value: column.value },
-      items: []
-    })
-  )
+  const sections = board.columns.map((column): PluginTaskBoardSection => ({
+    key: `column:${column.value}`,
+    column,
+    label: column.label,
+    status: { label: column.label, tone: column.tone, color: column.color, value: column.value },
+    items: []
+  }))
   const byValue = new Map(sections.map((section) => [section.column?.value, section]))
   const extras = new Map<string, PluginTaskBoardSection>()
   for (const item of items) {

@@ -7,9 +7,10 @@ describe('plugin task view modes', () => {
     expect(parseRememberedViewModes(null)).toEqual({})
     expect(parseRememberedViewModes('not json')).toEqual({})
     expect(parseRememberedViewModes('["board"]')).toEqual({})
-    expect(parseRememberedViewModes('{"a::clickup":"board","b::x":"grid","c::y":"list"}')).toEqual(
-      { 'a::clickup': 'board', 'c::y': 'list' }
-    )
+    expect(parseRememberedViewModes('{"a::clickup":"board","b::x":"grid","c::y":"list"}')).toEqual({
+      'a::clickup': 'board',
+      'c::y': 'list'
+    })
   })
 
   it('remembers the latest choice per source and drops the oldest past the cap', () => {

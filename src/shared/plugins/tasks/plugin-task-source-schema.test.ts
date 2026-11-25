@@ -72,7 +72,9 @@ describe('plugin task source results', () => {
 
   it('reads board columns and the status value that names an item column', () => {
     const parsed = parsePluginTaskSourceResult('list', {
-      items: [{ id: '1', title: 'One', status: { label: 'Doing', tone: 'active', value: 'doing' } }],
+      items: [
+        { id: '1', title: 'One', status: { label: 'Doing', tone: 'active', value: 'doing' } }
+      ],
       board: {
         columns: [
           { value: 'todo', label: 'To do', tone: 'open', color: '#87909e' },

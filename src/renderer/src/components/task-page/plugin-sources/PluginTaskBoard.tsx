@@ -40,7 +40,12 @@ export type PluginTaskBoardProps = {
 
 function initials(name: string): string {
   const words = name.split(/[\s,._@-]+/).filter((word) => word !== '')
-  return words.slice(0, 2).map((word) => word.slice(0, 1).toUpperCase()).join('') || '?'
+  return (
+    words
+      .slice(0, 2)
+      .map((word) => word.slice(0, 1).toUpperCase())
+      .join('') || '?'
+  )
 }
 
 /**
@@ -62,7 +67,7 @@ export function PluginTaskBoard({
   const t = useTranslate()
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
-  const targets = sections.flatMap((section) => (section.column ? [section.column] : []))
+  const columns = sections.flatMap((section) => (section.column ? [section.column] : []))
 
   const dragStart = (item: PluginTaskItem, event: React.DragEvent<HTMLDivElement>): void => {
     if (!canMove || pendingIds.has(item.id)) {
@@ -142,7 +147,7 @@ export function PluginTaskBoard({
                 dragging={item.id === draggingId}
                 pending={pendingIds.has(item.id)}
                 canMove={canMove}
-                moveTargets={targets.filter((column) => column.value !== section.column?.value)}
+                moveColumns={columns.filter((column) => column.value !== section.column?.value)}
                 onOpen={onOpen}
                 onMove={onMove}
                 onDragStart={dragStart}
@@ -156,7 +161,7 @@ export function PluginTaskBoard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full text-xs"
+                className="w-full"
                 disabled={loadingColumn !== null}
                 onClick={() => {
                   if (section.column) {
@@ -183,7 +188,7 @@ function PluginTaskBoardCard({
   dragging,
   pending,
   canMove,
-  moveTargets,
+  moveColumns,
   onOpen,
   onMove,
   onDragStart,
@@ -194,7 +199,7 @@ function PluginTaskBoardCard({
   dragging: boolean
   pending: boolean
   canMove: boolean
-  moveTargets: readonly PluginTaskBoardColumn[]
+  moveColumns: readonly PluginTaskBoardColumn[]
   onOpen: (item: PluginTaskItem) => void
   onMove: (item: PluginTaskItem, column: PluginTaskBoardColumn) => void
   onDragStart: (item: PluginTaskItem, event: React.DragEvent<HTMLDivElement>) => void
@@ -242,7 +247,7 @@ function PluginTaskBoardCard({
             {item.title}
           </h3>
         </div>
-        {canMove && moveTargets.length > 0 ? (
+        {canMove && moveColumns.length > 0 ? (
           <div className="flex shrink-0 items-center md:opacity-0 md:transition-opacity md:group-hover/card:opacity-100 md:group-focus-within/card:opacity-100">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -259,7 +264,7 @@ function PluginTaskBoardCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {moveTargets.map((column) => (
+                {moveColumns.map((column) => (
                   <DropdownMenuItem
                     key={column.value}
                     onClick={(event) => {

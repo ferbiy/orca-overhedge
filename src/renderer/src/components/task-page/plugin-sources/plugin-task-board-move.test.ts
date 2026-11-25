@@ -14,9 +14,10 @@ function mount(refuseStatus?: string): {
   hold: (during: () => void) => void
 } {
   const handlers = new Map<string, (args: unknown) => unknown>()
-  registerDemoTaskSource((id, handler) => handlers.set(id, handler), {
-    ...(refuseStatus ? { refuseStatus } : {})
-  })
+  registerDemoTaskSource(
+    (id, handler) => handlers.set(id, handler),
+    refuseStatus ? { refuseStatus } : {}
+  )
   const actions: unknown[] = []
   let during: (() => void) | null = null
   const invoke: PluginCommandInvoker = async ({ commandId, args }) => {
