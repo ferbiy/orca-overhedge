@@ -5,4 +5,4 @@
 export const PLUGIN_CHAT_SEND_SINCE = '1.4.273'
 
 export const PLUGIN_CHAT_SEND_DESCRIPTION =
-  "List your open Orca chats (agent, chat and workspace names, on this computer and paired Orca servers) and send a message into one; it cannot read their messages, open new chats or type into terminals"
+  'List your open Orca chats (agent, chat and workspace names, on this computer and paired Orca servers) and send a message into one; it cannot read their messages, open new chats or type into terminals'

@@ -7,7 +7,11 @@ import {
   structuredAgentSessionSendBody
 } from '../../../../shared/agent-session/requests/structured-agent-session-send-mutation'
 import { isUnresolvedOwnerHostId } from '../../../../shared/execution-host/execution-host'
-import { bind, type BoundPluginHostMethod, type PluginHostMethodContext } from './plugin-host-method-bind'
+import {
+  bind,
+  type BoundPluginHostMethod,
+  type PluginHostMethodContext
+} from './plugin-host-method-bind'
 import { PluginHostCallError } from './plugin-host-call-scope'
 import { pluginHostEffect as effect, pluginHostRpc as rpc } from './plugin-host-runtime-call'
 import {
@@ -37,7 +41,12 @@ const sendAnswer = z.union([
 type HostCall = (method: string, params: unknown) => Promise<unknown>
 
 const unreachable = (detail: string): PluginHostCallError =>
-  new PluginHostCallError('unavailable', 'that Orca server cannot be reached now', undefined, detail)
+  new PluginHostCallError(
+    'unavailable',
+    'that Orca server cannot be reached now',
+    undefined,
+    detail
+  )
 
 /** Reads and writes on the host a chat lives on. Writes on this computer go through the effect
  *  path (approval re-checked right before the runtime acts, plugin provenance recorded). */
@@ -81,8 +90,7 @@ async function hostChats(
   const answer = agentListAnswer.parse(
     await hostCalls(ctx, hostId, paired, LIST_TIMEOUT_MS).read('agent.list', {})
   )
-  const label =
-    hostId === 'local' ? null : await paired.label(hostId.slice(RUNTIME_PREFIX.length))
+  const label = hostId === 'local' ? null : await paired.label(hostId.slice(RUNTIME_PREFIX.length))
   return {
     chats: projectPluginChats(answer, hostId, label ?? hostId),
     truncated: answer.truncated === true,

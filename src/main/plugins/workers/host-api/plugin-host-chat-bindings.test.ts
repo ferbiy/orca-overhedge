@@ -26,10 +26,16 @@ function harness() {
     if (method === 'agent.list') {
       return host === 'local'
         ? {
-            agents: [row(pane(CHAT)), row('term-tab:11111111-2222-4333-a444-555555555555', 'terminal')],
+            agents: [
+              row(pane(CHAT)),
+              row('term-tab:11111111-2222-4333-a444-555555555555', 'terminal')
+            ],
             hostScope: { hostIds: ['local'], omittedHostIds: ['runtime:env1', 'ssh:box'] }
           }
-        : { agents: [row(pane(SERVER_CHAT))], hostScope: { hostIds: ['local'], omittedHostIds: [] } }
+        : {
+            agents: [row(pane(SERVER_CHAT))],
+            hostScope: { hostIds: ['local'], omittedHostIds: [] }
+          }
     }
     if (method === 'agentSession.history') {
       return { ok: true, page: { fence: 7 } }
@@ -41,6 +47,7 @@ function harness() {
     call: async (env, method, params) => answer(`runtime:${env}`, method, params),
     label: async () => 'orca-ide'
   }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the chat handlers read only `desktop` and `runtimeRpc`
   const services = {
     desktop: {},
     runtimeRpc: async (method: string, params: unknown) => answer('local', method, params)
@@ -65,17 +72,23 @@ function harness() {
 describe('chat.list / chat.send', () => {
   it('lists open chats on this computer and the paired server, never terminal agents', async () => {
     const { call } = harness()
-    const listed = (await call('chat.list', {})) as { chats: Record<string, unknown>[] }
-    expect(listed.chats.map((chat) => [chat.hostId, chat.chatId, chat.title])).toEqual([
-      ['local', CHAT, 'Triage'],
-      ['runtime:env1', SERVER_CHAT, 'Triage']
-    ])
+    expect(await call('chat.list', {})).toMatchObject({
+      chats: [
+        { hostId: 'local', chatId: CHAT, title: 'Triage', hostLabel: null },
+        { hostId: 'runtime:env1', chatId: SERVER_CHAT, title: 'Triage', hostLabel: 'orca-ide' }
+      ],
+      unreachableHostIds: []
+    })
   })
 
   it('sends into an open chat on its own host as a queued-if-busy user message', async () => {
     const { call, sent } = harness()
     expect(
-      await call('chat.send', { chatId: SERVER_CHAT, hostId: 'runtime:env1', text: 'Look at OVH-1' })
+      await call('chat.send', {
+        chatId: SERVER_CHAT,
+        hostId: 'runtime:env1',
+        text: 'Look at OVH-1'
+      })
     ).toEqual({ status: 'queued' })
     expect(sent).toHaveLength(1)
     expect(sent[0]).toMatchObject({
@@ -91,8 +104,12 @@ describe('chat.list / chat.send', () => {
 
   it('refuses commands, unknown hosts, and chats not open on that host', async () => {
     const { call, sent } = harness()
-    await expect(call('chat.send', { chatId: CHAT, hostId: 'local', text: ' /clear' })).rejects.toThrow()
-    await expect(call('chat.send', { chatId: CHAT, hostId: 'local', text: 'a\u202eb' })).rejects.toThrow()
+    await expect(
+      call('chat.send', { chatId: CHAT, hostId: 'local', text: ' /clear' })
+    ).rejects.toThrow()
+    await expect(
+      call('chat.send', { chatId: CHAT, hostId: 'local', text: 'a\u202eb' })
+    ).rejects.toThrow()
     await expect(
       call('chat.send', { chatId: CHAT, hostId: 'runtime:other', text: 'hi' })
     ).rejects.toThrow('no paired Orca server')

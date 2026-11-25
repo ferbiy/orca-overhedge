@@ -59,8 +59,7 @@ export const desktopPairedRuntimeHosts: PairedRuntimeHosts = {
   async label(environmentId) {
     const t = await transport()
     try {
-      return (await t.resolveEnvironment(t.getRuntimeEnvironmentRegistryRoot(), environmentId))
-        .name
+      return (await t.resolveEnvironment(t.getRuntimeEnvironmentRegistryRoot(), environmentId)).name
     } catch {
       return null
     }

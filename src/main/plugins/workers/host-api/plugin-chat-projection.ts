@@ -85,5 +85,7 @@ export function projectPluginChats(
 
 /** Paired Orca servers this desktop's own listing leaves to them (`runtime:` hosts). */
 export function pairedRuntimeHostIds(answer: AgentListAnswer): string[] {
-  return (answer.hostScope?.omittedHostIds ?? []).filter((id) => /^runtime:[A-Za-z0-9._-]+$/.test(id))
+  return (answer.hostScope?.omittedHostIds ?? []).filter((id) =>
+    /^runtime:[A-Za-z0-9._-]+$/.test(id)
+  )
 }
