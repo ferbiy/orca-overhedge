@@ -5,19 +5,21 @@
 <h1 align="center">Orca, Overhedge fork</h1>
 
 <p align="center">
-  <b>Several Claude subscriptions on one Orca server, and one command to move work between them.</b>
+  <b>Several Claude subscriptions on one Orca server, one command to move work between them,<br />and your ClickUp tasks inside Orca.</b>
 </p>
 
 <p align="center">
   <a href="https://github.com/stablyai/orca/releases/tag/v1.4.273"><img src="https://img.shields.io/badge/upstream-Orca%20v1.4.273-08C?style=flat-square" alt="Based on upstream Orca v1.4.273" /></a>
-  <img src="https://img.shields.io/badge/patch-server--side-6f42c1?style=flat-square" alt="Patch: server-side (main process)" />
+  <img src="https://img.shields.io/badge/patch-re--ported%20each%20release-6f42c1?style=flat-square" alt="Patch: re-ported onto each upstream release" />
+  <a href="https://github.com/ferbiy/orca-clickup-tasks"><img src="https://img.shields.io/badge/plugin-ClickUp%20Tasks-7B68EE?style=flat-square" alt="Plugin: ClickUp Tasks" /></a>
   <img src="https://img.shields.io/badge/builds-Linux%20server%20.deb%20%7C%20macOS%20arm64-4493F8?style=flat-square" alt="Builds: Linux server .deb and macOS arm64 app" />
   <a href="OVERHEDGE.md"><img src="https://img.shields.io/badge/docs-OVERHEDGE.md-555?style=flat-square" alt="Fork documentation: OVERHEDGE.md" /></a>
 </p>
 
 This is official [Orca](https://github.com/stablyai/orca) plus a small patch, re-applied onto each
 upstream release we adopt. It is built for one setup: a headless Orca server that runs a
-coordinator chat and its workers on several Claude accounts.
+coordinator chat and its workers on several Claude accounts, for a team that tracks its work in
+ClickUp.
 
 **Why**
 
@@ -27,6 +29,12 @@ coordinator chat and its workers on several Claude accounts.
 - **Drive Orca chats from your phone.** Claude Code Remote Control works in Orca's native chats.
 - **Agents on different accounts can talk.** Chats see and message each other across accounts,
   while every account keeps its own login.
+- **ClickUp tasks inside Orca.** With our ClickUp plugin, a ClickUp tab on the Tasks page starts a
+  task in its own worktree with an agent, or sends it into a chat that is already working.
+- **Plugins can do more.** A plugin can add its own tab to the Tasks page and send a message into
+  an open chat, on this computer or a paired server.
+- **It stays current by itself.** The patch is re-ported onto each new upstream release and
+  deployed to our servers at night, when no chat is busy.
 
 <p align="center">
   <img src="docs/overhedge/slash-menu.svg" alt="Mockup of the slash menu in an Orca Claude chat listing /rc, /remote-control, /orca-account and /orca-migrate" />
@@ -146,19 +154,98 @@ flowchart LR
   S --> P["Every Claude chat and terminal on the host<br/>sees and messages every other one"]
 ```
 
+### ClickUp tasks on the Tasks page
+
+Our plugin [ClickUp Tasks](https://github.com/ferbiy/orca-clickup-tasks) (a fork of
+[gthjnk/orca-clickup-tasks](https://github.com/gthjnk/orca-clickup-tasks), audited: see its
+[SECURITY-AUDIT.md](https://github.com/ferbiy/orca-clickup-tasks/blob/overhedge/SECURITY-AUDIT.md))
+brings ClickUp into Orca. On this fork it adds a **ClickUp** tab to the Tasks page, next to
+GitHub, GitLab, Linear and Jira.
+
+<p align="center">
+  <img src="docs/overhedge/tasks-page-clickup.svg" alt="Mockup of Orca's Tasks page with a ClickUp tab: a task list with coloured status badges and a task detail with Start Claude, Status and an open Send to chat menu" />
+</p>
+
+- **Your tasks, from the Lists you choose.** Sign in with OAuth and pick the Spaces, Folders or
+  Lists Orca may see; nothing else is fetched, shown or put into a prompt. Search and filter by
+  List, assignee, status and closed.
+- **Start ▾** creates a worktree and branch named after the task's custom id (`OVH-142-<slug>`), on
+  this computer or a paired server, and starts your agent there with the task as its first prompt.
+  By default the task moves to the List's in-progress status.
+- **Status ▾** moves the task through the List's own statuses. **Open in browser** opens it in
+  ClickUp.
+- **Send to chat ▾** hands the task to a chat that is already open (below).
+- **A sidebar panel** has the same tasks with full editing: status, assignees, comments and more.
+- Task text is untrusted: in every prompt it sits inside a random fence, marked as data, not
+  instructions.
+- **For agents in terminals**, the same repo has a small `clickup` command and a Claude Code skill
+  ([`agent-cli/`](https://github.com/ferbiy/orca-clickup-tasks/tree/overhedge/agent-cli)), limited
+  to an allow-list of Spaces, Folders and Lists.
+
+On stock Orca the plugin's sidebar panel works, but there is no Tasks page tab and no Send to
+chat.
+
+### Send a task into a chat that is already working
+
+Save message templates once (Settings, Send to chat), with placeholders such as `{task_url}`,
+`{task_id}` and `{title}`. From a task: pick a template, read and edit the filled-in message, pick
+an open chat (shown as `server › workspace › chat`), and send. A busy chat takes the message after
+its current turn. The chat you used is remembered per template, so the Tasks page menu sends in one
+click.
+
+<p align="center">
+  <img src="docs/overhedge/send-to-chat.svg" alt="Mockup of Send to chat: pick a template, edit the filled-in message, pick an open chat shown as server › workspace › chat, press Send, and the message lands in that Orca chat" />
+</p>
+
+```mermaid
+flowchart LR
+  P["ClickUp Tasks plugin<br/>(in the desktop app)"] -- "chat.list" --> L["Open chats<br/>names only, never messages"]
+  P -- "chat.send(chat, text)" --> G{"chat:send capability<br/>approved?"}
+  G -- "yes, audited" --> D["Chat on this computer"]
+  G -- "yes, audited" --> S["Chat on a paired Orca server"]
+```
+
+The plugin cannot read messages, open new chats or type into terminals. Every send is in Orca's
+plugin audit log.
+
+<details>
+<summary><b>For plugin authors</b>: task sources and chat send</summary>
+
+Two small extension points, only in this fork:
+
+- **Task sources.** Declare worker commands `taskSource.<id>.list` (its title is the tab's title),
+  and optionally `taskSource.<id>.get` and `taskSource.<id>.action`. The fork turns them into a tab
+  on the Tasks page with a list, search, filters, a detail pane and action buttons or menus. Items,
+  filters and details use the shapes of upstream PR
+  [#26282](https://github.com/stablyai/orca/pull/26282), so moving to upstream's version later
+  should be a small change. On stock Orca the same manifest is valid; the commands are just palette
+  entries.
+- **Chat send.** With the `chat:send` capability, `chat.list({ hostId? })` lists open native chats
+  (on this computer and on paired servers) and `chat.send({ chatId, hostId, text })` sends plain
+  text into one of them, as the person would type it (at most 4000 characters, never a `/`
+  command). Guard with `orca.host.has('chat.send')`; stock Orca does not install a plugin that asks
+  for `chat:send`.
+
+The full contract: [OVERHEDGE.md](OVERHEDGE.md), "Plugin task sources" and "Plugin chat send".
+
+</details>
+
 ### The same features in the desktop app
 
-The patch lives in Orca's main process, which the server and the desktop app share. So:
+The chat and account features live in Orca's main process, which the server and the desktop app
+share. Plugins run in the desktop app. So:
 
-| Where the chat runs | What you need | What you get |
-| --- | --- | --- |
-| On a remote Orca server | the fork's server .deb; the official desktop or mobile app is enough | everything above |
-| On your own computer (local workspaces) | the fork's macOS app | everything above for local chats |
+| What                       | What you need                                                        | What you get                                     |
+| -------------------------- | -------------------------------------------------------------------- | ------------------------------------------------ |
+| Chats on a remote server   | the fork's server .deb; the official desktop or mobile app is enough | the chat and account features                    |
+| Chats on your own computer | the fork's macOS app                                                 | the same, for local chats                        |
+| ClickUp in Orca            | the fork's macOS app and the ClickUp Tasks plugin                    | the Tasks tab; Send to chat, local or on servers |
 
-There is no new desktop UI: the features are chat commands (listed in the slash menu) and `orca`
-CLI commands. Per-chat accounts and migration need Orca-managed Claude accounts on that machine
-(Settings, Claude, Add account). On a desktop, `orca account migrate --restart` prints the resume
-command instead of restarting the terminal itself.
+The chat features are chat commands (listed in the slash menu) and `orca` CLI commands; the only
+new desktop UI is a plugin's tab on the Tasks page. Per-chat accounts and migration need
+Orca-managed Claude accounts on that machine (Settings, Claude, Add account). On a desktop,
+`orca account migrate --restart` prints the resume command instead of restarting the terminal
+itself.
 
 The fork's macOS app is ad-hoc signed and never updates itself to an official release, so it keeps
 the patch; each new build asks once for keychain access to "Orca Safe Storage" (choose Always
@@ -169,6 +256,15 @@ Allow). Linux keeps upstream's updater behavior (a server .deb is updated by han
 Host-wide account switching and restarting running terminal Claude tabs on a switch (Settings,
 Claude) are upstream's. `orca account migrate --restart` reuses upstream's restart-in-place.
 
+### How the fork stays current
+
+Upstream releases about every five days. A scheduled job on our build server notices each new
+release, re-ports the patch onto it, runs the tests, and builds the server .deb and the macOS app.
+It stops and asks a person when upstream changed something the patch relies on, or shipped one of
+our features itself. A verified build is deployed to our servers at night, only when no chat is
+busy, and rolled back by itself if the new version is not healthy. The macOS app is installed by
+hand. The runbook: `docs/overhedge/UPDATE-RUNBOOK.md` on branch `overhedge/ci`.
+
 ### Versions, branches and builds
 
 | What            | Name                                                                               |
@@ -177,6 +273,8 @@ Claude) are upstream's. `orca account migrate --restart` reuses upstream's resta
 | Patch (default) | `overhedge/patch-<release>`, e.g. `overhedge/patch-273`                            |
 | CI workflows    | branch `overhedge/ci`                                                              |
 | Build version   | `<upstream version>+overhedge.<n>.g<sha>`, e.g. `1.4.273+overhedge.21.g0123456789` |
+| Server build    | `orca-ide_<version>+overhedge.<n>.g<sha>_amd64.deb`                                |
+| macOS build     | `Orca-<version>_overhedge.<n>.g<sha>-mac-arm64.zip` (ad-hoc signed)                |
 
 <details>
 <summary><b>Get a build</b></summary>
