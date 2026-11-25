@@ -53,6 +53,8 @@ Methods whose capability is `none` need no capability but still need the plugin 
 | [`automation.update`](#automationupdate) | `automation:write` | worker | yes | 1.8 | Changes an automation's name, prompt, schedule, time zone or whether it is enabled. Orca first asks the person about an automation this plugin did not create (or created before it was removed or disabled); if they decline or cannot be asked, or it changes while they are asked, nothing changes and `reason` says why. Orca also asks before a new prompt or schedule, or resuming, for any automation whose runs use extra agent settings the person chose. |
 | [`automation.delete`](#automationdelete) | `automation:write` | worker | yes | 1.8 | Deletes an automation. Orca first asks the person about an automation this plugin did not create (or created before it was removed or disabled); if they decline or cannot be asked, or it changes while they are asked, nothing changes and `reason` says why. |
 | [`agent.listSessions`](#agentlistsessions) | `history:read` | worker | no | 1.9 | Past agent sessions in Orca's Agent Session History on this computer (WSL distributions included on Windows), newest first: title, agent, workspace, branch, times, message and token counts, and whether an Orca terminal here runs it. Leaves out Antigravity IDE conversations and subagent transcripts, and never gives the conversation or file paths, though a title can be the start of its first message. `agent.resume` resumes one by its `sessionId`, for agents that resume by id. |
+| [`chat.list`](#chatlist) | `chat:send` | worker | no | 1.10 | Open Orca chats (not terminal agents) on this computer and on paired Orca servers: id, host, agent, chat name, workspace, project, status. Never their messages. |
+| [`chat.send`](#chatsend) | `chat:send` | worker | yes | 1.10 | Sends plain text as the person's message into an open chat `chat.list` gives, on its host; a busy chat queues it. Never opens a chat or reaches a terminal agent. |
 | [`editor.readTypography`](#editorreadtypography) | none | worker, panel, editor | no | 1.6 | The font family, size, weight, line height, ligatures, word wrap and minimap Orca's file editor uses now, editor zoom included. `editor.typography.changed` reports each change after. |
 
 ### `workspace.readContext`
@@ -381,6 +383,22 @@ Past agent sessions in Orca's Agent Session History on this computer (WSL distri
 
 ```ts
 (params?: { workspaceId?: string; limit?: number }) => { sessions: { sessionId: string; agent: string; title: string; workspaceId: string | null; hostId: string; branch: string | null; createdAt: number | null; updatedAt: number; messageCount: number; totalTokens: number; running: boolean }[]; truncated: boolean }
+```
+
+### `chat.list`
+
+Open Orca chats (not terminal agents) on this computer and on paired Orca servers: id, host, agent, chat name, workspace, project, status. Never their messages.
+
+```ts
+(params?: { hostId?: string }) => { chats: { chatId: string; hostId: string; hostLabel: string | null; agent: string | null; title: string | null; workspace: string; project: string | null; state: "working" | "blocked" | "waiting" | "done"; updatedAt: number }[]; unreachableHostIds: string[]; truncated: boolean }
+```
+
+### `chat.send`
+
+Sends plain text as the person's message into an open chat `chat.list` gives, on its host; a busy chat queues it. Never opens a chat or reaches a terminal agent.
+
+```ts
+(params: { chatId: string; hostId: string; text: string }) => { status: "sent" | "queued" }
 ```
 
 ### `editor.readTypography`

@@ -280,6 +280,18 @@ declare module 'orca/host' {
       result: { sessions: { sessionId: string; agent: string; title: string; workspaceId: string | null; hostId: string; branch: string | null; createdAt: number | null; updatedAt: number; messageCount: number; totalTokens: number; running: boolean }[]; truncated: boolean }
       surfaces: "worker"
     }
+    /** Open Orca chats (not terminal agents) on this computer and on paired Orca servers: id, host, agent, chat name, workspace, project, status. Never their messages. Since host API 1.10. */
+    "chat.list": {
+      params: { hostId?: string } | undefined
+      result: { chats: { chatId: string; hostId: string; hostLabel: string | null; agent: string | null; title: string | null; workspace: string; project: string | null; state: "working" | "blocked" | "waiting" | "done"; updatedAt: number }[]; unreachableHostIds: string[]; truncated: boolean }
+      surfaces: "worker"
+    }
+    /** Sends plain text as the person's message into an open chat `chat.list` gives, on its host; a busy chat queues it. Never opens a chat or reaches a terminal agent. Since host API 1.10. */
+    "chat.send": {
+      params: { chatId: string; hostId: string; text: string }
+      result: { status: "sent" | "queued" }
+      surfaces: "worker"
+    }
     /** The font family, size, weight, line height, ligatures, word wrap and minimap Orca's file editor uses now, editor zoom included. `editor.typography.changed` reports each change after. Since host API 1.6. */
     "editor.readTypography": {
       params: Record<string, never> | undefined
@@ -329,7 +341,7 @@ declare module 'orca/host' {
     "workspace.create.after": { event: { workspaceId: string; kind: "worktree" | "folder"; path: string; branch: string }; result: never }
     /** Orca is about to start an agent CLI in a terminal, from any launcher (new tab, workspace create, CLI, automation, orchestration). Change `command` or add `env` with `next`, or return `{ deny }` to refuse the launch. Restores of saved sessions are not hooked. */
     "agent.launch.before": { event: { agent: string; workspaceId: string | null; workspaceKind: "worktree" | "folder" | null; terminalId?: string; command: string; env: Record<string, string> }; result: { deny: string } }
-    /** Orca is about to submit a prompt to an agent in a terminal: a launch prompt, an orchestration dispatch, an issue or task prompt, or `orca terminal send` to an agent. A prompt a person submits is never hooked, and writes to one terminal stay in order while it decides. Rewrite `prompt` with `next`, or return `{ deny }` to refuse it. */
+    /** Orca is about to submit a prompt to an agent in a terminal: a launch prompt, an orchestration dispatch, an issue or task prompt, or a prompt sent with `orca terminal send`. A prompt a person submits is never hooked, and writes to one terminal stay in order while it decides. Rewrite `prompt` with `next`, or return `{ deny }` to refuse it. */
     "agent.prompt.before": { event: { agent: string | null; terminalId: string; prompt: string; inputKind: "driving" | "orchestration" | "launch" }; result: { deny: string } }
     /** An agent in an Orca terminal is about to run a tool. Claude Code waits for the answer: return `{ deny }` to refuse the call (the agent sees the reason) or change `input` with `next`; the person is still asked as usual. Other agents only report the call, so their results are ignored. Agents on SSH or WSL hosts are not hooked yet. */
     "agent.tool.before": { event: { agent: string; workspaceId: string | null; terminalId?: string; tool: string; input: JsonValue; callId?: string }; result: { deny: string } }
