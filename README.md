@@ -146,10 +146,23 @@ flowchart LR
   S --> P["Every Claude chat and terminal on the host<br/>sees and messages every other one"]
 ```
 
-### A macOS build that stays on the fork
+### The same features in the desktop app
 
-The fork's macOS app never updates itself to an official release, so it keeps the patch. Linux
-keeps upstream's updater behavior (a server .deb is updated by hand).
+The patch lives in Orca's main process, which the server and the desktop app share. So:
+
+| Where the chat runs | What you need | What you get |
+| --- | --- | --- |
+| On a remote Orca server | the fork's server .deb; the official desktop or mobile app is enough | everything above |
+| On your own computer (local workspaces) | the fork's macOS app | everything above for local chats |
+
+There is no new desktop UI: the features are chat commands (listed in the slash menu) and `orca`
+CLI commands. Per-chat accounts and migration need Orca-managed Claude accounts on that machine
+(Settings, Claude, Add account). On a desktop, `orca account migrate --restart` prints the resume
+command instead of restarting the terminal itself.
+
+The fork's macOS app is ad-hoc signed and never updates itself to an official release, so it keeps
+the patch; each new build asks once for keychain access to "Orca Safe Storage" (choose Always
+Allow). Linux keeps upstream's updater behavior (a server .deb is updated by hand).
 
 ### Left to upstream
 
