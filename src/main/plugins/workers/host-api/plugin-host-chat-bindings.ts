@@ -92,7 +92,7 @@ async function hostChats(
   )
   const label = hostId === 'local' ? null : await paired.label(hostId.slice(RUNTIME_PREFIX.length))
   return {
-    chats: projectPluginChats(answer, hostId, label ?? hostId),
+    chats: projectPluginChats(answer, hostId, hostId === 'local' ? null : (label ?? hostId)),
     truncated: answer.truncated === true,
     pairedHostIds:
       hostId === 'local'
