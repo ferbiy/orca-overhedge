@@ -6,10 +6,25 @@ import type {
 } from '../../../../../shared/plugins/tasks/plugin-task-source-schema'
 import { invokePluginTaskSource, type PluginTaskSourceTarget } from './plugin-task-source-client'
 import { effectivePluginTaskFilters } from './plugin-task-filter-selection'
+import { installWindowVisibilityInterval } from '@/lib/window-activity/window-visibility-interval'
 
 /** Overhedge fork: list and detail state for one plugin task source. */
 
 const AUTO_REFRESH_MS = 120_000
+
+/** Filters travel as a JSON key so an equal object does not refetch; this reads it back. */
+function parseFiltersKey(key: string): Record<string, string> {
+  const parsed: unknown = JSON.parse(key)
+  const result: Record<string, string> = {}
+  if (parsed && typeof parsed === 'object') {
+    for (const [id, value] of Object.entries(parsed)) {
+      if (typeof value === 'string') {
+        result[id] = value
+      }
+    }
+  }
+  return result
+}
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -58,7 +73,7 @@ export function usePluginTaskList(
     void revision
     invokePluginTaskSource({ pluginKey, sourceId }, 'list', {
       query,
-      filters: JSON.parse(filtersKey) as Record<string, string>
+      filters: parseFiltersKey(filtersKey)
     })
       .then((result) => {
         if (current !== generation.current) {
@@ -81,14 +96,15 @@ export function usePluginTaskList(
       })
   }, [pluginKey, sourceId, query, filtersKey, revision])
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        setRevision((value) => value + 1)
-      }
-    }, AUTO_REFRESH_MS)
-    return () => clearInterval(timer)
-  }, [])
+  useEffect(
+    () =>
+      installWindowVisibilityInterval({
+        run: () => setRevision((value) => value + 1),
+        intervalMs: AUTO_REFRESH_MS,
+        slowWhileUnfocused: true
+      }),
+    []
+  )
 
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
 
@@ -100,7 +116,7 @@ export function usePluginTaskList(
     setLoadingMore(true)
     invokePluginTaskSource({ pluginKey, sourceId }, 'list', {
       query,
-      filters: JSON.parse(filtersKey) as Record<string, string>,
+      filters: parseFiltersKey(filtersKey),
       cursor: nextCursor
     })
       .then((result) => {

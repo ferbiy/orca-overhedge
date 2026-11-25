@@ -43,9 +43,11 @@ export function parsePluginTaskSourceCommandId(
   if (!SOURCE_ID_RE.test(sourceId)) {
     return null
   }
-  return (PLUGIN_TASK_SOURCE_OPERATIONS as readonly string[]).includes(operation)
-    ? { sourceId, operation: operation as PluginTaskSourceOperation }
-    : null
+  return isPluginTaskSourceOperation(operation) ? { sourceId, operation } : null
+}
+
+function isPluginTaskSourceOperation(value: string): value is PluginTaskSourceOperation {
+  return PLUGIN_TASK_SOURCE_OPERATIONS.some((operation) => operation === value)
 }
 
 export function isPluginTaskSourceCommandId(commandId: string): boolean {

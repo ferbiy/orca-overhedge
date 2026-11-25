@@ -131,20 +131,21 @@ export type PluginTaskSourceResult<O extends PluginTaskSourceOperation> = O exte
     ? PluginTaskDetail
     : PluginTaskActionResult
 
-const RESULT_SCHEMAS = {
+const RESULT_SCHEMAS: { [O in PluginTaskSourceOperation]: z.ZodType<PluginTaskSourceResult<O>> } = {
   list: pluginTaskListResultSchema,
   get: pluginTaskDetailSchema,
   action: pluginTaskActionResultSchema
-} as const
+}
 
 /** Validates an untrusted worker answer for one operation. */
 export function parsePluginTaskSourceResult<O extends PluginTaskSourceOperation>(
   operation: O,
   value: unknown
 ): { ok: true; value: PluginTaskSourceResult<O> } | { ok: false; error: string } {
-  const parsed = RESULT_SCHEMAS[operation].safeParse(value)
+  const schema: z.ZodType<PluginTaskSourceResult<O>> = RESULT_SCHEMAS[operation]
+  const parsed = schema.safeParse(value)
   if (parsed.success) {
-    return { ok: true, value: parsed.data as PluginTaskSourceResult<O> }
+    return { ok: true, value: parsed.data }
   }
   const issue = parsed.error.issues[0]
   const path = issue?.path.join('.') || '(root)'

@@ -88,12 +88,14 @@ export function PluginTaskSourcePage({
         <span className="ml-1 truncate text-sm font-medium text-foreground">{source.title}</span>
         <div className="ml-auto flex items-center gap-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder={t('overhedge.taskSources.search', 'Search tasks')}
-              className="h-8 w-[240px] pl-7 text-xs"
+              density="compact"
+              inset="leadingIcon"
+              className="w-[240px]"
             />
           </div>
           {list.filters.map((filter) => (
@@ -102,7 +104,7 @@ export function PluginTaskSourcePage({
               value={filters[filter.id] ?? filter.defaultValue ?? filter.options[0]?.value}
               onValueChange={(value) => setPicked((previous) => ({ ...previous, [filter.id]: value }))}
             >
-              <SelectTrigger className="h-8 w-[160px] text-xs" aria-label={filter.label}>
+              <SelectTrigger size="xs" className="w-[160px]" aria-label={filter.label}>
                 <SelectValue placeholder={filter.label} />
               </SelectTrigger>
               <SelectContent>
@@ -130,7 +132,7 @@ export function PluginTaskSourcePage({
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1 gap-3">
-        <div className="flex min-h-0 w-[min(46%,560px)] flex-none flex-col overflow-y-auto rounded-md border border-border/50">
+        <div className="flex min-h-0 w-[min(46%,560px)] flex-none flex-col overflow-y-auto scrollbar-sleek rounded-md border border-border/50">
           {list.error ? (
             <div className="space-y-2 p-3 text-sm">
               <p className="text-destructive">{list.error}</p>

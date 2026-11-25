@@ -20,9 +20,18 @@ const STATUSES = [
   { value: 'done', label: 'Done', tone: 'done' }
 ] as const
 
+function field(args: unknown, key: string): unknown {
+  return args && typeof args === 'object' ? Object.entries(args).find(([name]) => name === key)?.[1] : undefined
+}
+
+function text(args: unknown, key: string): string | undefined {
+  const value = field(args, key)
+  return typeof value === 'string' ? value : undefined
+}
+
 type DemoTask = { id: string; title: string; status: (typeof STATUSES)[number]['value'] }
 
-type CommandHandler = (args: unknown) => unknown | Promise<unknown>
+type CommandHandler = (args: unknown) => unknown
 
 export function registerDemoTaskSource(
   register: (commandId: string, handler: CommandHandler) => void,
@@ -73,12 +82,9 @@ export function registerDemoTaskSource(
   }
 
   register(DEMO_TASK_SOURCE_COMMANDS[0].id, (args) => {
-    const { query = '', filters = {}, cursor } = (args ?? {}) as {
-      query?: string
-      filters?: Record<string, string>
-      cursor?: string
-    }
-    const status = filters.status ?? 'open'
+    const query = text(args, 'query') ?? ''
+    const cursor = text(args, 'cursor')
+    const status = text(field(args, 'filters'), 'status') ?? 'open'
     const matching = tasks.filter(
       (task) =>
         task.title.toLowerCase().includes(query.toLowerCase()) &&
@@ -104,15 +110,12 @@ export function registerDemoTaskSource(
     }
   })
   register(DEMO_TASK_SOURCE_COMMANDS[1].id, (args) =>
-    detail(find((args as { itemId?: unknown } | undefined)?.itemId))
+    detail(find(field(args, 'itemId')))
   )
   register(DEMO_TASK_SOURCE_COMMANDS[2].id, (args) => {
-    const { itemId, actionId, value } = (args ?? {}) as {
-      itemId?: string
-      actionId?: string
-      value?: string
-    }
-    const task = find(itemId)
+    const task = find(field(args, 'itemId'))
+    const actionId = text(args, 'actionId')
+    const value = text(args, 'value')
     if (actionId === 'set-status') {
       const status = STATUSES.find((entry) => entry.value === value)
       if (!status) {
