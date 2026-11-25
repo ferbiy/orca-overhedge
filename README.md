@@ -174,7 +174,17 @@ GitHub, GitLab, Linear and Jira.
   By default the task moves to the List's in-progress status.
 - **Status ▾** moves the task through the List's own statuses. **Open in browser** opens it in
   ClickUp.
+- **List or Board.** Switch the tab to a Kanban board (remembered per tab): one column per status,
+  in the List's order and ClickUp's colours, with cards showing the id, title, priority and
+  assignees. Drag a card to another column to change its status; it moves at once and goes back if
+  ClickUp refuses. With all chosen Lists, statuses of the same name share a column, as on
+  ClickUp's own board. Each column has its own **Load more**.
 - **Send to chat ▾** hands the task to a chat that is already open (below).
+
+<p align="center">
+  <img src="docs/overhedge/tasks-board-clickup.svg" alt="Mockup of Orca's Tasks page with the ClickUp tab in Board view: status columns to do, in progress, in review and complete in ClickUp's colours, task cards with id, title, priority and assignee, and a card being dragged from in progress to in review" />
+</p>
+
 - **A sidebar panel** has the same tasks with full editing: status, assignees, comments and more.
 - Task text is untrusted: in every prompt it sits inside a random fence, marked as data, not
   instructions.

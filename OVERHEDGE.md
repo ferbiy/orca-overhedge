@@ -47,6 +47,8 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
 - Plugin status colours: a task source's status and options, and a components panel Badge, can
   carry a `#rgb`/`#rrggbb` colour that Orca draws like Linear's state pill. See "Plugin status
   colours" below.
+- Plugin task board: a task source can offer a Kanban board (status columns, drag and drop to
+  change status) beside its list. See "Plugin task board" below.
 
 ## Overlap with upstream (checked against v1.4.273)
 
@@ -150,6 +152,49 @@ and import, 6), `orca-components.d.ts` (`BadgeProps`, 5), plus the regenerated
 `pnpm generate:plugin-authoring-skill-references` after a port). Everything else is in new files
 (`src/shared/plugins/tasks/plugin-status-color.ts`, `src/renderer/src/components/plugins/status-color/`)
 or in our task-source files.
+
+## Plugin task board (branch `overhedge/task-board`)
+
+Made for our ClickUp plugin (0.5.0): a **List / Board** switch on a plugin task source tab,
+remembered per source (`localStorage` `overhedge.tasks.pluginSource.view`, at most 20 sources).
+
+Contract (feature-detected like `status-color`; the page now sends `features: ['status-color',
+'board']` with every command, from `src/shared/plugins/tasks/plugin-task-source-features.ts`):
+
+- `list` may answer `board: { columns: [{ value, label, tone, color? }], moveActionId }`: the
+  columns for the current filters in the order to show (1..50, unique `value`s; `color` checked
+  like a status colour), and the kebab id of the action a drop runs. A malformed `board` is dropped
+  (`.catch(undefined)`) and the tab stays list-only, as for a source without one. The switch shows
+  only when the last answer had a board.
+- An item's `status` may carry `value`, the column it sits in; without it the label is matched (any
+  case). Items whose status no column names get extra lanes after the columns (not drop targets),
+  so nothing listed disappears.
+- A drop (or the card's Move menu) calls `action({ itemId, actionId: moveActionId, value:
+  column.value })`, the same command and status path as the detail pane's menu. The card moves at
+  once; the answer's `detail.item` replaces it; an error puts it back (only while it still shows the
+  move, so a refresh in between wins) and shows the source's message in a toast. A card cannot be
+  dragged again while its move runs.
+- Paging: the board shows the list's items. Each column has **Load more** while the list has a next
+  page or the column its own: `list({ ..., column: value, cursor? })` asks for that column only, with
+  its own cursor (a failure is a toast; the board stays). Requests happen only on a click, so the
+  board costs a source no more than the list.
+
+Renderer: `PluginTaskBoard.tsx` (columns side by side in the Jira board's look: `w-72` lanes,
+status pill header, Jira-style cards with id, priority, title and assignees), using Jira's drag
+payload (`writeJiraBoardIssueDragData`/`readJiraBoardIssueDragData`, HTML5 drag and drop with the
+Electron hidden-`getData` fallback), `PluginTaskBoardPane.tsx` (moves, pending cards, toasts),
+`plugin-task-board-columns.ts` (sections, move and revert), `plugin-task-board-move.ts`,
+`plugin-task-view-mode.ts`, `PluginTaskViewToggle.tsx` (Linear toolbar's switch look). The detail
+pane opens beside the board with a close button. Tests: `plugin-task-board-columns.test.ts`,
+`plugin-task-board-move.test.ts` (with the demo source: optimistic move, rollback, refresh during a
+move), `plugin-task-view-mode.test.ts`, and the board cases in `plugin-task-source-client.test.ts`
+and `plugin-task-source-schema.test.ts`. Fixture: `PluginTaskBoard.fixture.tsx`
+(`pnpm fixtures:shot 'task-page/plugin-sources/PluginTaskBoard*' --theme both`), the demo source
+behind a stubbed `window.api.plugins.invokeCommand`.
+
+Upstream files touched: `en.json` only (new keys inside our `overhedge` block). Everything else is in
+our task-source files and new files. Not reused: Jira's lane reorder (`useJiraBoardColumnOrder`):
+columns keep the source's order.
 
 ## Plugin chat send (branch `overhedge/chat-send`)
 
