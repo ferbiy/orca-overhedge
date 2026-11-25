@@ -66,6 +66,43 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   (`peer_questions_out`, orchestration schema 50); it does not share Claude's `sessions` folder
   across accounts. Our peers change stays.
 
+## Plugin task sources (branch `overhedge/task-sources`)
+
+A plugin can add its own tab to the Tasks page next to GitHub, GitLab, Linear and Jira (made for
+our ClickUp plugin). Upstream keeps `contributes.taskSources` reserved and empty (community PR
+#26282 is open, unreviewed); this is a small stand-in until upstream ships one.
+
+Contract for a plugin (`execution: "trusted-worker"`, a `main` worker):
+
+- Declare worker commands in `contributes.commands`: `taskSource.<id>.list` (required; its
+  `title` is the tab's title), `taskSource.<id>.get` and `taskSource.<id>.action` (optional).
+  `<id>` is letters/digits with `-`/`_`. The manifest stays valid on stock Orca, where these are
+  just palette commands; on the fork they leave the palette and become the tab. The tab's icon is
+  the plugin's first panel icon.
+- Register them with `orca.commands.register(id, (args) => result)`:
+  - `list({ query, filters, cursor? })` -> `{ items, nextCursor?, filters?, notice? }`
+  - `get({ itemId })` -> `{ item, bodyMarkdown?, actions? }`
+  - `action({ itemId, actionId, value? })` -> `{ message?, detail? }`
+- `item`: `{ id, title, status?: { label, tone: open|active|blocked|review|done|closed },
+  priority?, owner?, labels?, updatedAt?, summary?, url? }` (http(s) only). Items, filters and
+  details are the shapes of PR #26282; unknown fields are dropped, so a #26282 `start` recipe does
+  no harm. `filters`: `[{ id (kebab), label, options: [{ value, label }], defaultValue? }]`; the
+  selected values come back in `list` params.
+- `actions`: `[{ id (kebab), label, options?, value?, primary? }]`. Without `options` it is a
+  button; with them a menu (e.g. `set-status` with the list's statuses and the current `value`;
+  `start` with projects from `project.list`, whose handler calls `workspace.create({ projectId,
+  hostId, name, agent, prompt, open: true })`). Return `detail` to repaint at once.
+- The renderer validates every answer (`src/shared/plugins/tasks/plugin-task-source-schema.ts`)
+  and shows the plugin's error text. A demo source for tests:
+  `src/shared/plugins/tasks/demo-plugin-task-source.fake.ts`.
+
+The worker runs in the desktop's main process, like every plugin worker, so with a paired Orca
+server the tracker is called from the desktop; `workspace.create` with a `runtime:` host creates
+the workspace on the server. Upstream files touched: `TaskPage.tsx` (wrapped, 3 lines),
+`SourceBar.tsx` (2), `plugin-list-projection.ts` (2), `plugin-list-entry.ts` (3), `en.json`
+(one block at the top). Everything else is in `components/task-page/plugin-sources/` and
+`src/shared/plugins/tasks/`.
+
 ## Cross-account Claude peers
 
 Claude Code finds its peers in `<CLAUDE_CONFIG_DIR>/sessions/`: one `<pid>.json` per running

@@ -1,4 +1,19 @@
 {
+  "overhedge": {
+    "taskSources": {
+      "actionFailed": "{{value0}} failed: {{value1}}",
+      "builtIn": "GitHub, GitLab, Linear and Jira",
+      "close": "Close tasks",
+      "empty": "No tasks match.",
+      "loading": "Loading tasks…",
+      "loadMore": "Load more",
+      "openInBrowser": "Open in browser",
+      "pick": "Pick a task to see its details.",
+      "refresh": "Refresh",
+      "retry": "Try again",
+      "search": "Search tasks"
+    }
+  },
   "agentLaunch": {
     "connectSsh": "Connect to this workspace’s SSH host, then try again.",
     "sshUnavailable": "Terminal launch is unavailable on this SSH host. Open a terminal in the workspace and start the agent there.",
