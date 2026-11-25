@@ -127,15 +127,15 @@ chat: `agent.launch`/`workspace.create` start a new agent, `agent.resume` takes 
 - `chat.list({ hostId? })` -> `{ chats: [{ chatId, hostId, hostLabel, agent, title, workspace,
   project, state, updatedAt }], unreachableHostIds, truncated }`. Rows come from the runtime's
   `agent.list` (what `orca agent list` reads), only `kind: chat`, with the chat session id taken from
-  the pane key; the last reply is dropped. Paired servers are the runtime environments the desktop has
-  saved (`listEnvironments`), minus ones the person disconnected in Orca; each is asked with
+  the pane key; the last reply is dropped. Paired servers are the runtime environments the desktop
+  has saved (`listEnvironments`), minus ones the person disconnected in Orca; each is asked with
   `agent.list` and its rows (which it answers as `local`) are re-addressed to `runtime:<environmentId>`.
 - `chat.send({ chatId, hostId, text })` -> `{ status: sent|queued }`. The chat must be in that
   host's listing now (never a closed chat, which a send would reopen, a terminal agent, or a new
   chat), and a remote host must be one the desktop has saved. It reads the chat's fence with
   `agentSession.history` and sends `agentSession.send` with `delivery: 'queue-if-active'` and a
-  text-only user body, the same calls the chat composer makes (operation id in the host's `<ms>-<hex>` form). Text: at most 4000 characters, lines
-  of plain text (no control, bidi or invisible characters), and not starting with `/` (a chat runs
+  text-only user body, the same calls the chat composer makes (operation id in the host's
+  `<ms>-<hex>` form). Text: at most 4000 characters, lines of plain text (no control, bidi or invisible characters), and not starting with `/` (a chat runs
   that as a command, ours included).
 - Local calls run in process (`pluginRuntimeRpc`, the CLI's identity; the send through
   `pluginHostEffect`, so approval is re-checked right before it and the plugin is recorded as

@@ -150,10 +150,10 @@ flowchart LR
 
 The patch lives in Orca's main process, which the server and the desktop app share. So:
 
-| Where the chat runs                     | What you need                                                        | What you get                     |
-| --------------------------------------- | -------------------------------------------------------------------- | -------------------------------- |
-| On a remote Orca server                 | the fork's server .deb; the official desktop or mobile app is enough | everything above                 |
-| On your own computer (local workspaces) | the fork's macOS app                                                 | everything above for local chats |
+| Where the chat runs | What you need | What you get |
+| --- | --- | --- |
+| On a remote Orca server | the fork's server .deb; the official desktop or mobile app is enough | everything above |
+| On your own computer (local workspaces) | the fork's macOS app | everything above for local chats |
 
 There is no new desktop UI: the features are chat commands (listed in the slash menu) and `orca`
 CLI commands. Per-chat accounts and migration need Orca-managed Claude accounts on that machine
