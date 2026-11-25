@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { PLUGIN_HOST_API } from '../../../../shared/plugins/workers/plugin-host-api'
 import { PLUGIN_CHAT_LIST_LIMIT } from '../../../../shared/plugins/workers/plugin-host-api-chat'
+import { createStructuredAgentSessionOperationId } from '../../../../shared/agent-session/lifecycle/operations/structured-agent-session-mutation'
 import {
   structuredAgentSessionMessageSendMutation,
   structuredAgentSessionSendBody
 } from '../../../../shared/agent-session/requests/structured-agent-session-send-mutation'
-import { isUnresolvedOwnerHostId } from '../../../../shared/execution-host/execution-host'
 import {
   bind,
   type BoundPluginHostMethod,
@@ -15,12 +15,7 @@ import {
 } from './plugin-host-method-bind'
 import { PluginHostCallError } from './plugin-host-call-scope'
 import { pluginHostEffect as effect, pluginHostRpc as rpc } from './plugin-host-runtime-call'
-import {
-  agentListAnswer,
-  pairedRuntimeHostIds,
-  projectPluginChats,
-  type PluginChatRow
-} from './plugin-chat-projection'
+import { agentListAnswer, projectPluginChats, type PluginChatRow } from './plugin-chat-projection'
 import { desktopPairedRuntimeHosts, type PairedRuntimeHosts } from './plugin-chat-paired-runtime'
 
 /** overhedge: `chat.list` and `chat.send` (`chat:send`). Reads and sends go through the runtime
@@ -87,23 +82,24 @@ async function hostChats(
   ctx: PluginHostMethodContext,
   hostId: string,
   paired: PairedRuntimeHosts
-): Promise<{ chats: PluginChatRow[]; truncated: boolean; pairedHostIds: string[] }> {
+): Promise<{ chats: PluginChatRow[]; truncated: boolean }> {
   const answer = agentListAnswer.parse(
     await hostCalls(ctx, hostId, paired, LIST_TIMEOUT_MS).read('agent.list', {})
   )
   const label = hostId === 'local' ? null : await paired.label(hostId.slice(RUNTIME_PREFIX.length))
   return {
     chats: projectPluginChats(answer, hostId, hostId === 'local' ? null : (label ?? hostId)),
-    truncated: answer.truncated === true,
-    pairedHostIds:
-      hostId === 'local'
-        ? pairedRuntimeHostIds(answer).filter((id) => !isUnresolvedOwnerHostId(id))
-        : []
+    truncated: answer.truncated === true
   }
 }
 
-/** This computer, or a paired Orca server this desktop's own listing names: never another
- *  environment a selector could resolve to. */
+/** The paired Orca servers this desktop saved; none outside the desktop app. */
+async function pairedHostIds(ctx: PluginHostMethodContext, paired: PairedRuntimeHosts) {
+  return ctx.services.desktop ? paired.hostIds() : []
+}
+
+/** This computer, or a paired Orca server this desktop saved: never another environment a
+ *  selector could resolve to. */
 function knownHost(hostId: string, pairedHostIds: readonly string[]): string {
   if (hostId !== 'local' && !pairedHostIds.includes(hostId)) {
     throw new PluginHostCallError('action_failed', 'no paired Orca server has this host id')
@@ -116,15 +112,13 @@ export function createPluginChatHandlers(
 ): Record<'chat.list' | 'chat.send', BoundPluginHostMethod> {
   return {
     'chat.list': bind(PLUGIN_HOST_API['chat.list'], async (params, ctx) => {
-      const local = await hostChats(ctx, 'local', paired)
-      const hosts = params?.hostId
-        ? [knownHost(params.hostId, local.pairedHostIds)]
-        : ['local', ...(ctx.services.desktop ? local.pairedHostIds : [])]
+      const servers = await pairedHostIds(ctx, paired)
+      const hosts = params?.hostId ? [knownHost(params.hostId, servers)] : ['local', ...servers]
       const unreachableHostIds: string[] = []
       const answers = await Promise.all(
         hosts.map(async (hostId) => {
           if (hostId === 'local') {
-            return local
+            return hostChats(ctx, 'local', paired)
           }
           try {
             return await hostChats(ctx, hostId, paired)
@@ -133,7 +127,7 @@ export function createPluginChatHandlers(
               throw error
             }
             unreachableHostIds.push(hostId)
-            return { chats: [], truncated: false, pairedHostIds: [] }
+            return { chats: [], truncated: false }
           }
         })
       )
@@ -149,9 +143,7 @@ export function createPluginChatHandlers(
     'chat.send': bind(PLUGIN_HOST_API['chat.send'], async ({ chatId, hostId, text }, ctx) => {
       // Only a chat open now on that host: never a closed one (a send would reopen it), a
       // terminal agent, or an id that would start a new chat.
-      if (hostId !== 'local') {
-        knownHost(hostId, (await hostChats(ctx, 'local', paired)).pairedHostIds)
-      }
+      knownHost(hostId, await pairedHostIds(ctx, paired))
       const { chats } = await hostChats(ctx, hostId, paired)
       if (!chats.some((chat) => chat.chatId === chatId)) {
         throw new PluginHostCallError('action_failed', 'no open chat has this id on that host')
@@ -173,7 +165,8 @@ export function createPluginChatHandlers(
           'agentSession.send',
           structuredAgentSessionMessageSendMutation({
             sessionId: chatId,
-            clientOperationId: `plugin-chat-${randomUUID()}`,
+            // The host admits only `<13-digit ms>-<32 hex>` operation ids.
+            clientOperationId: createStructuredAgentSessionOperationId(randomUUID),
             expectedRuntimeFence: fence,
             delivery: 'queue-if-active',
             body: structuredAgentSessionSendBody(text, [])

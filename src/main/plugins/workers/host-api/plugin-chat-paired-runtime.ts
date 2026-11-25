@@ -10,6 +10,9 @@ export type PairedRuntimeCall = (
 ) => Promise<unknown>
 
 export type PairedRuntimeHosts = {
+  /** The paired Orca servers this desktop has saved, as `runtime:<id>` hosts; ones the person
+   *  disconnected in Orca are left out. */
+  hostIds(): Promise<string[]>
   call: PairedRuntimeCall
   /** The server's name as the person paired it; null when Orca no longer has it. */
   label(environmentId: string): Promise<string | null>
@@ -35,6 +38,12 @@ async function transport() {
 }
 
 export const desktopPairedRuntimeHosts: PairedRuntimeHosts = {
+  async hostIds() {
+    const t = await transport()
+    return (await t.listEnvironments(t.getRuntimeEnvironmentRegistryRoot()))
+      .filter((environment) => !t.isRuntimeEnvironmentManuallyDisconnected(environment.id))
+      .map((environment) => `runtime:${environment.id}`)
+  },
   async call(environmentId, method, params, options = {}) {
     const t = await transport()
     // The person disconnected this server in Orca: a plugin must not reconnect it.

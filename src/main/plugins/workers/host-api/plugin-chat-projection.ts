@@ -31,10 +31,7 @@ export const agentListAnswer = z.object({
       updatedAt: z.number().finite()
     })
   ),
-  truncated: z.boolean().optional(),
-  hostScope: z
-    .object({ hostIds: z.array(z.string()), omittedHostIds: z.array(z.string()) })
-    .optional()
+  truncated: z.boolean().optional()
 })
 export type AgentListAnswer = z.output<typeof agentListAnswer>
 
@@ -82,11 +79,4 @@ export function projectPluginChats(
     })
   }
   return rows
-}
-
-/** Paired Orca servers this desktop's own listing leaves to them (`runtime:` hosts). */
-export function pairedRuntimeHostIds(answer: AgentListAnswer): string[] {
-  return (answer.hostScope?.omittedHostIds ?? []).filter((id) =>
-    /^runtime:[A-Za-z0-9._-]+$/.test(id)
-  )
 }

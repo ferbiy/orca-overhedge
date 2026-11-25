@@ -44,6 +44,7 @@ function harness() {
     return { ok: true, value: { clientMessageId: 'x', queued: {} } }
   }
   const paired: PairedRuntimeHosts = {
+    hostIds: async () => ['runtime:env1'],
     call: async (env, method, params) => answer(`runtime:${env}`, method, params),
     label: async () => 'orca-ide'
   }
