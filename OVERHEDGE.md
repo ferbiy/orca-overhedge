@@ -99,7 +99,7 @@ Contract for a plugin (`execution: "trusted-worker"`, a `main` worker):
 The worker runs in the desktop's main process, like every plugin worker, so with a paired Orca
 server the tracker is called from the desktop; `workspace.create` with a `runtime:` host creates
 the workspace on the server. Upstream files touched: `TaskPage.tsx` (wrapped, 3 lines),
-`SourceBar.tsx` (2), `plugin-list-projection.ts` (2), `plugin-list-entry.ts` (3), `en.json`
+`SourceBar.tsx` (2), `plugin-list-projection.ts` (3), `plugin-list-entry.ts` (3), `en.json`
 (one block at the top). Everything else is in `components/task-page/plugin-sources/` and
 `src/shared/plugins/tasks/`.
 
