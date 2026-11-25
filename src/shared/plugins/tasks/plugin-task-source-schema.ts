@@ -14,6 +14,7 @@ export const PLUGIN_TASK_LIST_ITEM_LIMIT = 500
 export const PLUGIN_TASK_FILTER_LIMIT = 8
 export const PLUGIN_TASK_BODY_MAX_CHARS = 512 * 1024
 export const PLUGIN_TASK_ACTION_LIMIT = 8
+export const PLUGIN_TASK_BOARD_COLUMN_LIMIT = 50
 
 export const PLUGIN_TASK_STATUS_TONES = [
   'open',
@@ -60,7 +61,9 @@ export const pluginTaskItemSchema = z.object({
       label: z.string().min(1).max(64),
       tone: z.enum(PLUGIN_TASK_STATUS_TONES),
       /** `#rgb`/`#rrggbb`: the pill takes this colour instead of the tone's; else dropped. */
-      color: pluginOptionalHexColorSchema
+      color: pluginOptionalHexColorSchema,
+      /** The board column (its `value`) this status belongs to; without it the label is matched. */
+      value: z.string().min(1).max(256).optional()
     })
     .optional(),
   priority: z.string().min(1).max(32).optional(),
@@ -87,14 +90,47 @@ export type PluginTaskListParams = {
   query: string
   filters: Record<string, string>
   cursor?: string
+  /** Board only: just the items of this column (a column `value`), to load more of it. */
+  column?: string
 }
+
+/** One board column: a status, in the order the source gives. */
+export const pluginTaskBoardColumnSchema = z.object({
+  /** What a drop sends as the move action's `value`; items name it in `status.value`. */
+  value: z.string().min(1).max(256),
+  label: z.string().min(1).max(64),
+  tone: z.enum(PLUGIN_TASK_STATUS_TONES),
+  color: pluginOptionalHexColorSchema
+})
+
+export type PluginTaskBoardColumn = z.infer<typeof pluginTaskBoardColumnSchema>
+
+/**
+ * Overhedge fork, feature `board`: the columns for the current filters and the action a drop on
+ * a column runs (`action({ itemId, actionId: moveActionId, value: column.value })`).
+ */
+export const pluginTaskBoardSchema = z.object({
+  columns: z
+    .array(pluginTaskBoardColumnSchema)
+    .min(1)
+    .max(PLUGIN_TASK_BOARD_COLUMN_LIMIT)
+    .refine(
+      (columns) => new Set(columns.map((column) => column.value)).size === columns.length,
+      'column values must be unique'
+    ),
+  moveActionId: kebabIdSchema
+})
+
+export type PluginTaskBoard = z.infer<typeof pluginTaskBoardSchema>
 
 export const pluginTaskListResultSchema = z.object({
   items: z.array(pluginTaskItemSchema).max(PLUGIN_TASK_LIST_ITEM_LIMIT),
   nextCursor: z.string().min(1).max(1024).optional(),
   filters: z.array(pluginTaskFilterSchema).max(PLUGIN_TASK_FILTER_LIMIT).optional(),
   /** One-line status the source wants shown above the list. */
-  notice: z.string().min(1).max(512).optional()
+  notice: z.string().min(1).max(512).optional(),
+  /** A malformed board is dropped (the list still shows), so the page stays list-only. */
+  board: pluginTaskBoardSchema.optional().catch(undefined)
 })
 
 export type PluginTaskListResult = z.infer<typeof pluginTaskListResultSchema>

@@ -17,6 +17,7 @@ export const DEMO_TASK_SOURCE_COMMANDS = [
 const STATUSES = [
   { value: 'to-do', label: 'To do', tone: 'open', color: '#87909e' },
   { value: 'in-progress', label: 'In progress', tone: 'active', color: '#5f55ee' },
+  { value: 'in-review', label: 'In review', tone: 'review', color: '#f8ae00' },
   { value: 'done', label: 'Done', tone: 'done', color: '#0f9d9f' }
 ] as const
 
@@ -31,17 +32,29 @@ function text(args: unknown, key: string): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-type DemoTask = { id: string; title: string; status: (typeof STATUSES)[number]['value'] }
+export type DemoTask = {
+  id: string
+  title: string
+  status: (typeof STATUSES)[number]['value']
+  priority?: string
+  owner?: string
+}
 
 type CommandHandler = (args: unknown) => unknown
 
 export function registerDemoTaskSource(
   register: (commandId: string, handler: CommandHandler) => void,
-  options: { pageSize?: number; projects?: { id: string; name: string }[] } = {}
+  options: {
+    pageSize?: number
+    projects?: { id: string; name: string }[]
+    tasks?: DemoTask[]
+    /** A move to this status fails, like a tracker refusing a status the task's list lacks. */
+    refuseStatus?: string
+  } = {}
 ): { tasks: DemoTask[]; started: { taskId: string; projectId: string }[] } {
   const pageSize = options.pageSize ?? 2
   const projects = options.projects ?? [{ id: 'local:demo-repo', name: 'demo-repo' }]
-  const tasks: DemoTask[] = [
+  const tasks: DemoTask[] = options.tasks ?? [
     { id: 'CU-1', title: 'Fix the login redirect', status: 'to-do' },
     { id: 'CU-2', title: 'Add CSV export', status: 'in-progress' },
     { id: 'CU-3', title: 'Write release notes', status: 'done' }
@@ -53,7 +66,9 @@ export function registerDemoTaskSource(
     return {
       id: task.id,
       title: task.title,
-      status: { label: status.label, tone: status.tone, color: status.color },
+      status: { label: status.label, tone: status.tone, color: status.color, value: status.value },
+      ...(task.priority ? { priority: task.priority } : {}),
+      ...(task.owner ? { owner: task.owner } : {}),
       url: `https://app.clickup.example/t/${task.id}`
     }
   }
@@ -90,7 +105,10 @@ export function registerDemoTaskSource(
   register(DEMO_TASK_SOURCE_COMMANDS[0].id, (args) => {
     const query = text(args, 'query') ?? ''
     const cursor = text(args, 'cursor')
-    const status = text(field(args, 'filters'), 'status') ?? 'open'
+    const column = text(args, 'column')
+    const status = column ?? text(field(args, 'filters'), 'status') ?? 'open'
+    const features = field(args, 'features')
+    const board = Array.isArray(features) && features.includes('board')
     const matching = tasks.filter(
       (task) =>
         task.title.toLowerCase().includes(query.toLowerCase()) &&
@@ -112,7 +130,21 @@ export function registerDemoTaskSource(
             ...STATUSES.map((entry) => ({ value: entry.value, label: entry.label }))
           ]
         }
-      ]
+      ],
+      // A board only for a page that says it draws one (feature `board`).
+      ...(board
+        ? {
+            board: {
+              columns: STATUSES.map(({ value, label, tone, color }) => ({
+                value,
+                label,
+                tone,
+                color
+              })),
+              moveActionId: 'set-status'
+            }
+          }
+        : {})
     }
   })
   register(DEMO_TASK_SOURCE_COMMANDS[1].id, (args) => detail(find(field(args, 'itemId'))))
@@ -122,7 +154,7 @@ export function registerDemoTaskSource(
     const value = text(args, 'value')
     if (actionId === 'set-status') {
       const status = STATUSES.find((entry) => entry.value === value)
-      if (!status) {
+      if (!status || status.value === options.refuseStatus) {
         throw new Error(`unknown status ${String(value)}`)
       }
       task.status = status.value

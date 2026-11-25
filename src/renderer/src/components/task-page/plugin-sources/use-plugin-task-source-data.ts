@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import type {
+  PluginTaskBoard,
   PluginTaskDetail,
   PluginTaskFilter,
   PluginTaskItem
 } from '../../../../../shared/plugins/tasks/plugin-task-source-schema'
 import { invokePluginTaskSource, type PluginTaskSourceTarget } from './plugin-task-source-client'
+import type { PluginTaskItemsUpdate } from './plugin-task-board-move'
 import { effectivePluginTaskFilters } from './plugin-task-filter-selection'
 import { installWindowVisibilityInterval } from '@/lib/window-activity/window-visibility-interval'
 
@@ -30,6 +33,11 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function appendNew(previous: PluginTaskItem[], more: readonly PluginTaskItem[]): PluginTaskItem[] {
+  const seen = new Set(previous.map((item) => item.id))
+  return [...previous, ...more.filter((item) => !seen.has(item.id))]
+}
+
 export type PluginTaskListState = {
   items: PluginTaskItem[]
   filters: PluginTaskFilter[]
@@ -42,6 +50,14 @@ export type PluginTaskListState = {
   error: string | null
   refresh: () => void
   loadMore: () => void
+  /** Board columns and move action, when the source offers a board (feature `board`). */
+  board: PluginTaskBoard | null
+  /** Per board column: the cursor of its next page, or null once it has no more. */
+  columnCursors: Readonly<Record<string, string | null>>
+  loadingColumn: string | null
+  loadMoreColumn: (value: string) => void
+  /** Changes the shown items in place (a board move), until the next answer replaces them. */
+  updateItems: PluginTaskItemsUpdate
 }
 
 export function usePluginTaskList(
@@ -56,6 +72,9 @@ export function usePluginTaskList(
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [board, setBoard] = useState<PluginTaskBoard | null>(null)
+  const [columnCursors, setColumnCursors] = useState<Record<string, string | null>>({})
+  const [loadingColumn, setLoadingColumn] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
   // Why: a slow answer for an older query must not replace a newer one.
   const generation = useRef(0)
@@ -85,6 +104,8 @@ export function usePluginTaskList(
         setOffered(result.filters ?? [])
         setNotice(result.notice ?? null)
         setNextCursor(result.nextCursor ?? null)
+        setBoard(result.board ?? null)
+        setColumnCursors({})
       })
       .catch((caught: unknown) => {
         if (current === generation.current) {
@@ -125,10 +146,7 @@ export function usePluginTaskList(
         if (current !== generation.current) {
           return
         }
-        setItems((previous) => {
-          const seen = new Set(previous.map((item) => item.id))
-          return [...previous, ...result.items.filter((item) => !seen.has(item.id))]
-        })
+        setItems((previous) => appendNew(previous, result.items))
         setNextCursor(result.nextCursor ?? null)
       })
       .catch((caught: unknown) => {
@@ -138,6 +156,45 @@ export function usePluginTaskList(
       })
       .finally(() => setLoadingMore(false))
   }, [pluginKey, sourceId, query, filtersKey, nextCursor, loadingMore])
+
+  // Why per column: the shared page holds the first items of every status; a column asks the
+  // source for its own pages (`column`), only when the person wants more of it.
+  const loadMoreColumn = useCallback(
+    (value: string) => {
+      const cursor = columnCursors[value]
+      if (cursor === null || loadingColumn !== null) {
+        return
+      }
+      const current = generation.current
+      setLoadingColumn(value)
+      invokePluginTaskSource({ pluginKey, sourceId }, 'list', {
+        query,
+        filters: parseFiltersKey(filtersKey),
+        column: value,
+        ...(cursor ? { cursor } : {})
+      })
+        .then((result) => {
+          if (current !== generation.current) {
+            return
+          }
+          setItems((previous) => appendNew(previous, result.items))
+          setColumnCursors((previous) => ({ ...previous, [value]: result.nextCursor ?? null }))
+        })
+        .catch((caught: unknown) => {
+          // Why a toast: the board and its other columns stay usable.
+          if (current === generation.current) {
+            toast.error(errorText(caught))
+          }
+        })
+        .finally(() => setLoadingColumn(null))
+    },
+    [pluginKey, sourceId, query, filtersKey, columnCursors, loadingColumn]
+  )
+
+  const updateItems = useCallback<PluginTaskItemsUpdate>(
+    (update) => setItems((previous) => update(previous)),
+    []
+  )
 
   return {
     items,
@@ -149,7 +206,12 @@ export function usePluginTaskList(
     loadingMore,
     error,
     refresh,
-    loadMore
+    loadMore,
+    board,
+    columnCursors,
+    loadingColumn,
+    loadMoreColumn,
+    updateItems
   }
 }
 

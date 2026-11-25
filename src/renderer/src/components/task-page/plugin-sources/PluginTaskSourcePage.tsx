@@ -23,6 +23,9 @@ import {
   usePluginTaskSourceSelection
 } from './plugin-task-source-state'
 import { usePluginTaskList } from './use-plugin-task-source-data'
+import { usePluginTaskViewModes } from './plugin-task-view-mode'
+import { PluginTaskViewToggle } from './PluginTaskViewToggle'
+import { PluginTaskBoardPane } from './PluginTaskBoardPane'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -45,6 +48,12 @@ export function PluginTaskSourcePage({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const list = usePluginTaskList(target, query, picked)
   const filters = list.selectedFilters
+  const savedMode = usePluginTaskViewModes((state) => state.modes[source.key]) ?? 'list'
+  const setMode = usePluginTaskViewModes((state) => state.setMode)
+  // Why: a source offers a board in its list answer; until the first answer, keep the saved view.
+  const boardMode =
+    savedMode === 'board' &&
+    (list.board !== null || (list.loading && list.items.length === 0 && !list.error))
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(searchInput.trim()), SEARCH_DEBOUNCE_MS)
@@ -91,6 +100,12 @@ export function PluginTaskSourcePage({
         <PluginTaskSourceButtons activeKey={source.key} />
         <span className="ml-1 truncate text-sm font-medium text-foreground">{source.title}</span>
         <div className="ml-auto flex items-center gap-2">
+          {list.board ? (
+            <PluginTaskViewToggle
+              mode={boardMode ? 'board' : 'list'}
+              onChange={(mode) => setMode(source.key, mode)}
+            />
+          ) : null}
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -140,6 +155,32 @@ export function PluginTaskSourcePage({
           {list.notice}
         </div>
       ) : null}
+      {boardMode ? (
+        <div className="flex min-h-0 flex-1 gap-3">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-sleek rounded-md border border-border/50">
+            <PluginTaskBoardPane
+              target={target}
+              list={list}
+              canAct={source.operations.includes('action')}
+              selectedId={selectedId}
+              onOpen={(item) => setSelectedId(item.id)}
+            />
+          </div>
+          {selected ? (
+            <div className="min-h-0 w-[min(40%,480px)] flex-none rounded-md border border-border/50">
+              <PluginTaskDetailPane
+                key={selected.id}
+                target={target}
+                item={selected}
+                canGet={source.operations.includes('get')}
+                canAct={source.operations.includes('action')}
+                onChanged={list.refresh}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-h-0 w-[min(46%,560px)] flex-none flex-col overflow-y-auto scrollbar-sleek rounded-md border border-border/50">
           {list.error ? (
@@ -214,6 +255,7 @@ export function PluginTaskSourcePage({
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

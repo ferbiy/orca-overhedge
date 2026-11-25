@@ -2,8 +2,15 @@
   "overhedge": {
     "taskSources": {
       "actionFailed": "{{value0}} failed: {{value1}}",
+      "board": {
+        "emptyColumn": "No tasks",
+        "move": "Move {{value0}}",
+        "moveFailed": "Moving {{value0}} failed: {{value1}}",
+        "noStatus": "No status"
+      },
       "builtIn": "GitHub, GitLab, Linear and Jira",
       "close": "Close tasks",
+      "closeDetail": "Close details",
       "empty": "No tasks match.",
       "loading": "Loading tasks…",
       "loadMore": "Load more",
@@ -11,7 +18,12 @@
       "pick": "Pick a task to see its details.",
       "refresh": "Refresh",
       "retry": "Try again",
-      "search": "Search tasks"
+      "search": "Search tasks",
+      "view": {
+        "board": "Board view",
+        "label": "View",
+        "list": "List view"
+      }
     }
   },
   "agentLaunch": {

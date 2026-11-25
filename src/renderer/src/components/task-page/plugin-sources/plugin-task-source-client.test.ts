@@ -77,7 +77,12 @@ describe('invokePluginTaskSource with the demo source', () => {
       { itemId: 'CU-1', actionId: 'set-status', value: 'done' },
       invoke
     )
-    expect(moved.detail?.item.status).toEqual({ label: 'Done', tone: 'done', color: '#0f9d9f' })
+    expect(moved.detail?.item.status).toEqual({
+      label: 'Done',
+      tone: 'done',
+      color: '#0f9d9f',
+      value: 'done'
+    })
 
     const started = await invokePluginTaskSource(
       target,
@@ -89,14 +94,49 @@ describe('invokePluginTaskSource with the demo source', () => {
     expect(state.started).toEqual([{ taskId: 'CU-2', projectId: 'local:demo-repo' }])
   })
 
-  it('tells the plugin with every command that this page draws status colours', async () => {
+  it('tells the plugin with every command that this page draws status colours and a board', async () => {
     const seen: unknown[] = []
     const invoke: PluginCommandInvoker = async ({ args }) => {
       seen.push(args)
       return { items: [] }
     }
     await invokePluginTaskSource(target, 'list', { query: '', filters: {} }, invoke)
-    expect(seen).toEqual([{ query: '', filters: {}, features: ['status-color'] }])
+    expect(seen).toEqual([{ query: '', filters: {}, features: ['status-color', 'board'] }])
+  })
+
+  it('gets board columns from a source that has them, and one column on its own', async () => {
+    const { invoke } = mountDemo()
+    const first = await invokePluginTaskSource(target, 'list', { query: '', filters: {} }, invoke)
+    expect(first.board?.moveActionId).toBe('set-status')
+    expect(first.board?.columns.map((column) => column.value)).toEqual([
+      'to-do',
+      'in-progress',
+      'in-review',
+      'done'
+    ])
+    expect(first.items[0]?.status?.value).toBe('to-do')
+    const done = await invokePluginTaskSource(
+      target,
+      'list',
+      { query: '', filters: {}, column: 'done' },
+      invoke
+    )
+    expect(done.items.map((item) => item.id)).toEqual(['CU-3'])
+  })
+
+  it('keeps a source without a board list-only', async () => {
+    const plain: PluginCommandInvoker = async () => ({ items: [{ id: '1', title: 'One' }] })
+    const listed = await invokePluginTaskSource(target, 'list', { query: '', filters: {} }, plain)
+    expect(listed.board).toBeUndefined()
+    // The demo source answers without a board to a page that does not say it draws one.
+    const handlers = new Map<string, (args: unknown) => unknown>()
+    registerDemoTaskSource((id, handler) => handlers.set(id, handler))
+    const answer = handlers.get('taskSource.demo.list')?.({
+      query: '',
+      filters: {},
+      features: ['status-color']
+    })
+    expect(answer).not.toHaveProperty('board')
   })
 
   it("surfaces the plugin's own error without the IPC prefix", async () => {

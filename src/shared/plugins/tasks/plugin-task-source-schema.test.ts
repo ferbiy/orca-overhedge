@@ -69,4 +69,52 @@ describe('plugin task source results', () => {
       value: { items: [{ id: '1', title: 'One', status: { label: 'x', tone: 'open' } }] }
     })
   })
+
+  it('reads board columns and the status value that names an item column', () => {
+    const parsed = parsePluginTaskSourceResult('list', {
+      items: [{ id: '1', title: 'One', status: { label: 'Doing', tone: 'active', value: 'doing' } }],
+      board: {
+        columns: [
+          { value: 'todo', label: 'To do', tone: 'open', color: '#87909e' },
+          { value: 'doing', label: 'Doing', tone: 'active', color: 'red' }
+        ],
+        moveActionId: 'set-status'
+      }
+    })
+    expect(parsed).toEqual({
+      ok: true,
+      value: {
+        items: [
+          { id: '1', title: 'One', status: { label: 'Doing', tone: 'active', value: 'doing' } }
+        ],
+        board: {
+          columns: [
+            { value: 'todo', label: 'To do', tone: 'open', color: '#87909e' },
+            { value: 'doing', label: 'Doing', tone: 'active' }
+          ],
+          moveActionId: 'set-status'
+        }
+      }
+    })
+  })
+
+  it('drops a malformed board and keeps the list', () => {
+    for (const board of [
+      { columns: [], moveActionId: 'set-status' },
+      { columns: [{ value: 'a', label: 'A', tone: 'open' }], moveActionId: 'Set Status' },
+      {
+        columns: [
+          { value: 'a', label: 'A', tone: 'open' },
+          { value: 'a', label: 'A again', tone: 'open' }
+        ],
+        moveActionId: 'set-status'
+      },
+      { columns: [{ value: 'a', label: 'A', tone: 'unknown' }], moveActionId: 'set-status' },
+      'board'
+    ]) {
+      expect(
+        parsePluginTaskSourceResult('list', { items: [{ id: '1', title: 'One' }], board })
+      ).toEqual({ ok: true, value: { items: [{ id: '1', title: 'One' }] } })
+    }
+  })
 })

@@ -1,6 +1,6 @@
 import type React from 'react'
 import { useState } from 'react'
-import { ChevronDown, ExternalLink, LoaderCircle } from 'lucide-react'
+import { ChevronDown, ExternalLink, LoaderCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,7 +27,8 @@ export function PluginTaskDetailPane({
   item,
   canGet,
   canAct,
-  onChanged
+  onChanged,
+  onClose
 }: {
   target: PluginTaskSourceTarget
   item: PluginTaskItem
@@ -35,6 +36,8 @@ export function PluginTaskDetailPane({
   canAct: boolean
   /** An action ran, so the list may be stale. */
   onChanged: () => void
+  /** Shows a close button (the board's side pane). */
+  onClose?: () => void
 }): React.JSX.Element {
   const t = useTranslate()
   const { detail, loading, error, setDetail, reload } = usePluginTaskDetail(target, item.id, canGet)
@@ -96,6 +99,16 @@ export function PluginTaskDetailPane({
           >
             <ExternalLink className="size-3.5" />
             {t('overhedge.taskSources.openInBrowser', 'Open in browser')}
+          </Button>
+        ) : null}
+        {onClose ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose}
+            aria-label={t('overhedge.taskSources.closeDetail', 'Close details')}
+          >
+            <X className="size-3.5" />
           </Button>
         ) : null}
       </div>

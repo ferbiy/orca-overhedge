@@ -18,8 +18,3 @@ export const pluginHexColorSchema = z
 
 /** Status colours on the Tasks page: item `status.color` and option `color` are drawn. */
 export const PLUGIN_TASK_SOURCE_STATUS_COLOR_FEATURE = 'status-color'
-
-/** What this Orca's Tasks page draws beyond the base contract; sent as `features` with every command. */
-export const PLUGIN_TASK_SOURCE_FEATURES: readonly string[] = [
-  PLUGIN_TASK_SOURCE_STATUS_COLOR_FEATURE
-]
