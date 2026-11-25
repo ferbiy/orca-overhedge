@@ -16,7 +16,7 @@ const row = (paneKey: string, kind = 'chat') => ({
   state: 'done',
   workspace: 'ws',
   paneKey,
-  title: 'Triage‮',
+  title: 'Triage\u202e',
   updatedAt: 1
 })
 
@@ -92,7 +92,7 @@ describe('chat.list / chat.send', () => {
   it('refuses commands, unknown hosts, and chats not open on that host', async () => {
     const { call, sent } = harness()
     await expect(call('chat.send', { chatId: CHAT, hostId: 'local', text: ' /clear' })).rejects.toThrow()
-    await expect(call('chat.send', { chatId: CHAT, hostId: 'local', text: 'a‮b' })).rejects.toThrow()
+    await expect(call('chat.send', { chatId: CHAT, hostId: 'local', text: 'a\u202eb' })).rejects.toThrow()
     await expect(
       call('chat.send', { chatId: CHAT, hostId: 'runtime:other', text: 'hi' })
     ).rejects.toThrow('no paired Orca server')
