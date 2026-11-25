@@ -68,12 +68,11 @@ export function usePluginTaskList(
 
   const { pluginKey, sourceId } = target
 
+  // Why revision in the deps: Refresh and the timer bump it to ask again with the same query.
   useEffect(() => {
     const current = ++generation.current
     setLoading(true)
     setError(null)
-    // Why revision: Refresh and the timer bump it to ask again with the same query.
-    void revision
     invokePluginTaskSource({ pluginKey, sourceId }, 'list', {
       query,
       filters: parseFiltersKey(filtersKey)
@@ -174,9 +173,9 @@ export function usePluginTaskDetail(
   const generation = useRef(0)
   const { pluginKey, sourceId } = target
 
+  // Why revision in the deps: reload() bumps it to fetch the same item again.
   useEffect(() => {
     const current = ++generation.current
-    void revision
     setDetail(null)
     setError(null)
     if (!itemId || !canGet) {
