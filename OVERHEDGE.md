@@ -37,6 +37,8 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   (`src/main/updater/overhedge-release-updates.ts`) is false for a darwin build whose version
   carries `+overhedge.`, and the updater's checks, downloads, nudges and pinned/local-build picks
   go through it (`UpdaterScheduling.releaseUpdatesAllowed()`). Linux keeps upstream's behavior.
+- Plugin chat send: `chat.list` / `chat.send` behind a new `chat:send` capability. See "Plugin
+  chat send" below.
 - Cross-account Claude peers: every Claude chat or terminal on the host lists and messages every
   other one (ListAgents / SendMessage), whatever managed account or System default it runs under.
   See "Cross-account Claude peers" below.
@@ -112,6 +114,47 @@ the workspace on the server. Upstream files touched: `TaskPage.tsx` (wrapped, 3 
 `SourceBar.tsx` (2), `plugin-list-projection.ts` (3), `plugin-list-entry.ts` (3), `en.json`
 (one block at the top). Everything else is in `components/task-page/plugin-sources/` and
 `src/shared/plugins/tasks/`.
+
+## Plugin chat send (branch `overhedge/chat-send`)
+
+A plugin with the `chat:send` capability can list the open Orca chats (native chats, not terminal
+agents) on this computer and on paired Orca servers, and send a message into one, as the person
+would type it. Made for our ClickUp plugin's "Send to chat" (a short prepared text with the task
+link, into a chat the person picks). Upstream has no plugin method that sends into an existing
+chat: `agent.launch`/`workspace.create` start a new agent, `agent.resume` takes no prompt, and
+`terminal.sendText` types into terminals (which native chats are not).
+
+- `chat.list({ hostId? })` -> `{ chats: [{ chatId, hostId, hostLabel, agent, title, workspace,
+  project, state, updatedAt }], unreachableHostIds, truncated }`. Rows come from the runtime's
+  `agent.list` (what `orca agent list` reads), only `kind: chat`, with the chat session id taken from
+  the pane key; the last reply is dropped. Paired servers are the `runtime:` hosts the desktop's own
+  listing names in `hostScope.omittedHostIds`; each is asked with `agent.list` and its rows (which
+  it answers as `local`) are re-addressed to `runtime:<environmentId>`.
+- `chat.send({ chatId, hostId, text })` -> `{ status: sent|queued }`. The chat must be in that
+  host's listing now (never a closed chat, which a send would reopen, a terminal agent, or a new
+  chat), and a remote host must be one the desktop pairs with. It reads the chat's fence with
+  `agentSession.history` and sends `agentSession.send` with `delivery: 'queue-if-active'` and a
+  text-only user body, the same calls the chat composer makes. Text: at most 4000 characters, lines
+  of plain text (no control, bidi or invisible characters), and not starting with `/` (a chat runs
+  that as a command, ours included).
+- Local calls run in process (`pluginRuntimeRpc`, the CLI's identity; the send through
+  `pluginHostEffect`, so approval is re-checked right before it and the plugin is recorded as
+  the caller). Paired-server calls use `callRuntimeEnvironment`, the transport the desktop window
+  uses for that server's chats (`runtimeEnvironments:call`), and are refused for a server the person
+  disconnected in Orca. Desktop only: headless serve has no paired transport.
+- No confirmation dialog: the plugin's own preview is the confirmation. `services.confirm` is there
+  if one is wanted later. Every send is in the plugin audit log (host, chat id, length).
+- Fork-only methods at the current host API minor (10), so no upstream minor is claimed; the
+  capability's `since` is 1.4.273. A plugin guards with `orca.host.has('chat.send')`. A manifest
+  that asks for `chat:send` does not install on stock Orca (closed capability list).
+
+Upstream files touched: `plugin-capabilities.ts` (kind, since, description: 4 lines),
+`plugin-capability-reach.ts` (1), `plugin-host-api-worker-actions.ts` (2),
+`plugin-host-method-bindings.ts` (2), `plugin-host-methods.ts` (audit summary, 2), plus the
+regenerated plugin reference docs and typings. Everything else is in new files:
+`src/shared/plugins/workers/plugin-host-api-chat.ts`,
+`src/shared/plugins/capabilities/plugin-chat-send-capability.ts` and
+`src/main/plugins/workers/host-api/plugin-{host-chat-bindings,chat-projection,chat-paired-runtime}.ts`.
 
 ## Cross-account Claude peers
 

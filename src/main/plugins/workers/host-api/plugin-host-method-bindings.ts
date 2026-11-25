@@ -31,6 +31,7 @@ import { PLUGIN_WORKSPACE_CREATE_HANDLERS } from './plugin-host-workspace-create
 import { PLUGIN_AUTOMATION_HANDLERS } from './plugin-host-automation-bindings'
 import { PLUGIN_AGENT_HISTORY_HANDLERS } from './plugin-host-agent-history-bindings'
 import { PLUGIN_PROJECT_VISIBILITY_HANDLERS } from './plugin-host-project-visibility-binding'
+import { PLUGIN_CHAT_HANDLERS } from './plugin-host-chat-bindings'
 import {
   pluginHostRpc as rpc,
   pluginWorkspaceSelector as workspaceSelector,
@@ -278,7 +279,8 @@ const HANDLERS: Record<PluginHostMethodName, BoundPluginHostMethod> = {
   ...PLUGIN_TERMINAL_ACTION_HANDLERS,
   ...PLUGIN_WORKSPACE_CREATE_HANDLERS,
   ...PLUGIN_AUTOMATION_HANDLERS,
-  ...PLUGIN_AGENT_HISTORY_HANDLERS
+  ...PLUGIN_AGENT_HISTORY_HANDLERS,
+  ...PLUGIN_CHAT_HANDLERS
 }
 
 function requireDesktop(services: PluginHostServices): PluginDesktopFrameServices {
