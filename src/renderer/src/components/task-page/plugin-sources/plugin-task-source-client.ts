@@ -8,6 +8,7 @@ import {
   type PluginTaskListParams,
   type PluginTaskSourceResult
 } from '../../../../../shared/plugins/tasks/plugin-task-source-schema'
+import { PLUGIN_TASK_SOURCE_FEATURES } from '../../../../../shared/plugins/tasks/plugin-status-color'
 
 /**
  * Overhedge fork: calls a plugin task source through the plugin's own worker command. The worker
@@ -45,7 +46,8 @@ export async function invokePluginTaskSource<O extends PluginTaskSourceOperation
     raw = await invoke({
       pluginKey: target.pluginKey,
       commandId: pluginTaskSourceCommandId(target.sourceId, operation),
-      args: params
+      // Why: tells the plugin what this page draws (status colours), so it can send plain labels.
+      args: { ...params, features: PLUGIN_TASK_SOURCE_FEATURES }
     })
   } catch (error) {
     throw new PluginTaskSourceError(cleanIpcError(error))

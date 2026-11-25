@@ -28,4 +28,45 @@ describe('plugin task source results', () => {
     expect(parsePluginTaskSourceResult('action', undefined)).toEqual({ ok: true, value: {} })
     expect(parsePluginTaskSourceResult('action', null)).toEqual({ ok: true, value: {} })
   })
+
+  it('keeps a hex status or option colour and drops an invalid one without failing', () => {
+    const parsed = parsePluginTaskSourceResult('get', {
+      item: { id: '1', title: 'One', status: { label: 'Doing', tone: 'active', color: '#5F55EE' } },
+      actions: [
+        {
+          id: 'set-status',
+          label: 'Status',
+          options: [
+            { value: 'a', label: 'A', color: '#abc' },
+            { value: 'b', label: 'B', color: 'red' },
+            { value: 'c', label: 'C', color: '#abcd' },
+            { value: 'd', label: 'D', color: '#fff;background:url(x)' },
+            { value: 'e', label: 'E', color: 42 }
+          ]
+        }
+      ]
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) {
+      return
+    }
+    expect(parsed.value.item.status).toEqual({ label: 'Doing', tone: 'active', color: '#5F55EE' })
+    expect(parsed.value.actions?.[0]?.options?.map((option) => option.color)).toEqual([
+      '#abc',
+      undefined,
+      undefined,
+      undefined,
+      undefined
+    ])
+  })
+
+  it('drops an invalid item status colour and keeps the status', () => {
+    const parsed = parsePluginTaskSourceResult('list', {
+      items: [{ id: '1', title: 'One', status: { label: 'x', tone: 'open', color: 'var(--x)' } }]
+    })
+    expect(parsed).toEqual({
+      ok: true,
+      value: { items: [{ id: '1', title: 'One', status: { label: 'x', tone: 'open' } }] }
+    })
+  })
 })

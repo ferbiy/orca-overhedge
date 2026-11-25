@@ -15,9 +15,9 @@ export const DEMO_TASK_SOURCE_COMMANDS = [
 ]
 
 const STATUSES = [
-  { value: 'to-do', label: 'To do', tone: 'open' },
-  { value: 'in-progress', label: 'In progress', tone: 'active' },
-  { value: 'done', label: 'Done', tone: 'done' }
+  { value: 'to-do', label: 'To do', tone: 'open', color: '#87909e' },
+  { value: 'in-progress', label: 'In progress', tone: 'active', color: '#5f55ee' },
+  { value: 'done', label: 'Done', tone: 'done', color: '#0f9d9f' }
 ] as const
 
 function field(args: unknown, key: string): unknown {
@@ -53,7 +53,7 @@ export function registerDemoTaskSource(
     return {
       id: task.id,
       title: task.title,
-      status: { label: status.label, tone: status.tone },
+      status: { label: status.label, tone: status.tone, color: status.color },
       url: `https://app.clickup.example/t/${task.id}`
     }
   }
@@ -71,7 +71,11 @@ export function registerDemoTaskSource(
         id: 'set-status',
         label: 'Status',
         value: task.status,
-        options: STATUSES.map((entry) => ({ value: entry.value, label: entry.label }))
+        options: STATUSES.map((entry) => ({
+          value: entry.value,
+          label: entry.label,
+          color: entry.color
+        }))
       }
     ]
   })

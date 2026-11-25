@@ -15,8 +15,8 @@ import {
   type PluginDeclarativeEmit,
   type PluginDeclarativePress
 } from './PluginDeclarativeControls'
+import { PluginDeclarativeColorBadge } from '../status-color/PluginDeclarativeColorBadge'
 import {
-  PluginDeclarativeBadge,
   PluginDeclarativeLink,
   PluginDeclarativeProgress,
   PluginDeclarativeSpinner,
@@ -228,7 +228,11 @@ function PluginDeclarativeNodeView({
         </Tooltip>
       )
     case 'Badge':
-      return <PluginDeclarativeBadge tone={node.props.tone}>{children}</PluginDeclarativeBadge>
+      return (
+        <PluginDeclarativeColorBadge tone={node.props.tone} color={node.props.color}>
+          {children}
+        </PluginDeclarativeColorBadge>
+      )
     case 'Card':
       return (
         <Card>

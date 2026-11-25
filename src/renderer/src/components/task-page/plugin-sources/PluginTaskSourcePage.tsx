@@ -17,6 +17,7 @@ import { useAppStore } from '@/store'
 import { PluginTaskDetailPane } from './PluginTaskDetailPane'
 import { PluginTaskSourceButtons } from './PluginTaskSourceButtons'
 import { PluginTaskStatusPill } from './PluginTaskStatusPill'
+import { PluginStatusColorDot } from '@/components/plugins/status-color/PluginStatusColorDot'
 import {
   type ActivePluginTaskSource,
   usePluginTaskSourceSelection
@@ -115,6 +116,7 @@ export function PluginTaskSourcePage({
               <SelectContent>
                 {filter.options.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
+                    <PluginStatusColorDot color={option.color} />
                     {option.count === undefined
                       ? option.label
                       : `${option.label} (${option.count})`}

@@ -1,5 +1,7 @@
 import type React from 'react'
 import { cn } from '@/lib/class-names'
+import { PluginStatusColorDot } from '@/components/plugins/status-color/PluginStatusColorDot'
+import { pluginStatusPillStyle } from '@/components/plugins/status-color/plugin-status-color-style'
 import type {
   PluginTaskItem,
   PluginTaskStatusTone
@@ -22,13 +24,17 @@ export function PluginTaskStatusPill({
   if (!status) {
     return null
   }
+  // Why: a source's own colour (e.g. ClickUp's) wins over the tone, drawn like Linear's state pill.
+  const colorStyle = pluginStatusPillStyle(status.color)
   return (
     <span
       className={cn(
-        'inline-flex flex-none items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
-        TONE_CLASSES[status.tone]
+        'inline-flex flex-none items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+        colorStyle ? undefined : TONE_CLASSES[status.tone]
       )}
+      style={colorStyle}
     >
+      <PluginStatusColorDot color={status.color} />
       {status.label}
     </span>
   )

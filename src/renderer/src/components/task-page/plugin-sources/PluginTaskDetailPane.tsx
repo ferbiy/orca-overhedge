@@ -18,6 +18,7 @@ import type {
 } from '../../../../../shared/plugins/tasks/plugin-task-source-schema'
 import { invokePluginTaskSource, type PluginTaskSourceTarget } from './plugin-task-source-client'
 import { PluginTaskStatusPill } from './PluginTaskStatusPill'
+import { PluginStatusColorDot } from '@/components/plugins/status-color/PluginStatusColorDot'
 import { usePluginTaskDetail } from './use-plugin-task-source-data'
 
 /** Overhedge fork: the selected plugin task, its body and the actions its source offers. */
@@ -157,7 +158,9 @@ function PluginTaskActionControl({
       <DropdownMenuTrigger asChild>
         <Button variant={variant} size="sm" disabled={disabled}>
           {icon}
-          {current ? `${action.label}: ${current.label}` : action.label}
+          {current ? `${action.label}: ` : action.label}
+          {current ? <PluginStatusColorDot color={current.color} /> : null}
+          {current ? current.label : null}
           <ChevronDown className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
@@ -168,6 +171,7 @@ function PluginTaskActionControl({
             disabled={option.value === action.value}
             onSelect={() => onRun(option.value)}
           >
+            <PluginStatusColorDot color={option.color} />
             {option.label}
           </DropdownMenuItem>
         ))}

@@ -22,6 +22,7 @@ import { PLUGIN_DECLARATIVE_LAYOUT_CATALOG } from './plugin-declarative-layout-p
 import { PLUGIN_DECLARATIVE_DATA_CATALOG } from './plugin-declarative-data-props'
 import { PLUGIN_DECLARATIVE_CONTENT_CATALOG } from './plugin-declarative-content-props'
 import { PLUGIN_DECLARATIVE_BOX_CATALOG } from './plugin-declarative-box-props'
+import { pluginHexColorSchema } from '../tasks/plugin-status-color'
 
 export {
   PLUGIN_DECLARATIVE_CALLBACK_ID,
@@ -80,7 +81,8 @@ const iconButtonProps = z
     onPress: callback
   })
   .strict()
-const badgeProps = z.object({ tone }).strict()
+// Overhedge: `color` (#rgb/#rrggbb); see OVERHEDGE.md "Plugin status colours".
+const badgeProps = z.object({ tone, color: pluginHexColorSchema.optional() }).strict()
 const cardProps = z.object({ title: label.optional(), description: label.optional() }).strict()
 const listProps = z.object({ label: label.optional() }).strict()
 const listItemProps = z

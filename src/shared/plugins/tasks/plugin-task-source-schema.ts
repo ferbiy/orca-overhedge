@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { PluginTaskSourceOperation } from './plugin-task-source-commands'
+import { pluginOptionalHexColorSchema } from './plugin-status-color'
 
 /**
  * Overhedge fork: what a plugin task source returns. Items, filters and details follow upstream
@@ -43,14 +44,21 @@ const kebabIdSchema = z
 const optionSchema = z.object({
   value: z.string().max(256),
   label: z.string().min(1).max(128),
-  count: z.number().int().nonnegative().optional()
+  count: z.number().int().nonnegative().optional(),
+  /** `#rgb`/`#rrggbb`, drawn as a dot before the label; anything else is dropped. */
+  color: pluginOptionalHexColorSchema
 })
 
 export const pluginTaskItemSchema = z.object({
   id: z.string().min(1).max(512),
   title: z.string().min(1).max(512),
   status: z
-    .object({ label: z.string().min(1).max(64), tone: z.enum(PLUGIN_TASK_STATUS_TONES) })
+    .object({
+      label: z.string().min(1).max(64),
+      tone: z.enum(PLUGIN_TASK_STATUS_TONES),
+      /** `#rgb`/`#rrggbb`: the pill takes this colour instead of the tone's; else dropped. */
+      color: pluginOptionalHexColorSchema
+    })
     .optional(),
   priority: z.string().min(1).max(32).optional(),
   owner: z.string().min(1).max(256).optional(),

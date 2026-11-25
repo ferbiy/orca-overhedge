@@ -77,7 +77,7 @@ describe('invokePluginTaskSource with the demo source', () => {
       { itemId: 'CU-1', actionId: 'set-status', value: 'done' },
       invoke
     )
-    expect(moved.detail?.item.status).toEqual({ label: 'Done', tone: 'done' })
+    expect(moved.detail?.item.status).toEqual({ label: 'Done', tone: 'done', color: '#0f9d9f' })
 
     const started = await invokePluginTaskSource(
       target,
@@ -87,6 +87,16 @@ describe('invokePluginTaskSource with the demo source', () => {
     )
     expect(started.message).toBe('Started CU-2')
     expect(state.started).toEqual([{ taskId: 'CU-2', projectId: 'local:demo-repo' }])
+  })
+
+  it('tells the plugin with every command that this page draws status colours', async () => {
+    const seen: unknown[] = []
+    const invoke: PluginCommandInvoker = async ({ args }) => {
+      seen.push(args)
+      return { items: [] }
+    }
+    await invokePluginTaskSource(target, 'list', { query: '', filters: {} }, invoke)
+    expect(seen).toEqual([{ query: '', filters: {}, features: ['status-color'] }])
   })
 
   it("surfaces the plugin's own error without the IPC prefix", async () => {
