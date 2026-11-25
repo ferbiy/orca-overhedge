@@ -1,3 +1,4 @@
+// Overhedge: plugin chat send (`chat:send`); see OVERHEDGE.md "Plugin chat send".
 import { z } from 'zod'
 import { AGENT_STATUS_STATES } from '../../../../shared/agent-status/contracts/agent-status-types'
 import { structuredAgentSessionIdFromTabId } from '../../../../shared/agent-session/view/structured-agent-session-tab-id'

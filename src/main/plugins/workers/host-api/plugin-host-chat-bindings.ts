@@ -1,3 +1,4 @@
+// Overhedge: plugin chat send (`chat:send`); see OVERHEDGE.md "Plugin chat send".
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { PLUGIN_HOST_API } from '../../../../shared/plugins/workers/plugin-host-api'
