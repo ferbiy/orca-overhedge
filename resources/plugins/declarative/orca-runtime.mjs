@@ -384,8 +384,8 @@ var PLUGIN_DECLARATIVE_COMPONENT_PROPS = {
   Heading: ["level"],
   Button: ["variant", "tone", "size", "icon", "tooltip", "disabled", "onPress"],
   IconButton: ["icon", "label", "tooltip", "variant", "tone", "size", "disabled", "onPress"],
-  Badge: ["tone", "color"],
   // Overhedge: `color`, see OVERHEDGE.md "Plugin status colours".
+  Badge: ["tone", "color"],
   Card: ["title", "description"],
   List: ["label"],
   ListItem: ["title", "description", "icon", "current", "disabled", "onPress"],
