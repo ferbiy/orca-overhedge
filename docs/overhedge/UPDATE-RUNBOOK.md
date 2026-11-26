@@ -16,7 +16,7 @@ and 8) are deterministic. Canonical copy: `docs/overhedge/UPDATE-RUNBOOK.md` on 
 | Build host | orca-ide (Ubuntu 24.04 x86_64, 16 CPUs). Work dir `~/overhedge-build/` |
 | Scripts | `~/overhedge-build/scripts/` (installed from `tools/overhedge/` by `install.sh`) |
 | Clone used by the automation | `~/overhedge-build/fork` (origin = fork, upstream = stablyai/orca, pre-push guard installed); port worktrees `~/overhedge-build/base-<id>`, `patch-<id>`, `ci` |
-| Artifacts | `~/overhedge-build/artifacts/` (+ `SHA256SUMS`), `old/`, `rollback/`, `mac/` |
+| Artifacts | `~/overhedge-build/artifacts/` (+ `SHA256SUMS`), `old/`, `rollback/`, `mac/`, `linux/` (desktop AppImage) |
 | Config | `~/overhedge-build/update.conf` (policy, window, notifier, Claude login), `~/overhedge-build/hosts.conf` (deploy targets) |
 | State | `~/overhedge-build/state/` (`pending/<host>`, `result-<id>.env`, `stopped-<id>`, `last-deploy.env`, `approved`) |
 | Logs | `~/overhedge-build/logs/` (`run-*.log`, `claude-*.jsonl`, `report-*.md`, `deploy-*.log`, `deploy-pending.log`) |
@@ -209,7 +209,10 @@ the server deb: report it.
 
 - `fetch-and-verify.sh`: official deb sha512 = the release's `latest-linux.yml`; CI deb sha256 =
   its `.sha256`; package/arch; version `<ver>+overhedge.N.g<sha10>` sorts above `<ver>`; mac zip
-  sha256. Any FAIL -> stop (condition 5).
+  sha256; the Linux desktop AppImage (artifact `linux-appimage-*` of the deb run, into
+  `artifacts/linux/`) sha256 and name `Orca-<ver>_overhedge.N.g<sha10>-linux-x86_64.AppImage`. Any
+  FAIL -> stop (condition 5). `WARN no linux-appimage-* artifact` is not a stop: the workflow builds
+  the AppImage continue-on-error; report it (and the failing step from the run log).
 - `static-compare.sh`: exit 0 = same top-level paths, identical maintainer scripts, no non-chunk file
   missing. Expected differences: Version/Installed-Size, renamed bundle chunks, `app.asar`,
   `orcad-template`, a few dozen changed bundles. Exit 1 -> read the output; new maintainer-script
@@ -236,6 +239,7 @@ Go (`RESULT=ready`) only when 4.4 acceptance holds, the deb CI run succeeded, an
 RESULT=ready|stopped|failed
 REASON=<one line: why stopped/failed; empty for ready>
 DEB=/home/ubuntu/overhedge-build/artifacts/orca-ide_<ver>+overhedge.N.g<sha10>_amd64.deb
+APPIMAGE=/home/ubuntu/overhedge-build/artifacts/linux/<name>.AppImage   # empty when there is none
 MAC_ZIP=/home/ubuntu/overhedge-build/artifacts/mac/<name>.zip
 PATCH_BRANCH=overhedge/patch-<id>
 PATCH_SHA=<full sha>
@@ -254,6 +258,7 @@ only `update-log.md`. Plain language, at most ~25 lines:
 - CI run links, deb name and sha256 prefix, smoke/static verdicts;
 - for `stopped`: the decision needed, the options you see, and what you would recommend;
 - Mac: the zip's path on orca-ide and the install line from OVERHEDGE.md "macOS app".
+- Linux desktop: the AppImage's path (or that it is missing and why); the deb is the desktop app too.
 No tokens, emails, account or org names; no chat or terminal content.
 
 ### 4.9 Rehearsal mode
@@ -390,6 +395,16 @@ installed automatically: Gatekeeper quarantine, and each new ad-hoc signature ma
 for the login password for the "Orca Safe Storage" keychain item. The automation only builds and
 verifies it (`artifacts/mac/` on orca-ide, sha256 checked) and names it in the report. Install by
 hand per OVERHEDGE.md "macOS app" (copy the zip to the Mac with `scp orca-ide-ts:overhedge-build/artifacts/mac/<zip> .`).
+
+## 9a. Linux desktop app
+
+The server deb is also the Linux desktop app (same package; see OVERHEDGE.md "Linux desktop app").
+The deb workflow additionally packages an x64 AppImage of the same app tree (artifact
+`linux-appimage-Orca-<ver>_overhedge.N.g<sha10>-linux-x86_64`), after the deb upload and
+continue-on-error, so it never blocks the server. It refuses a ref whose updater guard does not
+cover Linux. `fetch-and-verify.sh` puts it in `artifacts/linux/` (sha256 checked, `SHA256SUMS`);
+`cleanup.sh` keeps the newest `KEEP_BUILDS`; a rehearsal deletes it. Nothing installs it. Developer
+install guide: `~/overhedge-build/LINUX-DESKTOP-INSTALL.md` on orca-ide.
 
 ## 10. Scheduling and operations
 

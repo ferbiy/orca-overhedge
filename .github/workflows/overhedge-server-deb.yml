@@ -1,7 +1,9 @@
 name: Overhedge server deb
 
 # Fork-only: build the unsigned Linux x64 orca-ide .deb for the headless server from any ref of
-# this fork and keep it as a workflow artifact. Mirrors the linux-x64 job of release-cut.yml
+# this fork and keep it as a workflow artifact. The same deb is the Linux desktop app; the job also
+# packages an x64 AppImage of the same app tree for non-Debian desktops (separate artifact
+# `linux-appimage-*`; that step may fail without failing the deb). Mirrors the linux-x64 job of release-cut.yml
 # (same orcad template qualification, same build and electron-builder commands), minus
 # publishing, telemetry secrets and the other platforms. See OVERHEDGE.md.
 
@@ -218,6 +220,67 @@ jobs:
           path: |
             dist/orca-ide_*_amd64.deb
             dist/orca-ide_*_amd64.deb.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      # Linux desktop: the same app tree as an AppImage (upstream ships AppImage + deb + rpm). After
+      # the deb upload and continue-on-error, so it can never cost the server its deb. Built under
+      # upstream's name (the static-AppImage contract checks it), then copied to a versioned name.
+      - name: Package the AppImage
+        id: appimage
+        continue-on-error: true
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! grep -q "'linux'" src/main/updater/overhedge-release-updates.ts 2>/dev/null; then
+            echo "::warning::This ref's updater guard does not cover Linux; an AppImage would update itself to official Orca. Skipping it."
+            exit 1
+          fi
+          rm -f dist/*.AppImage
+          node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=electron
+          pnpm exec electron-builder --config config/electron-builder.config.cjs --linux AppImage --x64 --publish never
+          # The updater guard keys on the version Electron reads from app.asar's package.json.
+          node -e '
+            const fs = require("fs")
+            const fd = fs.openSync(process.argv[1], "r")
+            const head = Buffer.alloc(16)
+            fs.readSync(fd, head, 0, 16, 0)
+            const headerSize = head.readUInt32LE(4)
+            const jsonSize = head.readUInt32LE(12)
+            const json = Buffer.alloc(jsonSize)
+            fs.readSync(fd, json, 0, jsonSize, 16)
+            const entry = JSON.parse(json.toString("utf8")).files["package.json"]
+            const body = Buffer.alloc(entry.size)
+            fs.readSync(fd, body, 0, entry.size, 8 + headerSize + Number(entry.offset))
+            const version = JSON.parse(body.toString("utf8")).version
+            console.log("app.asar package.json version:", version)
+            if (version !== process.env.VERSION) { console.error("expected", process.env.VERSION); process.exit(1) }
+          ' dist/linux-unpacked/resources/app.asar
+          test "$(cat dist/linux-unpacked/resources/package-type)" = AppImage
+          name="Orca-${VERSION}-linux-x86_64"
+          name="${name//+/_}"
+          mkdir -p out-appimage
+          cp dist/orca-linux.AppImage "out-appimage/${name}.AppImage"
+          chmod 755 "out-appimage/${name}.AppImage"
+          (cd out-appimage && sha256sum "${name}.AppImage" | tee "${name}.AppImage.sha256")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Orca Linux AppImage (x64)'
+            echo '```'
+            ls -l "out-appimage/${name}.AppImage"
+            cat "out-appimage/${name}.AppImage.sha256"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - if: steps.appimage.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-appimage-${{ steps.appimage.outputs.name }}
+          path: |
+            out-appimage/*.AppImage
+            out-appimage/*.AppImage.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 30

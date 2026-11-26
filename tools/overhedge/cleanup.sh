@@ -6,6 +6,7 @@
 #    deb of the installed base, plus the newest KEEP_BUILDS overhedge and KEEP_BUILDS official debs
 #    (artifacts/, artifacts/old/, artifacts/rollback/); SHA256SUMS are rewritten
 #  - mac zips: newest KEEP_BUILDS in artifacts/mac/
+#  - Linux desktop AppImages: newest KEEP_BUILDS in artifacts/linux/
 #  - backups: newest KEEP_BACKUPS backup-* dirs and the one in last-backup-path
 #  - port worktrees of ~/overhedge-build/fork: the newest KEEP_PORT_TREES release ids (base-/patch-,
 #    rehearsal-*); older ones are removed with `git worktree remove --force` (branches stay)
@@ -58,6 +59,11 @@ if [ -d "$A/mac" ]; then
   find "$A/mac" -maxdepth 1 -name '*.zip' -printf '%T@ %p\n' | sort -rn | awk -v k="$KEEP_BUILDS" 'NR>k {print $2}' | while read -r z; do rmv "$z" "$z.sha256"; done
   [ "$dry" = 1 ] || (cd "$A/mac" && if ls ./*.zip >/dev/null 2>&1; then sha256sum ./*.zip | sed 's# \./# #' > SHA256SUMS; fi)
 fi
+echo "== Linux AppImages"
+if [ -d "$A/linux" ]; then
+  find "$A/linux" -maxdepth 1 -name '*.AppImage' -printf '%T@ %p\n' | sort -rn | awk -v k="$KEEP_BUILDS" 'NR>k {print $2}' | while read -r z; do rmv "$z" "$z.sha256"; done
+  [ "$dry" = 1 ] || (cd "$A/linux" && if ls ./*.AppImage >/dev/null 2>&1; then sha256sum ./*.AppImage | sed 's# \./# #' > SHA256SUMS; fi)
+fi
 echo "== backups"
 lastbk=$(cat "$OVH_HOME/last-backup-path" 2>/dev/null || true)
 find "$OVH_HOME" -maxdepth 1 -name 'backup-*' -type d -printf '%T@ %p\n' | sort -rn | awk -v k="$KEEP_BACKUPS" 'NR>k {print $2}' | while read -r b; do
@@ -83,5 +89,5 @@ done
 echo "== old smoke runs and logs"
 find "$OVH_HOME/smoke" -mindepth 1 -maxdepth 1 -type d -mtime +30 2>/dev/null | while read -r s; do rmv "$s"; done
 find "$OVH_LOGS" -maxdepth 1 -type f -mtime +90 2>/dev/null | while read -r s; do rmv "$s"; done
-rmv "$OVH_HOME/dl/ci" "$OVH_HOME/dl/off" "$OVH_HOME/dl/mac" "$OVH_HOME/scratch/static-compare"
+rmv "$OVH_HOME/dl/ci" "$OVH_HOME/dl/off" "$OVH_HOME/dl/mac" "$OVH_HOME/dl/linux" "$OVH_HOME/scratch/static-compare"
 echo "free: $(ovh_free_gb)G"

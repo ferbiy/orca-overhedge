@@ -103,10 +103,11 @@ set -e
 log "claude exited $crc"
 denied=$(jq -r 'select(.type=="result") | .permission_denials // [] | length' "$J" 2>/dev/null | tail -1)
 
-RESULT=""; REASON=""; DEB=""; MAC_ZIP=""; PATCH_BRANCH=""; PATCH_SHA=""
+RESULT=""; REASON=""; DEB=""; APPIMAGE=""; MAC_ZIP=""; PATCH_BRANCH=""; PATCH_SHA=""
 # shellcheck disable=SC1090
 [ -f "$RESULT_FILE" ] && . "$RESULT_FILE"
 report=$( [ -f "$REPORT_FILE" ] && cat "$REPORT_FILE" || echo "(the agent wrote no report; transcript: $J)")
+[ -z "$APPIMAGE" ] || report+=$'\n\n'"Linux desktop AppImage (not installed anywhere): \`$APPIMAGE\` on orca-ide; the deb above is the Linux desktop app too."
 [ -z "$MAC_ZIP" ] || report+=$'\n\n'"Mac app (not installed automatically): \`$MAC_ZIP\` on orca-ide."
 tail_note="Transcript: \`$J\` (claude exit $crc, permission denials ${denied:-?}). Run log: \`$OVH_LOG_FILE\`."
 
@@ -131,6 +132,10 @@ case "$RESULT" in
       rm -f "$DEB" "$DEB.sha256"
       (cd "$OVH_ARTIFACTS" && if ls ./*.deb >/dev/null 2>&1; then sha256sum ./*.deb | sed 's# \./# #' > SHA256SUMS; fi)
       [ -z "$MAC_ZIP" ] || rm -f "$MAC_ZIP" "$MAC_ZIP.sha256"
+      if [ -n "$APPIMAGE" ]; then
+        rm -f "$APPIMAGE" "$APPIMAGE.sha256"
+        (cd "$OVH_ARTIFACTS/linux" && if ls ./*.AppImage >/dev/null 2>&1; then sha256sum ./*.AppImage | sed 's# \./# #' > SHA256SUMS; else rm -f SHA256SUMS; fi)
+      fi
       for d in "$OVH_HOME/rehearsal-base-$RID" "$OVH_HOME/rehearsal-patch-$RID"; do
         if [ -d "$d" ] && [ ! -e "$d/.git" ]; then rm -rf "$d"; fi
       done

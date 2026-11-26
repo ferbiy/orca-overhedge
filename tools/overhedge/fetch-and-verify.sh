@@ -6,9 +6,12 @@
 #    into ~/overhedge-build/artifacts and checks the deb's sha512 against latest-linux.yml.
 # 2. Downloads the CI deb artifact of <deb-run-id> and checks it against its .sha256; checks
 #    Package/Architecture and that its Version sorts above <official-version>.
-# 3. With --mac-run: downloads the mac zip into artifacts/mac/ and checks its .sha256.
-# 4. Rewrites artifacts/SHA256SUMS (and artifacts/mac/SHA256SUMS).
-# Prints DEB=<path> (and MAC_ZIP=<path>) as the last lines. Exit non-zero on any mismatch.
+# 3. Downloads the Linux desktop AppImage of the same run (artifact linux-appimage-*, optional: the
+#    workflow builds it continue-on-error) into artifacts/linux/ and checks its .sha256.
+# 4. With --mac-run: downloads the mac zip into artifacts/mac/ and checks its .sha256.
+# 5. Rewrites artifacts/SHA256SUMS (and artifacts/linux/, artifacts/mac/ SHA256SUMS).
+# Prints DEB=<path> (APPIMAGE=<path>, MAC_ZIP=<path>) as the last lines. Exit non-zero on any
+# mismatch; a missing AppImage is a WARN, not a failure.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib.sh
@@ -44,6 +47,22 @@ dpkg --compare-versions "$v" gt "$OFFV" && echo "OK $v > $OFFV" || { echo "FAIL 
 (cd "$A" && sha256sum ./*.deb | sed 's# \./# #' > SHA256SUMS)
 echo "installed on host: $(ovh_installed_version)"
 
+APPIMAGE=""
+LNAME=$(gh api "repos/$OVH_FORK_REPO/actions/runs/$RUN/artifacts" --jq '[.artifacts[].name | select(startswith("linux-appimage-"))] | first // empty')
+if [ -z "$LNAME" ]; then
+  echo "WARN no linux-appimage-* artifact in run $RUN (AppImage step failed or skipped; the deb is unaffected)"
+else
+  L=$A/linux; mkdir -p "$L"
+  rm -rf "$DL/linux"; gh run download "$RUN" -R "$OVH_FORK_REPO" -n "$LNAME" -D "$DL/linux"
+  img=$(find "$DL/linux" -name '*.AppImage' | head -1); [ -n "$img" ] || { echo "FAIL no AppImage in $LNAME"; exit 1; }
+  case "$(basename "$img")" in "Orca-${OFFV}_overhedge."*-linux-x86_64.AppImage) ;; *) echo "FAIL AppImage name $(basename "$img")"; exit 1 ;; esac
+  mv "$img" "$img.sha256" "$L/"
+  APPIMAGE=$L/$(basename "$img")
+  chmod 755 "$APPIMAGE"
+  (cd "$L" && sha256sum -c "$(basename "$APPIMAGE").sha256" >/dev/null) && echo "OK AppImage sha256" || { echo "FAIL AppImage sha256"; exit 1; }
+  (cd "$L" && sha256sum ./*.AppImage | sed 's# \./# #' > SHA256SUMS)
+fi
+
 if [ -n "$MAC_RUN" ]; then
   M=$A/mac; mkdir -p "$M"
   MNAME=$(gh api "repos/$OVH_FORK_REPO/actions/runs/$MAC_RUN/artifacts" --jq '[.artifacts[].name | select(startswith("Orca-") and contains("-mac-"))] | first // empty')
@@ -56,4 +75,5 @@ if [ -n "$MAC_RUN" ]; then
   (cd "$M" && sha256sum ./*.zip | sed 's# \./# #' > SHA256SUMS)
 fi
 echo "DEB=$A/$NAME.deb"
+[ -z "$APPIMAGE" ] || echo "APPIMAGE=$APPIMAGE"
 [ -z "$MAC_RUN" ] || echo "MAC_ZIP=$zip"
