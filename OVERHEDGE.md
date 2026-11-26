@@ -2,9 +2,19 @@
 
 The server (`orca-ide`, Ubuntu 24.04, headless `orca serve` from the `orca-ide` .deb) runs patched
 code; from 1.4.273 on the fork also builds an ad-hoc-signed macOS app from the same branch (see
-"macOS app" below). Base: `overhedge/base-273` = upstream tag `v1.4.273`; the patch is
-`overhedge/patch-273`. Earlier ports: `overhedge/base-266`/`overhedge/patch-266` (1.4.266) and
-`overhedge/base`/`overhedge/patch` (1.4.251).
+"macOS app" below). Base: `overhedge/base-278` = upstream tag `v1.4.278`; the patch is
+`overhedge/patch-278`. Earlier ports: `overhedge/base-273`/`overhedge/patch-273` (1.4.273),
+`overhedge/base-266`/`overhedge/patch-266` (1.4.266) and `overhedge/base`/`overhedge/patch` (1.4.251).
+
+Port 273 -> 278 (2026-11-26, automated run; upstream 274, 277, 278): the squashed
+`base-273..patch-273` diff (task sources, status colours and task board included) was re-applied
+onto v1.4.278 with a 3-way apply. Two conflicts: the structured-session account home (upstream
+added a before-first-turn catalog read for providers that follow the selection until the first
+turn; our Claude pin check now sits ahead of it, so a pinned chat still resolves to its pin), and
+the generated `orca-testing.mjs` (took upstream's, regenerated with
+`pnpm generate:plugin-declarative-runtime`). Upstream 1.4.278 (#45478) now restarts idle native
+Claude chats on a newly selected host-wide account; it decides "on another account" through the
+same launch account home, so pinned chats are left on their pin (see "Overlap").
 
 Port 266 -> 273 (2026-11-24): the squashed `base-266..patch-266` diff was re-applied onto v1.4.273
 with a 3-way apply (no merge of the 266 release branch). Hand-resolved conflicts: worker-start
@@ -50,18 +60,29 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
 - Plugin task board: a task source can offer a Kanban board (status columns, drag and drop to
   change status) beside its list. See "Plugin task board" below.
 
-## Overlap with upstream (checked against v1.4.273)
+## Overlap with upstream (checked against v1.4.278)
 
 - Remote Control in native Claude chats (`/rc`, `/remote-control`, phone prompts shown in the
-  chat): not in upstream. Upstream has no `enableRemoteControl` call; its `remoteControl` strings are
-  Codex app-server status and runtime-environment diagnostics. Still needed.
+  chat): not in upstream (re-checked in 1.4.278). Upstream has no `enableRemoteControl` call; its
+  `remoteControl` strings are Codex app-server status, runtime-environment diagnostics and Claude
+  settings keys carried between profiles. Still needed.
 - Slash-menu entries for our commands: still needed (upstream lists the provider's catalog only).
+- Idle native chats after a host-wide account switch (new in 1.4.278, #45478): upstream stops each
+  idle Claude chat whose agent runs on another account than the new selection, so its next turn
+  resumes on the selected account (`structured-agent-session-account-switch.ts`,
+  `retireStructuredAgentSessionChildOnOtherAccount`). "Other account" is measured against the
+  launch account home, which our patch resolves to the pin for a pinned chat, so pinned chats keep
+  their agent and pin; unpinned chats follow upstream. Compatible, nothing to change.
+- Plugin chat send (`chat.list`/`chat.send`) and Badge/status colours: not in upstream 1.4.278
+  (no `chat:send` capability; Badge has no `color`; `ui.catalog` still 4).
 - Per-chat account pins and `--account` on launches: not in upstream. Upstream's account model is
   host-wide: `orca account select`, the status-bar switcher and Settings -> Claude ("add accounts
   only if you want quick switching without moving chat sessions"; all present since 1.4.266).
   1.4.273 adds usage/sign-in fixes (#47834, #46099, #46002, #42644) and auto-continue of
   usage-limited chats after an account switch or relaunch (#47079, #47221), not per-chat accounts.
-  Still needed.
+  1.4.278 makes a selection change atomic with a restore on failure
+  (`claude-account-selection-sync.ts`) and adds the idle-chat move above; still host-wide. Still
+  needed.
 - Terminal restart on an account change: upstream restarts running terminal Claude tabs when the
   host-wide account switches (Settings "When you switch accounts while Claude is running in
   terminals": Ask / Always restart / Never restart; `claude-running-pane-account-move.ts`,
@@ -74,8 +95,9 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
 - Cross-session/peer messaging: upstream 1.4.273 adds paired-host peer questions
   (`peer_questions_out`, orchestration schema 50); it does not share Claude's `sessions` folder
   across accounts. Our peers change stays.
-- Plugin task sources on the Tasks page: not in upstream. Upstream keeps `contributes.taskSources`
-  reserved and empty; community PR #26282 (open) would add it. On every port check
+- Plugin task sources on the Tasks page: not in upstream (1.4.278 still keeps
+  `contributes.taskSources` reserved and empty; 1.4.278 adds plugin-contributed MCP servers, a
+  different contribution point); community PR #26282 (still open on 2026-11-26) would add it. On every port check
   `git grep -n taskSources v<new> -- src` and whether #26282 or a similar change landed: if
   upstream ships plugin task sources, the founder decides whether our plugin moves to upstream's
   contract (our item/filter/detail shapes follow #26282, so that should be a small change).
@@ -260,7 +282,7 @@ link an earlier build made, so a chat sees only peers under the same account.
   stay per folder, as upstream has them.
 - Re-apply after an Orca update: cherry-pick the `overhedge/peers` commits. If upstream changed
   `shareClaudeProfileHistory`, keep its other steps and put the `shareClaudeProfileSessions` call
-  where the `sessions` step is. Unchanged in v1.4.273. Drop this change if upstream starts
+  where the `sessions` step is. Unchanged in v1.4.273 and v1.4.278. Drop this change if upstream starts
   sharing `sessions` itself.
 - `~/relink-sessions.sh` on the server (a manual workaround that relinks one account's `sessions`) is no longer
   needed with this build; its `sessions.plain-*` / `sessions.bak-*` folders are left alone.
@@ -271,7 +293,7 @@ Workflow: `.github/workflows/overhedge-server-deb.yml` (Actions tab: "Overhedge 
 
 ```bash
 # Any branch, tag or SHA of the fork; the workflow file itself is taken from --ref.
-gh workflow run overhedge-server-deb.yml -R ferbiy/orca-overhedge --ref overhedge/ci -f ref=overhedge/patch-273
+gh workflow run overhedge-server-deb.yml -R ferbiy/orca-overhedge --ref overhedge/ci -f ref=overhedge/patch-278
 gh run list -R ferbiy/orca-overhedge --workflow overhedge-server-deb.yml -L 1
 gh run watch <run-id> -R ferbiy/orca-overhedge --exit-status
 ```
@@ -281,12 +303,12 @@ gh run watch <run-id> -R ferbiy/orca-overhedge --exit-status
 - It runs upstream's `qualified-orcad-template.yml` (the same server-template qualification
   release-cut uses, on GitHub-hosted runners), then builds and packages the deb only. That reusable
   workflow, `node-server-tests.yml` and `.github/actions` are taken from `overhedge/ci`, which is
-  synced to v1.4.273; keep them in step with the base when it moves again.
+  synced to v1.4.278; keep them in step with the base when it moves again.
 - No secrets are needed. The build is unsigned and has telemetry compiled to null.
 - Package version: `<package.json version>+overhedge.<run number>.g<sha10>`, e.g.
-  `1.4.273+overhedge.21.g0123456789`. dpkg sorts it above `1.4.273`. The app's own version checks
+  `1.4.278+overhedge.21.g0123456789`. dpkg sorts it above `1.4.278`. The app's own version checks
   ignore the `+...` part (`src/shared/app-lifecycle/identity/app-version.ts`), so the app still
-  counts as 1.4.273 (also for the chat store's old-journal retirement, which waits for a later
+  counts as 1.4.278 (also for the chat store's old-journal retirement, which waits for a later
   version than the one that copied the profile).
 - Use a full 40-character SHA for `-f ref=<sha>`: actions/checkout cannot fetch a short one.
 - Pushing an edit of the workflow file to an `overhedge/**` branch starts a run that skips every
@@ -299,7 +321,7 @@ Workflow: `.github/workflows/overhedge-mac-app.yml` on `overhedge/ci` ("Overhedg
 
 ```bash
 gh workflow run overhedge-mac-app.yml -R ferbiy/orca-overhedge --ref overhedge/ci \
-  -f ref=<full sha of overhedge/patch-273> -f arch=arm64
+  -f ref=<full sha of overhedge/patch-278> -f arch=arm64
 ```
 
 - Upstream builds the mac app in `release-mac-build.yml` (dispatched by `release-cut.yml`) with a
@@ -333,7 +355,7 @@ gh workflow run overhedge-mac-app.yml -R ferbiy/orca-overhedge --ref overhedge/c
 
 ```bash
 gh run download <run-id> -R ferbiy/orca-overhedge -D ~/orca-debs/
-# -> ~/orca-debs/orca-ide_1.4.273+overhedge.N.g<sha>_amd64/orca-ide_..._amd64.deb (+ .sha256)
+# -> ~/orca-debs/orca-ide_1.4.278+overhedge.N.g<sha>_amd64/orca-ide_..._amd64.deb (+ .sha256)
 scp ~/orca-debs/orca-ide_*overhedge*/orca-ide_*_amd64.deb orca-ide-ts:/tmp/
 ```
 
@@ -370,6 +392,17 @@ scp ~/orca-debs/orca-ide_*overhedge*/orca-ide_*_amd64.deb orca-ide-ts:/tmp/
 - Desktop and mobile clients drop the websocket for the few seconds of the restart and then
   reconnect. A structured-chat turn that is streaming during the restart may be interrupted
   (inferred, not tested).
+
+## What changes between 1.4.273 and 1.4.278 (server and Mac)
+
+- Daemon protocol unchanged (62): running terminals are re-adopted and survive a rollback to 273.
+- `orchestration.db` schema unchanged (51). Chat store: no schema change; stored rows of bot
+  connector replies gain optional fields (`agent-journal-bot-message-fields.ts`) that 1.4.273
+  ignores. 278 and 273 are different versions for the old-journal retirement, as 273 vs 266 were;
+  that only matters for a rollback to 1.4.251.
+- Behavior to expect: a host-wide Claude account switch now restarts idle unpinned native chats on
+  the new account (#45478); pinned chats stay on their pin. Gemini CLI is removed upstream
+  (Antigravity chats run on agy). MCP servers for agents exist behind a switch, off by default.
 
 ## What changes between 1.4.266 and 1.4.273 (server and Mac)
 
@@ -410,7 +443,7 @@ ts=$(date +%Y%m%d-%H%M%S)
 tar -C ~/.config -czf ~/orca-debs/orca-config-$ts.tgz \
   --exclude='orca/orcad-artifacts' --exclude='orca/Cache' --exclude='orca/Code Cache' --exclude='*.sock' orca
 tar -C ~ -czf ~/orca-debs/dot-orca-$ts.tgz .orca
-sudo apt-get install -y ~/overhedge-build/artifacts/orca-ide_1.4.273+overhedge.N.g<sha>_amd64.deb
+sudo apt-get install -y ~/overhedge-build/artifacts/orca-ide_1.4.278+overhedge.N.g<sha>_amd64.deb
 sudo systemctl start orca-serve
 dpkg-query -W orca-ide
 journalctl -u orca-serve -n 100 --no-pager
@@ -418,10 +451,14 @@ journalctl -u orca-serve -n 100 --no-pager
 
 ## Rollback
 
-- To the official 1.4.273 (same data format, nothing to undo):
-  `sudo apt-get install -y --allow-downgrades ~/overhedge-build/artifacts/orca-ide_1.4.273_amd64.deb`
-  between `systemctl stop` and `start`. Pins (`claude-profiles/`) are ignored by the official build.
-- To the previous install, `old/orca-ide_1.4.266+overhedge.14.g327df9075c_amd64.deb`, or the
+- To the official 1.4.278 (same data format, nothing to undo): `deploy.sh` fetches
+  `orca-ide_1.4.278_amd64.deb` from the release into `artifacts/`; install it with
+  `sudo apt-get install -y --allow-downgrades <deb>` between `systemctl stop` and `start`. Pins
+  (`claude-profiles/`) are ignored by the official build.
+- To the previous install, `artifacts/orca-ide_1.4.273+overhedge.18.ge5c6fe334d_amd64.deb`, or the
+  official `artifacts/orca-ide_1.4.273_amd64.deb`: same data format (see the 273 -> 278 notes);
+  running terminals stay.
+- To 1.4.266, `old/orca-ide_1.4.266+overhedge.14.g327df9075c_amd64.deb`, or the
   official `old/orca-ide_1.4.266_amd64.deb`: possible (see the 266 -> 273 notes: additive schemas;
   terminals started under 273 in `daemon-v62` are lost).
 - To the official 1.4.251 (what runs today): possible, with caveats. Stop serve gracefully first,
