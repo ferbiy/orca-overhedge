@@ -260,7 +260,8 @@ itself.
 
 The fork's macOS app is ad-hoc signed and never updates itself to an official release, so it keeps
 the patch; each new build asks once for keychain access to "Orca Safe Storage" (choose Always
-Allow). Linux keeps upstream's updater behavior (a server .deb is updated by hand).
+Allow). The fork's Linux desktop app does not update itself either; a server .deb is updated by
+hand. How to install each: [install guides](docs/overhedge/install/README.md).
 
 ### Left to upstream
 
@@ -292,7 +293,12 @@ hand. The runbook: `docs/overhedge/UPDATE-RUNBOOK.md` on branch `overhedge/ci`.
 | Former branches        | tags `archive/overhedge/<name>`, e.g. `archive/overhedge/patch-273`                      |
 
 **Get a build:** download it from the [latest release](https://github.com/ferbiy/orca-overhedge/releases/latest)
-(server .deb, macOS zip, `SHA256SUMS`). OVERHEDGE.md explains installing and rolling back.
+(server .deb, macOS zip, Linux AppImage, `SHA256SUMS`), then follow the
+[install guides](docs/overhedge/install/README.md) ([українською](docs/overhedge/install/README.uk.md)):
+[macOS](docs/overhedge/install/macos.md), [Linux desktop](docs/overhedge/install/linux-desktop.md),
+[server](docs/overhedge/install/server.md) and the [ClickUp plugin](docs/overhedge/install/clickup-plugin.md),
+each with checksum check, update and rollback. Updates come only from this fork's Releases page,
+never from the official channel.
 
 <details>
 <summary><b>Build one yourself</b></summary>

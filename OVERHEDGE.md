@@ -6,6 +6,7 @@ code; from 1.4.273 on the fork also builds an ad-hoc-signed macOS app from the s
 fork's default branch.
 
 Branches, tags and releases (since 2026-11-26):
+
 - `overhedge/main`: the patched Orca now; builds and releases come from it. A port re-applies the
   patch onto the new upstream tag and moves `overhedge/main` with a merge commit whose tree is the
   new port (no force push; `git log --first-parent overhedge/main` lists one "port to vX.Y.Z" per
@@ -370,6 +371,7 @@ gh workflow run overhedge-mac-app.yml -R ferbiy/orca-overhedge --ref overhedge/c
 - Install (manual): quit Orca; keep the official app as `Orca-official-<version>.app`; unzip the
   artifact; `xattr -dr com.apple.quarantine Orca.app`; move it to `/Applications`. Rollback:
   quit, reinstall the official app from https://github.com/stablyai/orca/releases (or orca.dev).
+  Step by step: [docs/overhedge/install/macos.md](docs/overhedge/install/macos.md).
 
 ## Linux desktop app
 
@@ -417,10 +419,14 @@ distros (built as upstream's `orca-linux.AppImage`, then copied to the versioned
   install ferbiy/orca-clickup-tasks@<sha> --json` returns `approval_required` with the access list
   (the official deb rejects the manifest: `chat:send` is fork-only). In the container the AppImage
   fell back to `basic_text` (Orca could not identify the desktop); on such a desktop start it with
-  `--password-store=gnome-libsecret`. Install guide for developers (Ukrainian):
-  `~/overhedge-build/LINUX-DESKTOP-INSTALL.md` on orca-ide.
+  `--password-store=gnome-libsecret`. Install guide:
+  [docs/overhedge/install/linux-desktop.md](docs/overhedge/install/linux-desktop.md).
 
 ## Download a build
+
+Install guides (English and Ukrainian), with checksum check, update, rollback and
+troubleshooting: [docs/overhedge/install/README.md](docs/overhedge/install/README.md) (macOS,
+Linux desktop, server, ClickUp plugin).
 
 Released builds: <https://github.com/ferbiy/orca-overhedge/releases/latest> (server deb, macOS zip,
 Linux desktop AppImage when built, `SHA256SUMS`). Check them with
