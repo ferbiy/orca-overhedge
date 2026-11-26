@@ -116,7 +116,9 @@ nf=$W/notes.md
   [ -z "$img" ] || echo "| \`$(basename "$img")\` | Linux desktop app, x86_64 AppImage |"
   echo "| \`SHA256SUMS\` | sha256 of the files above |"
   echo
-  echo "Release number = the deb's build number (\`+overhedge.$n\`).${mac_n:+ The mac zip carries its own workflow's build counter ($mac_n).} All files are built by this fork's CI from \`$sha10\`."
+  mac_note=""
+  [ -z "$mac_n" ] || mac_note=" The mac zip carries the build counter of its own workflow ($mac_n)."
+  echo "Release number = the deb's build number (\`+overhedge.$n\`).$mac_note All files are built by this fork's CI from \`$sha10\`."
   echo
   echo "This is not an official Orca release. Orca's built-in updater only reads stablyai/orca and never this repository; no updater metadata (\`latest*.yml\`) is published here."
   echo
