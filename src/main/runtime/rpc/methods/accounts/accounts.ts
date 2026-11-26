@@ -5,6 +5,7 @@ import type { OrcadFeature } from '../../startup/orcad-readiness'
 import { rpcCallerOperationKey } from '../../callers/rpc-caller-identity'
 import { HostAccountSignInFlows } from '../../../agent-session/environment/host-account-sign-in-flows'
 import type { OrcaRuntimeService } from '../../../orca-runtime'
+import { CLAUDE_CHAT_ACCOUNT_METHODS } from './claude-chat-account-rpc'
 import {
   AddDataAccountParams,
   SelectDataAccountParams,
@@ -253,7 +254,9 @@ const ACCOUNT_METHOD_DEFINITIONS = [
       runtime.cleanupSubscription(params.subscriptionId)
       return { unsubscribed: true }
     }
-  })
+  }),
+  // Overhedge: per-chat Claude account migration (orca account migrate).
+  ...CLAUDE_CHAT_ACCOUNT_METHODS
 ]
 
 // The desktop's launch-env push and unsubscribes never touch the account services.

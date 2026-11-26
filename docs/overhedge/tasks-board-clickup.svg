@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="536" viewBox="0 0 1000 536" role="img" aria-label="Mockup of Orca's Tasks page with the ClickUp tab in Board view: status columns to do, in progress, in review and complete in ClickUp's colours, task cards with id, title, priority and assignee, and a card being dragged from in progress to in review">
+<title>Mockup of Orca's Tasks page with the ClickUp tab in Board view: status columns to do, in progress, in review and complete in ClickUp's colours, task cards with id, title, priority and assignee, and a card being dragged from in progress to in review</title>
+<rect x="0.5" y="0.5" width="999" height="535" rx="14" fill="#0a0a0a" stroke="#2a2a2a"/>
+<path d="M0.5 40 V14.5 a14 14 0 0 1 14 -14 H985.5 a14 14 0 0 1 14 14 V40 Z" fill="#121212"/>
+<line x1="0.5" y1="40" x2="999.5" y2="40" stroke="#2a2a2a"/>
+<circle cx="22" cy="20" r="5.5" fill="#3a3a3a"/>
+<circle cx="40" cy="20" r="5.5" fill="#3a3a3a"/>
+<circle cx="58" cy="20" r="5.5" fill="#3a3a3a"/>
+<text x="500.0" y="25" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#acacac" text-anchor="middle" font-weight="600">Orca  ·  Tasks</text>
+<path d="M37 67 l8 8 m0 -8 l-8 8" stroke="#acacac" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="62" y1="62" x2="62" y2="80" stroke="#333333"/>
+<rect x="74.0" y="57.0" width="250.0" height="28.0" rx="7" fill="#171717" stroke="#3a3a3a" stroke-width="1"/>
+<text x="107" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#acacac" font-weight="500" text-anchor="middle" xml:space="preserve">GitHub</text>
+<line x1="140.0" y1="63" x2="140.0" y2="79" stroke="#333333"/>
+<text x="173" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#acacac" font-weight="500" text-anchor="middle" xml:space="preserve">GitLab</text>
+<line x1="206.0" y1="63" x2="206.0" y2="79" stroke="#333333"/>
+<text x="239" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#acacac" font-weight="500" text-anchor="middle" xml:space="preserve">Linear</text>
+<line x1="272.0" y1="63" x2="272.0" y2="79" stroke="#333333"/>
+<text x="298" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#acacac" font-weight="500" text-anchor="middle" xml:space="preserve">Jira</text>
+<rect x="332.0" y="57.0" width="93.0" height="28.0" rx="7" fill="#13233a" stroke="#4493f8" stroke-width="1.5"/>
+<path d="M340.0 72 l6 -5 l6 5" fill="none" stroke="#c297ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M340.0 76 q6 5 12 0" fill="none" stroke="#e3b341" stroke-width="2" stroke-linecap="round"/>
+<text x="358" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="600" text-anchor="start" xml:space="preserve">ClickUp</text>
+<text x="439" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#f0f0f0" font-weight="600" text-anchor="start" xml:space="preserve">ClickUp tasks</text>
+<rect x="28.0" y="106.0" width="58.0" height="28.0" rx="7" fill="#0a0a0a" stroke="#3a3a3a" stroke-width="1"/>
+<line x1="38" y1="115" x2="50" y2="115" stroke="#6b6b6b" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="38" y1="120" x2="50" y2="120" stroke="#6b6b6b" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="38" y1="125" x2="50" y2="125" stroke="#6b6b6b" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="58.0" y="109.0" width="24.0" height="22.0" rx="5" fill="#262626"/>
+<rect x="64.0" y="114.0" width="5.0" height="5.0" rx="1" fill="none" stroke="#f0f0f0" stroke-width="1.3"/>
+<rect x="71.0" y="114.0" width="5.0" height="5.0" rx="1" fill="none" stroke="#f0f0f0" stroke-width="1.3"/>
+<rect x="64.0" y="121.0" width="5.0" height="5.0" rx="1" fill="none" stroke="#f0f0f0" stroke-width="1.3"/>
+<rect x="71.0" y="121.0" width="5.0" height="5.0" rx="1" fill="none" stroke="#f0f0f0" stroke-width="1.3"/>
+<circle cx="102" cy="121" r="4" fill="#a371f7"/>
+<text x="112" y="125" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#a371f7" font-weight="600" text-anchor="start" xml:space="preserve">List / Board, remembered per tab</text>
+<rect x="328.0" y="106.0" width="200.0" height="28.0" rx="6" fill="#0a0a0a" stroke="#3a3a3a" stroke-width="1"/>
+<circle cx="343" cy="119" r="4.5" fill="none" stroke="#6b6b6b" stroke-width="1.5"/>
+<line x1="346.5" y1="122.5" x2="350" y2="126" stroke="#6b6b6b" stroke-width="1.5" stroke-linecap="round"/>
+<text x="358" y="124" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">Search tasks</text>
+<rect x="536.0" y="106.0" width="120.0" height="28.0" rx="6" fill="#0a0a0a" stroke="#3a3a3a" stroke-width="1"/>
+<text x="546" y="124" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="400" text-anchor="start" xml:space="preserve">Sprint 42</text>
+<path d="M638.5 118.0 l3.5 3.5 l3.5 -3.5" fill="none" stroke="#acacac" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="664.0" y="106.0" width="100.0" height="28.0" rx="6" fill="#0a0a0a" stroke="#3a3a3a" stroke-width="1"/>
+<text x="674" y="124" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="400" text-anchor="start" xml:space="preserve">Anyone</text>
+<path d="M746.5 118.0 l3.5 3.5 l3.5 -3.5" fill="none" stroke="#acacac" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="772.0" y="106.0" width="112.0" height="28.0" rx="6" fill="#0a0a0a" stroke="#3a3a3a" stroke-width="1"/>
+<text x="782" y="124" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="400" text-anchor="start" xml:space="preserve">Hide closed</text>
+<path d="M866.5 118.0 l3.5 3.5 l3.5 -3.5" fill="none" stroke="#acacac" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="892.0" y="106.0" width="28.0" height="28.0" rx="6" fill="#171717" stroke="#3a3a3a" stroke-width="1"/>
+<path d="M911 117 a5.5 5.5 0 1 0 0.8 4" fill="none" stroke="#acacac" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M912 113 v4.5 h-4.5" fill="none" stroke="#acacac" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="28.0" y="150.0" width="227.0" height="334.0" rx="8" fill="#101010" stroke="#333333" stroke-width="1"/>
+<rect x="38.0" y="159.0" width="56.8" height="18.0" rx="9" fill="#1c1d1f" stroke="#42464d" stroke-width="1"/>
+<circle cx="47.0" cy="168" r="3" fill="#b1b6bf"/>
+<text x="54" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#cbced3" font-weight="600" text-anchor="start" xml:space="preserve">to do</text>
+<text x="243" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#acacac" font-weight="400" text-anchor="end" xml:space="preserve">2</text>
+<line x1="29.0" y1="186" x2="254.0" y2="186" stroke="#333333"/>
+<rect x="36.0" y="196.0" width="211.0" height="86.0" rx="6" fill="#0a0a0a" stroke="#333333" stroke-width="1"/>
+<text x="46" y="214" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">86c0p31</text>
+<text x="100" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">High</text>
+<text x="46" y="233" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">OVH-151 Migrate billing</text>
+<text x="46" y="249" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">webhooks to v2</text>
+<circle cx="52.0" cy="266" r="8" fill="#262626" stroke="#3a3a3a"/>
+<text x="52" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="8.5" fill="#acacac" font-weight="600" text-anchor="middle" xml:space="preserve">AE</text>
+<text x="66" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Alex Example</text>
+<rect x="36.0" y="290.0" width="211.0" height="86.0" rx="6" fill="#0a0a0a" stroke="#333333" stroke-width="1"/>
+<text x="46" y="308" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">86c0p40</text>
+<text x="100" y="308" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Normal</text>
+<text x="46" y="327" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">OVH-156 Dark mode for the</text>
+<text x="46" y="343" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">settings page</text>
+<text x="142" y="470" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#acacac" font-weight="500" text-anchor="middle" xml:space="preserve">Load more</text>
+<rect x="267.0" y="150.0" width="227.0" height="334.0" rx="8" fill="#101010" stroke="#333333" stroke-width="1"/>
+<rect x="277.0" y="159.0" width="93.8" height="18.0" rx="9" fill="#16142a" stroke="#302c71" stroke-width="1"/>
+<circle cx="286.0" cy="168" r="3" fill="#9993ef"/>
+<text x="293" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#bdbaef" font-weight="600" text-anchor="start" xml:space="preserve">in progress</text>
+<text x="482" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#acacac" font-weight="400" text-anchor="end" xml:space="preserve">2</text>
+<line x1="268.0" y1="186" x2="493.0" y2="186" stroke="#333333"/>
+<rect x="275.0" y="196.0" width="211.0" height="86.0" rx="6" fill="#0a0a0a" stroke="#333333" stroke-width="1"/>
+<text x="285" y="214" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">86c0p1f</text>
+<text x="339" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Urgent</text>
+<text x="285" y="233" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">OVH-142 Fix login redirect</text>
+<text x="285" y="249" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">loop on Safari</text>
+<circle cx="291.0" cy="266" r="8" fill="#262626" stroke="#3a3a3a"/>
+<text x="291" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="8.5" fill="#acacac" font-weight="600" text-anchor="middle" xml:space="preserve">AE</text>
+<text x="305" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Alex Example, Sam Roe</text>
+<rect x="275.0" y="290.0" width="211.0" height="86.0" rx="6" fill="#0a0a0a" stroke="#333333" stroke-width="1"/>
+<text x="285" y="308" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">86c0p2b</text>
+<text x="339" y="308" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Normal</text>
+<text x="285" y="327" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">OVH-147 Add CSV export to</text>
+<text x="285" y="343" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">reports</text>
+<circle cx="291.0" cy="360" r="8" fill="#262626" stroke="#3a3a3a"/>
+<text x="291" y="364" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="8.5" fill="#acacac" font-weight="600" text-anchor="middle" xml:space="preserve">KP</text>
+<text x="305" y="364" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Kim Poe</text>
+<text x="380" y="470" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#acacac" font-weight="500" text-anchor="middle" xml:space="preserve">Load more</text>
+<rect x="506.0" y="150.0" width="227.0" height="334.0" rx="8" fill="#101010" stroke="#4493f8" stroke-width="1.5"/>
+<rect x="516.0" y="159.0" width="81.4" height="18.0" rx="9" fill="#2b2109" stroke="#755406" stroke-width="1"/>
+<circle cx="525.0" cy="168" r="3" fill="#f5c860"/>
+<text x="532" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#f3d99c" font-weight="600" text-anchor="start" xml:space="preserve">in review</text>
+<text x="721" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#acacac" font-weight="400" text-anchor="end" xml:space="preserve">2</text>
+<line x1="507.0" y1="186" x2="732.0" y2="186" stroke="#333333"/>
+<rect x="514.0" y="196.0" width="211.0" height="86.0" rx="6" fill="#0a0a0a" stroke="#333333" stroke-width="1"/>
+<text x="524" y="214" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">86c0p0d</text>
+<text x="578" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">High</text>
+<text x="524" y="233" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">OVH-139 Rate-limit the</text>
+<text x="524" y="249" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">public search API</text>
+<circle cx="530.0" cy="266" r="8" fill="#262626" stroke="#3a3a3a"/>
+<text x="530" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="8.5" fill="#acacac" font-weight="600" text-anchor="middle" xml:space="preserve">SR</text>
+<text x="544" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Sam Roe</text>
+<rect x="514.0" y="290.0" width="211.0" height="86" rx="6" fill="#13233a" stroke="#4493f8" stroke-dasharray="5 4"/>
+<rect x="745.0" y="150.0" width="227.0" height="334.0" rx="8" fill="#101010" stroke="#333333" stroke-width="1"/>
+<rect x="755.0" y="159.0" width="75.3" height="18.0" rx="9" fill="#091c12" stroke="#064324" stroke-width="1"/>
+<circle cx="764.0" cy="168" r="3" fill="#60b289"/>
+<text x="771" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#9cccb4" font-weight="600" text-anchor="start" xml:space="preserve">complete</text>
+<text x="960" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#acacac" font-weight="400" text-anchor="end" xml:space="preserve">0</text>
+<line x1="746.0" y1="186" x2="971.0" y2="186" stroke="#333333"/>
+<rect x="753.0" y="196.0" width="211.0" height="44" rx="6" fill="none" stroke="#3a3a3a" stroke-dasharray="4 3"/>
+<text x="858" y="222" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#6b6b6b" font-weight="400" text-anchor="middle" xml:space="preserve">No tasks</text>
+<g transform="rotate(-3 445.0 367)">
+<rect x="348.0" y="335.0" width="211.0" height="86" rx="6" fill="#000" opacity="0.5"/>
+<rect x="345.0" y="330.0" width="211.0" height="86.0" rx="6" fill="#1c1c1c" stroke="#4a4a4a" stroke-width="1"/>
+<text x="355" y="348" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" fill="#6b6b6b" font-weight="400" text-anchor="start" xml:space="preserve">86c0p2b</text>
+<text x="409" y="348" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Normal</text>
+<text x="355" y="367" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">OVH-147 Add CSV export to</text>
+<text x="355" y="383" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#f0f0f0" font-weight="500" text-anchor="start" xml:space="preserve">reports</text>
+<circle cx="361.0" cy="400" r="8" fill="#262626" stroke="#3a3a3a"/>
+<text x="361" y="404" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="8.5" fill="#acacac" font-weight="600" text-anchor="middle" xml:space="preserve">KP</text>
+<text x="375" y="404" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#acacac" font-weight="400" text-anchor="start" xml:space="preserve">Kim Poe</text>
+</g>
+<rect x="275.0" y="290.0" width="211.0" height="86" rx="6" fill="#0a0a0a" opacity="0.6" stroke="#2a2a2a"/>
+<circle cx="32" cy="510" r="4" fill="#a371f7"/>
+<text x="42" y="514" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#a371f7" font-weight="600" text-anchor="start" xml:space="preserve">Drag a card to change its ClickUp status; it moves back if ClickUp refuses</text>
+<circle cx="968" cy="510" r="4" fill="#acacac"/>
+<text x="958" y="514" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#acacac" font-weight="600" text-anchor="end" xml:space="preserve">Columns: the List’s statuses and colours</text>
+</svg>

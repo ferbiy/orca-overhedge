@@ -40,6 +40,7 @@ import type { ClaudeOpenTurn } from '../turns/claude-open-turn'
 import type { ClaudeAssistantFailures } from './claude-assistant-failures'
 import type { ClaudeUsageLimits } from './claude-usage-limits'
 import type { ClaudeThreadGoal } from './claude-thread-goal'
+import { AGENT_JOURNAL_THREAD_SCOPE } from '../../../../shared/agent-session/journal/agent-session-journal-types'
 
 export type ClaudeMessageJournalContext = {
   sink: StructuredAgentSessionEventSink
@@ -81,10 +82,12 @@ export function journalClaudeMessage(
   message: Record<string, unknown>,
   startsTurn: boolean,
   observedAt: number,
-  /** Host clock on the submission that produced this send, when known. */
-  requestedAt?: number,
-  clientMessageId?: string
+  /** The submission that produced this send, when known: its host clock and client message id.
+   *  overhedge: `remoteControlUser` marks a prompt from a Remote Control client, whose bubble no
+   *  Orca submission wrote. */
+  send: { requestedAt?: number; clientMessageId?: string; remoteControlUser?: boolean } = {}
 ): boolean {
+  const { requestedAt, clientMessageId, remoteControlUser = false } = send
   const envelope = readClaudeMessageEnvelope(message)
   if (!envelope) {
     return false
@@ -230,6 +233,17 @@ export function journalClaudeMessage(
   changed =
     appendUnmodeledContent(ctx.providerFallback, outputEnvelope, message, openOutputTurn, stamp) ||
     changed
+  const remoteBody =
+    remoteControlUser && envelope.role === 'user' ? claudeMessageBody(envelope) : null
+  if (remoteBody) {
+    // Written before its turn opens, like an Orca send's bubble, which the turn then anchors to.
+    ctx.sink.appendItem(identity, remoteBody, {
+      turnScope: AGENT_JOURNAL_THREAD_SCOPE,
+      observedAt,
+      lifecycle: true
+    })
+    changed = true
+  }
   const sendEchoTurn = claudeTurnOpenedBySendEcho({
     envelope,
     frame: message,

@@ -22,6 +22,8 @@ export type ClaudeStructuredSessionEvent =
       requestedAt?: number
       /** The submission this replay acknowledged, which opens the turn. */
       clientMessageId?: string
+      /** overhedge: this user replay is a prompt sent from a Remote Control client. */
+      remoteControlUser?: true
       /** On any other frame: the send the CLI started and has not echoed, whose turn output opens. */
       startedSend?: ClaudeStartedSend
       /** The user's new title from Claude's rename command, read when the frame arrived. */

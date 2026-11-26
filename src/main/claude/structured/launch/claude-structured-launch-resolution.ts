@@ -197,7 +197,7 @@ export function claudeStructuredLaunchPart(
       command: sources.command,
       prefixArgs: sources.prefixArgs,
       cwd,
-      env: await withClaudeLaunchAccountPin(router, claudeProbeEnv(sources), accountHome.path)
+      env: await withClaudeLaunchAccountPin(router, claudeProbeEnv(sources), record)
     }
     const launchFlags = resolveClaudeLaunchFlags(
       { ...deps, prepareVisuals: basis.visuals },
@@ -254,7 +254,7 @@ export function claudeStructuredLaunchPart(
       sources,
       { runtimeOnPath: false }
     )
-    const accountRecipe = await prepareClaudeLaunchAccount(router, env, accountHome.path)
+    const accountRecipe = await prepareClaudeLaunchAccount(router, env, record)
     const launchHome = accountRecipe.home
     // Read the config of the account directory the spawn pins, as session acquisition does.
     const chromeArgs = await claudeInChromeDefaultArgs(

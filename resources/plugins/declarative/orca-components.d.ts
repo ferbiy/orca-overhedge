@@ -114,7 +114,11 @@ declare module 'orca' {
     disabled?: boolean
     onPress?: Press
   }
-  export type BadgeProps = WithChildren & { tone?: Tone }
+  export type BadgeProps = WithChildren & {
+    tone?: Tone
+    /** Overhedge build only: a `#rgb`/`#rrggbb` colour (tinted badge with a dot) instead of the tone; check `ui.has('Badge', 'color')`. */
+    color?: string
+  }
   export type CardProps = WithChildren & { title?: string; description?: string }
   export type ListProps = WithChildren & { label?: string }
   /** With `onPress` the whole row is the press target, so it cannot contain other controls. */

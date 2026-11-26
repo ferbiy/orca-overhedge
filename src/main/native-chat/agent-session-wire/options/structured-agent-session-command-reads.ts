@@ -1,10 +1,25 @@
 import type { StructuredAgentSessionHostDeps } from '../host/structured-agent-session-host-types'
 import { AT_REST_COMMANDS_READ_BUDGET_MS } from './at-rest-command-catalog'
+import { withOrcaAccountCommands } from '../../../claude-accounts/chat-pins/claude-chat-account-slash'
+import { getClaudeProfileRouter } from '../../../claude-accounts/profiles/routing/claude-profile-installed-router'
+import type { AgentSessionSlashCommand } from '../../../../shared/agent-session/agent-session-wire'
 
 export function createStructuredAgentSessionCommandReads(
   deps: () => Pick<StructuredAgentSessionHostDeps, 'adapter' | 'store'>
 ) {
+  // overhedge: Orca's own chat commands join a Claude chat's catalog.
+  const withOrca = (sessionId: string, commands: AgentSessionSlashCommand[] | undefined) =>
+    withOrcaAccountCommands(
+      deps().store.getRecord(sessionId)?.provider,
+      commands,
+      getClaudeProfileRouter() !== undefined
+    )
+
   function read(sessionId: string, commandsOnRequest = false) {
+    return withOrca(sessionId, upstreamRead(sessionId, commandsOnRequest))
+  }
+
+  function upstreamRead(sessionId: string, commandsOnRequest: boolean) {
     const { adapter, store } = deps()
     const live = adapter.readCommands?.(sessionId)
     if (live !== undefined) {
@@ -24,7 +39,10 @@ export function createStructuredAgentSessionCommandReads(
     const live = adapter.readCommands?.(sessionId)
     const record = store.getRecord(sessionId)
     if (live !== undefined || !record) {
-      return { commands: live, ...(commandsOnRequest ? { commandsPending: false } : {}) }
+      return {
+        commands: withOrca(sessionId, live),
+        ...(commandsOnRequest ? { commandsPending: false } : {})
+      }
     }
     const commands = adapter.atRestCommands?.settled
       ? await adapter.atRestCommands.settled(
@@ -39,7 +57,7 @@ export function createStructuredAgentSessionCommandReads(
       throw new Error('Command discovery unavailable')
     }
     return {
-      commands: current ?? (snapshot ? snapshot.commands : commands),
+      commands: withOrca(sessionId, current ?? (snapshot ? snapshot.commands : commands)),
       ...(commandsOnRequest
         ? {
             commandsPending: current === undefined && (snapshot?.commandsPending ?? false)

@@ -50,6 +50,7 @@ import {
 } from '../../../../../orchestration/workers/launch/worker-start-card'
 import { rebindReusedStructuredWorker } from '../../structured-workers/orchestration-structured-worker-session'
 import { placedWorkerParty, type WorkerFollowUp } from '../follow-up/worker-follow-up-placement'
+import { workerClaudeAccountFor } from './worker-start-claude-account'
 
 export async function startLocalWorker(args: {
   params: WorkerStartInput
@@ -114,6 +115,8 @@ export async function startLocalWorker(args: {
     runtime,
     openCodeModelLaunchSupported
   })
+  // Overhedge: decided before the Run is bound, so a refused --account creates nothing.
+  const claudeAccountId = workerClaudeAccountFor(args, agent)
 
   const creationTarget = createsWorktree
     ? await creationTargetFor(coordinatorWorktreeId)
@@ -205,7 +208,7 @@ export async function startLocalWorker(args: {
       resolvedWorktree,
       mode,
       agent,
-      launch,
+      launch: { ...launch, claudeAccountId },
       effects,
       onStage,
       followUp: args.followUp

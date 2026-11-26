@@ -90,7 +90,7 @@ export abstract class UpdaterBuildSelection extends UpdaterMenuChecks {
 
   /** Pin any published channel/tag, including deliberate downgrades. */
   protected async checkForPinnedBuild(channel: ReleaseChannel, tag: string): Promise<void> {
-    if (!app.isPackaged) {
+    if (!this.releaseUpdatesAllowed()) {
       this.sendStatus({ state: 'not-available', userInitiated: true })
       return
     }

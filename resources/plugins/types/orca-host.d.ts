@@ -280,6 +280,18 @@ declare module 'orca/host' {
       result: { sessions: { sessionId: string; agent: string; title: string; workspaceId: string | null; hostId: string; branch: string | null; createdAt: number | null; updatedAt: number; messageCount: number; totalTokens: number; running: boolean }[]; truncated: boolean }
       surfaces: "worker"
     }
+    /** Open Orca chats (not terminal agents) on this computer and on paired Orca servers: id, host, agent, chat name, workspace, project, status. Never their messages. Since host API 1.10. */
+    "chat.list": {
+      params: { hostId?: string } | undefined
+      result: { chats: { chatId: string; hostId: string; hostLabel: string | null; agent: string | null; title: string | null; workspace: string; project: string | null; state: "working" | "blocked" | "waiting" | "done"; updatedAt: number }[]; unreachableHostIds: string[]; truncated: boolean }
+      surfaces: "worker"
+    }
+    /** Sends plain text as the person's message into an open chat `chat.list` gives, on its host; a busy chat queues it. Never opens a chat or reaches a terminal agent. Since host API 1.10. */
+    "chat.send": {
+      params: { chatId: string; hostId: string; text: string }
+      result: { status: "sent" | "queued" }
+      surfaces: "worker"
+    }
     /** The font family, size, weight, line height, ligatures, word wrap and minimap Orca's file editor uses now, editor zoom included. `editor.typography.changed` reports each change after. Since host API 1.6. */
     "editor.readTypography": {
       params: Record<string, never> | undefined

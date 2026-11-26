@@ -11,6 +11,7 @@ import type {
 import { openClaudeStructuredSession } from './claude-structured-session-open'
 import { claudeStartFailure } from '../../sdk-transport/claude-startup-failure'
 import type { ClaudeSession, ClaudeSessionExit } from '../claude-structured-session-state'
+import { claudeRemoteControl } from '../../remote-control/claude-remote-control-registry'
 
 /** Publishes an acquisition's session with its start ending admitted first, so its exit is never
  *  missed. A failed acquire has no start owner left, so it retires exactly that admission. */
@@ -25,6 +26,7 @@ export function claudeStartPublication(
       admitted = session.acquisitionGeneration
       endings.admit(sessionId, admitted)
       sessions.set(sessionId, session)
+      claudeRemoteControl.observeConnection(sessionId, session.connection)
     },
     failed: () => {
       if (admitted !== undefined) {

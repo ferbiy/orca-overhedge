@@ -130,7 +130,8 @@ export async function acquireClaudeSession({
           settlements.push(settlement)
         )
       : null
-    const startsTurn = turnOrigin !== null
+    // A Remote Control prompt folded into the running turn writes its bubble but opens nothing.
+    const startsTurn = turnOrigin !== null && turnOrigin.remoteControlUser !== 'joins'
     // Use host time for turn endpoints; provider timestamps may use a different clock.
     const observedAt =
       startsTurn || message.type === 'result' ? { observedAt: deps.now?.() ?? Date.now() } : {}
@@ -159,7 +160,7 @@ export async function acquireClaudeSession({
             message,
             ...(startsTurn ? { startsTurn: true } : {}),
             ...(requestedAt === null || requestedAt === undefined ? {} : { requestedAt }),
-            ...(turnOrigin?.clientMessageId ? { clientMessageId: turnOrigin.clientMessageId } : {}),
+            ...replay.claudeReplayTurnEventFields(turnOrigin),
             ...sendFacts,
             ...observedAt
           })

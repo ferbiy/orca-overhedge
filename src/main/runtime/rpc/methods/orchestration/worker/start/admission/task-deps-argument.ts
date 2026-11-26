@@ -18,3 +18,7 @@ export function parseTaskDeps(value: string | undefined): string[] | undefined {
     )
   }
 }
+
+// Overhedge: worker-start's `--account` check, reached through this module's import in
+// worker-start-method.ts, which sits at its line budget.
+export { withWorkerStartClaudeAccount } from '../worker-start-claude-account'

@@ -17,6 +17,10 @@ import type {
 import { readClaudeFrameString } from '../startup/claude-structured-init-proof'
 import { claudeDispatchContentKey } from '../dispatch/claude-structured-dispatch-content'
 import type { AgentJournalAnsweredTurnIdentity } from '../../../../shared/agent-session/journal/agent-session-journal-types'
+import {
+  claudeRemoteControlUserTurn,
+  type ClaudeRemoteControlUserTurn
+} from './claude-remote-control-user-turn'
 
 /** Settle provider-proven delivery independently of replay-row acceptance reconciliation. */
 export type ClaudeLateDispatchSettlement = (input: ClaudeLateDispatchOutcome) => void
@@ -24,6 +28,19 @@ export type ClaudeLateDispatchSettlement = (input: ClaudeLateDispatchOutcome) =>
 export type ClaudeReplayTurnOrigin = {
   requestedAt: number | null
   clientMessageId: string | null
+  /** overhedge: a prompt sent from a Remote Control client, which no Orca send claimed. */
+  remoteControlUser?: ClaudeRemoteControlUserTurn
+}
+
+/** The message event's fields naming the send, or the Remote Control prompt, a replay opened. */
+export function claudeReplayTurnEventFields(origin: ClaudeReplayTurnOrigin | null): {
+  clientMessageId?: string
+  remoteControlUser?: true
+} {
+  return {
+    ...(origin?.clientMessageId ? { clientMessageId: origin.clientMessageId } : {}),
+    ...(origin?.remoteControlUser ? { remoteControlUser: true as const } : {})
+  }
 }
 
 export function resolveClaudeReplayTurn(
@@ -139,7 +156,8 @@ export function resolveClaudeReplayTurn(
         return null
       }
     }
-    return null
+    const remote = claudeRemoteControlUserTurn(session, message, envelope)
+    return remote ? { requestedAt: null, clientMessageId: null, remoteControlUser: remote } : null
   }
   const current = session.dispatchWaiters[0]
   if (isCompletedCommand && !current?.acceptsResult) {

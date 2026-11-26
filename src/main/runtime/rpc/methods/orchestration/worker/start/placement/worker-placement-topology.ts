@@ -6,6 +6,7 @@ import type { OrcaRuntimeService } from '../../../../../../orca-runtime'
 import type { OrchestrationDb } from '../../../../../../orchestration/db/orchestration-db'
 import { createStructuredWorkerSession } from '../../../structured-workers/orchestration-structured-worker-session'
 import { dispatchReportMailbox } from '../../../../../../orchestration/workers/reports/dispatch-report-mailbox'
+import { paneIdentity } from '../../../../../../terminal/identity/runtime-terminal-pane-identity'
 
 export type WorkerEffect = {
   kind: 'worktree' | 'terminal' | 'setup' | 'dispatch_input'
@@ -67,9 +68,12 @@ export async function createExistingWorktreeWorkerTerminal(args: {
   agent: TuiAgent
   launchPreferences?: AgentLaunchPreferences
   taskId: string
+  /** Overhedge: a reserved fresh pane (pinned to a Claude account before the spawn). */
+  paneKey?: string
   effects: WorkerEffect[]
 }): Promise<RuntimeTerminalCreate> {
   const terminal = await args.runtime.createTerminal(`id:${args.worktreeId}`, {
+    ...(args.paneKey ? { ...paneIdentity(args.paneKey), requireFreshPane: true } : {}),
     // Resolve ids through agent config; cursor alone opens the desktop app, its CLI is cursor-agent.
     startupAgent: args.agent,
     launchSource: 'orchestration',
@@ -98,6 +102,8 @@ export async function createStructuredWorkerSessionForWorktree(args: {
   dispatchId: string
   /** `--model`/`--effort`, laid over the saved selection; a leveled Antigravity `--model` replaces it. */
   launchPreferences?: AgentLaunchPreferences
+  /** Overhedge: a reserved session id (pinned to a Claude account before the launch). */
+  sessionId?: string
   effects: WorkerEffect[]
 }): Promise<Awaited<ReturnType<typeof createStructuredWorkerSession>>> {
   const options = narrowStructuredLaunchSeedOptions(args.launchPreferences)
@@ -106,6 +112,7 @@ export async function createStructuredWorkerSessionForWorktree(args: {
     worktreeId: args.worktreeId,
     agent: args.agent,
     dispatchId: args.dispatchId,
+    ...(args.sessionId ? { sessionId: args.sessionId } : {}),
     ...(options ? { options } : {})
   })
   args.effects.push({

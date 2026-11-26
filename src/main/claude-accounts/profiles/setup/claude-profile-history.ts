@@ -1,4 +1,4 @@
-import { mkdirSync, realpathSync, rmdirSync, unlinkSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import '../../../filesystem/atomic-file-publication'
 import { mergeDirectoryIntoLink } from '../../../filesystem/merged-directory-link'
@@ -10,9 +10,10 @@ import {
   type ClaudeProfileReport,
   type ClaudeProfileSurfaceOutcome
 } from '../claude-profile-report'
-import { lstatIfPresent, mergeClaudeProfilePromptHistory } from './claude-profile-prompt-history'
+import { mergeClaudeProfilePromptHistory } from './claude-profile-prompt-history'
+import { shareClaudeProfileSessions } from './claude-profile-shared-sessions'
 
-// Exclude `sessions`: its live-process registry belongs to each folder's daemon.
+// `sessions` is shared separately (Overhedge: claude-profile-shared-sessions.ts).
 export const CLAUDE_PROFILE_HISTORY_DIRS = [
   'projects',
   'session-env',
@@ -41,24 +42,6 @@ export function mergeClaudeProfileDirectory(
   })
 }
 
-// Undo legacy session sharing; Claude recreates its per-folder process registry.
-function unlinkSharedSessions(profile: string, home: string): ClaudeProfileSurfaceOutcome {
-  const source = join(profile, 'sessions')
-  if (!lstatIfPresent(source)?.isSymbolicLink()) {
-    return 'unchanged'
-  }
-  if (realpathSync(source) !== realpathSync(join(home, 'sessions'))) {
-    return 'user-owned'
-  }
-  try {
-    unlinkSync(source)
-  } catch {
-    // A Windows junction is removed as a directory.
-    rmdirSync(source)
-  }
-  return 'synced'
-}
-
 /** Call after profile ownership checks and creation on the execution host. */
 export async function shareClaudeProfileHistory(args: {
   profileHome: string
@@ -76,8 +59,9 @@ export async function shareClaudeProfileHistory(args: {
       mergeClaudeProfileDirectory(args.profileHome, defaultHome, name, platform, report)
     )
   }
+  // Overhedge: link the live-session registry too, so peers under other accounts are listed.
   await runClaudeProfileSurface(report, 'sessions', () =>
-    unlinkSharedSessions(args.profileHome, defaultHome)
+    shareClaudeProfileSessions({ profileHome: args.profileHome, defaultHome, platform, report })
   )
   await runClaudeProfileSurface(report, 'history.jsonl', () =>
     mergeClaudeProfilePromptHistory(args.profileHome, defaultHome, platform, report)

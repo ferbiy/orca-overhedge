@@ -6,8 +6,16 @@ import { agentWorkspaceTrustDecisionForWorkspace } from '../../../agent-launch/t
 import { OrcaRuntimeWithStructuredSessionCliWriterHost } from './structured-session-cli-writer-host'
 import type { AgentSessionAccountHome } from '../../../../shared/agent-session/lifecycle/accounts/agent-session-account-home'
 import type { AgentSessionRecord } from '../../../../shared/agent-session/lifecycle/agent-session-record'
+import { pinnedClaudeLaunchAccountHome } from '../../../claude-accounts/chat-pins/claude-chat-account-pin-home'
+import { installClaudeChatPinWiring } from '../../../claude-accounts/chat-pins/claude-chat-account-commands'
 
 export abstract class OrcaRuntimeWithStructuredSessionAccountHome extends OrcaRuntimeWithStructuredSessionCliWriterHost {
+  /** Overhedge: orchestration workers inherit their coordinator's pinned Claude account, and pins
+   *  follow a chat across /clear; installed with the runtime. */
+  protected readonly uninstallClaudeChatPinWiring = installClaudeChatPinWiring(
+    () => this.getOrchestrationDbIfAvailable?.() ?? null
+  )
+
   /** Resolve account home through this host's agent registration; null means unregistered and create refuses. */
   protected structuredAgentAccountHomeResolver(
     agent: StructuredAgentId,
@@ -68,6 +76,11 @@ export abstract class OrcaRuntimeWithStructuredSessionAccountHome extends OrcaRu
       metadata?.followsSelectionBeforeFirstTurn === true && record.providerHandleChain.length === 0
     if (!metadata?.launchFollowsSelection?.() && !beforeFirstTurn) {
       return null
+    }
+    // Overhedge: a pinned chat compares against its pin, so the global switch leaves it alone.
+    const pinned = provider === 'claude' ? pinnedClaudeLaunchAccountHome(record.sessionId) : null
+    if (pinned) {
+      return pinned
     }
     const read = this.structuredAgentAccountHomeResolver(
       provider,

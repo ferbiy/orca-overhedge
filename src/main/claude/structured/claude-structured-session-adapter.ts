@@ -209,7 +209,7 @@ export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAda
   backgroundTaskStops = (sessionId: string) =>
     this.sessions.has(sessionId) ? { supportsTaskStop: true, supportsStopAll: true } : undefined
   readCommands: NonNullable<StructuredAgentSessionAdapter['readCommands']> = (sessionId) =>
-    this.sessions.get(sessionId)?.commands.commands
+    claudeOptions.withClaudeRemoteControlCommands(this.sessions.get(sessionId))
   manageMcp: NonNullable<StructuredAgentSessionAdapter['manageMcp']> = (record, operation) =>
     manageClaudeMcp(this.sessions, record.sessionId, operation)
   readonly atRestCommands: ClaudeStructuredSessionAdapterDeps['atRestCommands']
