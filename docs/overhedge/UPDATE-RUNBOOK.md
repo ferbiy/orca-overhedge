@@ -421,13 +421,15 @@ The mac workflow builds an ad-hoc-signed, not notarized `Orca.app` zip (arm64). 
 installed automatically: Gatekeeper quarantine, and each new ad-hoc signature makes macOS ask once
 for the login password for the "Orca Safe Storage" keychain item. The automation only builds and
 verifies it (`artifacts/mac/` on orca-ide, sha256 checked) and names it in the report. Install by
-hand per OVERHEDGE.md "macOS app": download it from the GitHub Release
+hand per the macOS install guide (`docs/overhedge/install/macos.md` on `overhedge/main`; OVERHEDGE.md
+"macOS app" has the background): download it from the GitHub Release
 (`github.com/ferbiy/orca-overhedge/releases/latest`), or copy it from orca-ide with
 `scp orca-ide-ts:overhedge-build/artifacts/mac/<zip> .`.
 
 ## 9a. Linux desktop app
 
-The server deb is also the Linux desktop app (same package; see OVERHEDGE.md "Linux desktop app").
+The server deb is also the Linux desktop app (same package; see OVERHEDGE.md "Linux desktop app";
+install guides for people: `docs/overhedge/install/` on `overhedge/main`).
 The deb workflow additionally packages an x64 AppImage of the same app tree (artifact
 `linux-appimage-Orca-<ver>_overhedge.N.g<sha10>-linux-x86_64`), after the deb upload and
 continue-on-error, so it never blocks the server. It refuses a ref whose updater guard does not

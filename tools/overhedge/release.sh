@@ -14,7 +14,7 @@
 #  3. the commit <sha10> is in origin/overhedge/main (promote first)
 #  4. notes: generated header (upstream version, commit, previous release), the body from --notes
 #     (user-facing: what changed since the previous release) or, without it, the commit subjects
-#     since the previous release; generated footer (downloads, build numbers, OVERHEDGE.md link)
+#     since the previous release; generated footer (install guides, downloads, build numbers, OVERHEDGE.md link)
 #  5. annotated tag pushed through the fork clone (pre-push guard), `gh release create --verify-tag
 #     --latest` with the files + a SHA256SUMS of them; then checks the uploaded names and sizes
 # --dry-run: does 1-4 and prints the tag, assets and notes; creates nothing.
@@ -107,12 +107,17 @@ nf=$W/notes.md
     fi
   fi
   echo
+  ig="https://github.com/$R/blob/$M/docs/overhedge/install"
+  echo "## Install"
+  echo
+  echo "Step-by-step guides with checksum check, update, rollback and troubleshooting ([English]($ig/README.md), [українською]($ig/README.uk.md)): [macOS]($ig/macos.md), [Linux desktop]($ig/linux-desktop.md), [server]($ig/server.md), [ClickUp plugin]($ig/clickup-plugin.md). Updates come only from this fork's Releases page, never from Orca's official update channel."
+  echo
   echo "## Downloads"
   echo
   echo "| File | What |"
   echo "|---|---|"
   echo "| \`$dn\` | Server package \`$OVH_PKG\` (amd64); installs over the official package of the same version |"
-  [ -z "$mac" ] || echo "| \`$(basename "$mac")\` | macOS app, Apple silicon; ad-hoc signed, not notarized: install as described in OVERHEDGE.md \"macOS app\" |"
+  [ -z "$mac" ] || echo "| \`$(basename "$mac")\` | macOS app, Apple silicon; ad-hoc signed, not notarized: install as described in the [macOS guide]($ig/macos.md) |"
   [ -z "$img" ] || echo "| \`$(basename "$img")\` | Linux desktop app, x86_64 AppImage |"
   echo "| \`SHA256SUMS\` | sha256 of the files above |"
   echo
