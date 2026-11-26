@@ -17,6 +17,7 @@ import { resolveDispatchCreator } from '../../runs/dispatch-creator'
 import type { RpcContext } from '../../../../core'
 import { claudeAccountPinDenial } from '../../../agent-launch/agent-launch-claude-account'
 import type { WorkerStartInput } from './worker-start-input'
+import { prepareLocalWorkerStart } from './launch/worker-start-validation'
 
 const NOTHING = { effectsApplied: false }
 
@@ -105,6 +106,22 @@ export function workerClaudeLaunchAccount(args: {
     orcaSessionId: creator.orcaSessionId ?? null,
     paneKey: creator.kind === 'terminal' ? (creator.paneKey ?? null) : null
   })
+}
+
+/** startLocalWorker's `prepareLocalWorkerStart`, plus the Claude account the new worker is pinned
+ *  to. Decided here, before the Run is bound, so a refused `--account` creates nothing. */
+export function prepareLocalWorkerStartWithClaudeAccount(
+  args: Parameters<typeof prepareLocalWorkerStart>[0] & {
+    claudeAccountStart: Parameters<typeof workerClaudeAccountFor>[0]
+  }
+): {
+  agent: TuiAgent | undefined
+  launch: ReturnType<typeof prepareLocalWorkerStart>['launch'] & { claudeAccountId: string | null }
+} {
+  const { claudeAccountStart, ...input } = args
+  const prepared = prepareLocalWorkerStart(input)
+  const claudeAccountId = workerClaudeAccountFor(claudeAccountStart, prepared.agent)
+  return { ...prepared, launch: { ...prepared.launch, claudeAccountId } }
 }
 
 /** worker-start's call: explicit `--account` (already resolved to an account id by

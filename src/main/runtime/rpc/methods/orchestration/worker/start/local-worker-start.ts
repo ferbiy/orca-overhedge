@@ -40,7 +40,7 @@ import {
   releaseRetriedWorkerTerminal
 } from '../release/retried-worker-terminal-release'
 import { requireWorkerAuthority, type WorkerEffect } from './placement/worker-placement-topology'
-import { prepareLocalWorkerStart } from './launch/worker-start-validation'
+import { prepareLocalWorkerStartWithClaudeAccount } from './worker-start-claude-account'
 import { deliverAndSettleWorkerStartReadiness } from './readiness/worker-start-readiness-settlement'
 import { handOverWhenReady, wakeReusedSleptAgent } from './readiness/placed-worker-readiness'
 import type { WorkerStartMutation } from './worker-start-mutation'
@@ -50,7 +50,6 @@ import {
 } from '../../../../../orchestration/workers/launch/worker-start-card'
 import { rebindReusedStructuredWorker } from '../../structured-workers/orchestration-structured-worker-session'
 import { placedWorkerParty, type WorkerFollowUp } from '../follow-up/worker-follow-up-placement'
-import { workerClaudeAccountFor } from './worker-start-claude-account'
 
 export async function startLocalWorker(args: {
   params: WorkerStartInput
@@ -109,14 +108,14 @@ export async function startLocalWorker(args: {
     )
   }
 
-  const { agent, launch } = prepareLocalWorkerStart({
+  // Overhedge: also resolves the new worker's Claude account, before the Run is bound.
+  const { agent, launch } = prepareLocalWorkerStartWithClaudeAccount({
     params: launchParams,
     createsWorktree,
     runtime,
-    openCodeModelLaunchSupported
+    openCodeModelLaunchSupported,
+    claudeAccountStart: args
   })
-  // Overhedge: decided before the Run is bound, so a refused --account creates nothing.
-  const claudeAccountId = workerClaudeAccountFor(args, agent)
 
   const creationTarget = createsWorktree
     ? await creationTargetFor(coordinatorWorktreeId)
@@ -208,7 +207,7 @@ export async function startLocalWorker(args: {
       resolvedWorktree,
       mode,
       agent,
-      launch: { ...launch, claudeAccountId },
+      launch,
       effects,
       onStage,
       followUp: args.followUp
