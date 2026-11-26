@@ -18,9 +18,9 @@ F=$OVH_HOME/fork; C=$OVH_HOME/ci
 [ -d "$F/.git" ] || { echo "run port-prep.sh first (no $F)" >&2; exit 1; }
 git -C "$F" fetch -q origin
 git -C "$F" fetch -q upstream "refs/tags/$tag:refs/tags/$tag"
-if [ ! -e "$C" ]; then git -C "$F" worktree add -q "$C" overhedge/ci 2>/dev/null || git -C "$F" worktree add -q -B overhedge/ci "$C" origin/overhedge/ci; fi
+if [ ! -e "$C" ]; then git -C "$F" worktree add -q "$C" "$OVH_CI_BRANCH" 2>/dev/null || git -C "$F" worktree add -q -B "$OVH_CI_BRANCH" "$C" "origin/$OVH_CI_BRANCH"; fi
 [ -z "$(git -C "$C" status --porcelain)" ] || { echo "$C has local changes; not syncing" >&2; exit 1; }
-git -C "$C" merge -q --ff-only origin/overhedge/ci
+git -C "$C" merge -q --ff-only "origin/$OVH_CI_BRANCH"
 git -C "$C" rm -r -q --ignore-unmatch .github/actions
 git -C "$C" checkout "$tag" -- .github/actions .github/workflows/qualified-orcad-template.yml .github/workflows/node-server-tests.yml
 git -C "$C" add -A .github
@@ -29,11 +29,19 @@ git -C "$C" diff --cached --stat | tail -20
 for ref in $(grep -ho 'uses: \./\.github/[^ ]*' "$C"/.github/workflows/overhedge-*.yml "$C"/.github/workflows/qualified-orcad-template.yml | sed 's/uses: \.\///' | sort -u); do
   [ -e "$C/$ref" ] || echo "WARNING: $ref is referenced but missing after the sync"
 done
-rid=$(ovh_release_id "${tag#v}")
-prev_base=$(git -C "$F" branch -r --list 'origin/overhedge/base-*' | sed 's#^ *origin/##' | grep -E 'base-[0-9]+$' | grep -v "base-$rid\$" | sort -t- -k2 -n | tail -1)
-for wf in release-mac-build.yml release-cut.yml; do
-  if git -C "$F" diff --quiet "origin/$prev_base" "$tag" -- ".github/workflows/$wf"; then echo "$wf unchanged since $prev_base"; else echo "$wf CHANGED since $prev_base: compare with the overhedge workflow"; fi
-done
+# Previous base = the upstream tag of the newest port below <new-tag> (overhedge-port/v<x> -> v<x>).
+ovh_fetch_port_tags "$F"
+prev_ver=$(ovh_port_versions "$F" | while read -r x; do
+  [ "$x" != "${tag#v}" ] && [ "$(printf '%s\n%s\n' "$x" "${tag#v}" | sort -V | head -1)" = "$x" ] && echo "$x"; done | tail -1 || true)
+if [ -n "$prev_ver" ]; then
+  prev_base=v$prev_ver
+  git -C "$F" fetch -q upstream "refs/tags/$prev_base:refs/tags/$prev_base"
+  for wf in release-mac-build.yml release-cut.yml; do
+    if git -C "$F" diff --quiet "$prev_base" "$tag" -- ".github/workflows/$wf"; then echo "$wf unchanged since $prev_base"; else echo "$wf CHANGED since $prev_base: compare with the overhedge workflow"; fi
+  done
+else
+  echo "no earlier ${OVH_PORT_TAG_PREFIX}* tag: compare release-mac-build.yml / release-cut.yml by hand"
+fi
 if [ "$commit" = 1 ] && ! git -C "$C" diff --cached --quiet; then
   git -C "$C" commit -q -m "ci(overhedge): build ${tag#v}-based refs
 

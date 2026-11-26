@@ -30,7 +30,7 @@ dispatch() { # <workflow> <extra -f args...> ; prints run id
   local wf=$1 since id
   shift
   since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  gh workflow run "$wf" -R "$R" --ref overhedge/ci -f ref="$sha" "$@" >&2
+  gh workflow run "$wf" -R "$R" --ref "$OVH_CI_BRANCH" -f ref="$sha" "$@" >&2
   for _ in $(seq 1 30); do
     sleep 5
     id=$(gh run list -R "$R" --workflow "$wf" --event workflow_dispatch -L 10 --json databaseId,createdAt \

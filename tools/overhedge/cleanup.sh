@@ -8,7 +8,7 @@
 #  - mac zips: newest KEEP_BUILDS in artifacts/mac/
 #  - Linux desktop AppImages: newest KEEP_BUILDS in artifacts/linux/
 #  - backups: newest KEEP_BACKUPS backup-* dirs and the one in last-backup-path
-#  - port worktrees of ~/overhedge-build/fork: the newest KEEP_PORT_TREES release ids (base-/patch-,
+#  - port worktrees of ~/overhedge-build/fork: the newest KEEP_PORT_TREES release ids (base-/port-, older patch-,
 #    rehearsal-*); older ones are removed with `git worktree remove --force` (branches stay)
 #  - smoke/ runs and logs/ files younger than 30 / 90 days
 # Standalone clones from the manual ports (base-266, patch-266, ...) are only listed, never removed.
@@ -73,7 +73,7 @@ done
 echo "== port worktrees"
 F=$OVH_HOME/fork
 if [ -d "$F/.git" ]; then
-  mapfile -t trees < <(git -C "$F" worktree list --porcelain | sed -n 's/^worktree //p' | grep -E '/(rehearsal-)?(base|patch)-[0-9.]+$' || true)
+  mapfile -t trees < <(git -C "$F" worktree list --porcelain | sed -n 's/^worktree //p' | grep -E '/(rehearsal-)?(base|patch|port)-[0-9.]+$' || true)
   ids=$(printf '%s\n' "${trees[@]}" | sed -E 's#.*-([0-9.]+)$#\1#' | sort -V -r -u)
   keep_ids=$(echo "$ids" | head -n "$KEEP_PORT_TREES")
   for t in "${trees[@]}"; do

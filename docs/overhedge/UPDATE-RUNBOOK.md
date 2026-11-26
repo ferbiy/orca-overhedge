@@ -10,12 +10,15 @@ and 8) are deterministic. Canonical copy: `docs/overhedge/UPDATE-RUNBOOK.md` on 
 | Thing | Where |
 |---|---|
 | Fork | `github.com/ferbiy/orca-overhedge` (public). Upstream: `github.com/stablyai/orca` |
-| Branches | `overhedge/base-<id>` = upstream tag `v1.4.<id>`; `overhedge/patch-<id>` = the patch on it (default branch of the fork); `overhedge/ci` = the CI workflows, this runbook and `tools/overhedge/` |
-| Patch description | `OVERHEDGE.md` on the newest `overhedge/patch-<id>`: what the patch adds, overlap with upstream, how the last port went |
+| Branches | `main` = plain mirror of upstream main (never pushed by us); `overhedge/main` = the patched Orca now (default branch; builds and releases come from it); `overhedge/ci` = the CI workflows, this runbook and `tools/overhedge/`; `overhedge/port-<id>` = transient branch of a port in progress (deleted by `promote.sh`); `overhedge/rehearsal/*` = rehearsal scratch. Nothing else: no base or per-release patch branches (old ones are tags `archive/overhedge/<name>`). The permanent branch is `overhedge/main`, not `overhedge`: git cannot have a ref `overhedge` next to `overhedge/ci` |
+| Tags | upstream `vX.Y.Z` = the base of a port (fetched from stablyai/orca, not pushed to the fork); `overhedge-port/vX.Y.Z` = head of the port onto that tag (linear history on it, what CI built); `vX.Y.Z-overhedge.<n>` = a GitHub Release (`<n>` = the deb's build number); `archive/overhedge/*` = former branches |
+| Releases | `github.com/ferbiy/orca-overhedge/releases`: one per verified port (deb, mac zip, Linux AppImage when built, `SHA256SUMS`; never updater metadata), marked latest, created by `release.sh` |
+| How `overhedge/main` moves | `promote.sh`: a merge commit with the old `overhedge/main` as first parent and the port head as second, whose tree is exactly the port head's tree. Append-only, no force push; `git log --first-parent overhedge/main` lists one "port to vX.Y.Z" per port plus fixes made between ports |
+| Patch description | `OVERHEDGE.md` on `overhedge/main`: what the patch adds, overlap with upstream, how the last port went |
 | CI | `overhedge-server-deb.yml` (server .deb), `overhedge-mac-app.yml` (ad-hoc signed macOS zip); both dispatched from `overhedge/ci` with `-f ref=<full sha>` |
 | Build host | orca-ide (Ubuntu 24.04 x86_64, 16 CPUs). Work dir `~/overhedge-build/` |
 | Scripts | `~/overhedge-build/scripts/` (installed from `tools/overhedge/` by `install.sh`) |
-| Clone used by the automation | `~/overhedge-build/fork` (origin = fork, upstream = stablyai/orca, pre-push guard installed); port worktrees `~/overhedge-build/base-<id>`, `patch-<id>`, `ci` |
+| Clone used by the automation | `~/overhedge-build/fork` (origin = fork, upstream = stablyai/orca, pre-push guard installed); port worktrees `~/overhedge-build/base-<id>` (detached at the upstream tag), `port-<id>` (branch `overhedge/port-<id>`), `ci` |
 | Artifacts | `~/overhedge-build/artifacts/` (+ `SHA256SUMS`), `old/`, `rollback/`, `mac/`, `linux/` (desktop AppImage) |
 | Config | `~/overhedge-build/update.conf` (policy, window, notifier, Claude login), `~/overhedge-build/hosts.conf` (deploy targets) |
 | State | `~/overhedge-build/state/` (`pending/<host>`, `result-<id>.env`, `stopped-<id>`, `last-deploy.env`, `approved`) |
@@ -34,9 +37,11 @@ and 8) are deterministic. Canonical copy: `docs/overhedge/UPDATE-RUNBOOK.md` on 
 2. Heavy work only in Docker under `~/overhedge-build/` with `--cpus 6` (the scripts do this):
    no `pnpm`/`npm`/`node`/`npx` on the host, no builds or tests outside containers.
 3. Git: work only in `~/overhedge-build/fork` and its worktrees. No force-push, no branch deletion
-   (except this run's `overhedge/rehearsal/*` branches), never push to `main`, never update an
-   existing `overhedge/base-*`, never rewrite a pushed `overhedge/patch-*`. The pre-push guard
-   enforces this; do not bypass it (`--no-verify` is forbidden).
+   (except this run's `overhedge/rehearsal/*` branches, and `overhedge/port-<id>` which `promote.sh`
+   deletes once its port tag exists), never push to `main`, never create branches outside the
+   layout (section 1), never move or delete a tag, move `overhedge/main` only through `promote.sh`.
+   The pre-push guard enforces this; do not bypass it (`--no-verify` is forbidden). GitHub Releases
+   only through `release.sh`; never `gh release delete`.
 4. The live service is not yours: no `systemctl stop/start/restart`, no `apt`/`dpkg -i`, no `sudo`,
    nothing under `/opt/Orca`. Allowed read-only: `systemctl status/show`, `journalctl -u orca-serve`,
    `ps`, `orca-ide status|terminal list|agent list`, `deploy.sh --check-only|--dry-run`. Deploys happen
@@ -45,8 +50,8 @@ and 8) are deterministic. Canonical copy: `docs/overhedge/UPDATE-RUNBOOK.md` on 
    `terminal send` are forbidden), never close, start or message agents.
 6. Do not edit `update.conf`, `hosts.conf`, `~/overhedge-build/scripts/`, `state/pending/`,
    `state/approved`. `README.md` and `docs/overhedge/*.svg` are carried over from the previous
-   patch branch unchanged (on a conflict take the previous patch's file as a whole:
-   `git -C <patch-tree> show origin/<prev>:README.md > README.md`); never rewrite them.
+   patched Orca unchanged (on a conflict take its file as a whole:
+   `git -C <port-tree> show <from-sha>:README.md > README.md`); never rewrite them.
 7. When a stop condition (section 6) holds, stop: write `RESULT=stopped` and the report. Do not
    "make it work" by weakening tests, deleting failing tests, skipping checks, or dropping parts of
    the patch.
@@ -78,7 +83,9 @@ Write paths literally (`~/overhedge-build/...`) and call scripts with their full
 (`~/overhedge-build/scripts/<name>.sh`): the permission allowlist matches that form, and the
 permission check denies commands that contain `$(...)`, `$?` or shell variables it cannot resolve.
 Run the inner command first and paste its literal output (e.g. the full sha) into the next one.
-`<id>` is the release id (`1.4.274` -> `274`), `<prev>` the previous port (`PREV_PATCH_BRANCH`).
+`<id>` is the release id (`1.4.274` -> `274`), `<prev>` the upstream version of the previous port
+(`PREV_VERSION`, tag `overhedge-port/v<prev>`), `<from-sha>` the `overhedge/main` commit the port
+starts from (`FROM_SHA` from `port-prep.sh`, also in `port-<id>/.chk/from.sha`).
 `<prefix>` is `overhedge`, or `overhedge/rehearsal` in a rehearsal (section 4.9).
 
 If an earlier run of the same release crashed half-way (worktrees or local branches already exist),
@@ -86,12 +93,12 @@ continue from where it is rather than starting over; never delete pushed work.
 
 ### 4.1 Understand the drift (before touching code)
 
-1. Read `OVERHEDGE.md` on `origin/<prev>` (what the patch adds, the overlap section, last port notes).
+1. Read `OVERHEDGE.md` on `origin/overhedge/main` (what the patch adds, the overlap section, last port notes).
 2. List every stable release between the previous base and the target:
    `gh release list -R stablyai/orca -L 40` and read each one's notes (`gh release view v1.4.N -R stablyai/orca`).
-3. Files our patch touches: `git -C ~/overhedge-build/fork diff --stat origin/overhedge/base-<prev>..origin/<prev>`.
+3. Files our patch touches: `git -C ~/overhedge-build/fork diff --stat v<prev> origin/overhedge/main`.
    Upstream changes in exactly those files:
-   `git -C ~/overhedge-build/fork diff --stat origin/overhedge/base-<prev> v<new> -- <those files>`.
+   `git -C ~/overhedge-build/fork diff --stat v<prev> v<new> -- <those files>`.
 4. Overlap check (stop condition 1). Look for upstream shipping any of our features natively:
    - Remote Control in native Claude chats: `git grep -n enableRemoteControl v<new> -- src`.
    - Per-chat Claude account pins / `--account` on launches (upstream's model is host-wide
@@ -101,7 +108,7 @@ continue from where it is rather than starting over; never delete pushed work.
    - macOS updater guard: anything upstream added around `releaseUpdatesEnabled`/release channels.
    - Slash-menu entries for `/rc`, `/remote-control`, `/orca-account`, `/orca-migrate`.
    - Plugin task sources on the Tasks page (`taskSource.<id>.*` worker commands, merged into
-     patch-273 on 2026-11-25): `git grep -n taskSources v<new> -- src`; upstream filling
+     the patch on 2026-11-25): `git grep -n taskSources v<new> -- src`; upstream filling
      `contributes.taskSources` (community PR #26282 or similar) is a collision to report.
    Partial coverage that our code can simply reuse (as `account migrate --restart` reused upstream's
    `restartAgentPaneInPlace` in 273) is fine; write it down. Upstream doing the same thing
@@ -118,15 +125,17 @@ continue from where it is rather than starting over; never delete pushed work.
 ~/overhedge-build/scripts/port-prep.sh v<new> --prefix <prefix>
 ```
 
-It fetches, creates `<prefix>/base-<id>` at the tag and `<prefix>/patch-<id>` from it in worktrees
-`~/overhedge-build/base-<id>` and `~/overhedge-build/patch-<id>` (rehearsal: `rehearsal-base-<id>`, `rehearsal-patch-<id>`), and
-3-way applies the squashed diff `base-<prev>..<prev>`. Exit 0 = applied and committed; exit 3 =
+It fetches, adds the worktree `~/overhedge-build/base-<id>` detached at the upstream tag (no base
+branch) and `~/overhedge-build/port-<id>` on a new branch `<prefix>/port-<id>` at the tag
+(rehearsal: `rehearsal-base-<id>`, `rehearsal-port-<id>`), and 3-way applies the squashed diff
+`v<prev>..<from-sha>` (`<from-sha>` = `origin/overhedge/main`; for a re-port of a release that already
+has a port tag, the previous port tag). Exit 0 = applied and committed; exit 3 =
 conflicts listed in `CONFLICTS=`.
 
 ### 4.3 Resolve conflicts
 
 For each conflicted file:
-1. Read upstream's change: `git -C ~/overhedge-build/fork log --oneline overhedge/base-<prev>..v<new> -- <file>` and
+1. Read upstream's change: `git -C ~/overhedge-build/fork log --oneline v<prev>..v<new> -- <file>` and
    the commits' diffs. Understand why upstream changed it.
 2. Re-express our change on top of upstream's new code. Keep upstream's behavior everywhere our
    patch does not deliberately change it. Prefer reusing an upstream mechanism over keeping a
@@ -137,14 +146,14 @@ For each conflicted file:
    plausible and they behave differently for users) -> stop condition 3. More than 40 conflicting
    files -> stop condition 3 as well (too much drift for an unattended port).
 
-Then `git add` and commit: `overhedge: re-apply <prev> onto v<new>` with a body listing the
+Then `git add` and commit: `overhedge: re-apply the patch onto v<new>` with a body listing the
 hand-resolved files and one line each on how. Generated files: never hand-merge them; the `gen`
 step in 4.4 regenerates (`pnpm generate:rpc-params-catalog`, inside Docker); commit the result.
 Formatting: the `fmt` step checks the changed `.ts/.tsx`; to fix, run
-`docker run --rm --cpus 6 -v /home/ubuntu/overhedge-build/patch-<id>:/w -w /w node:24 bash -lc 'corepack enable && xargs pnpm exec oxfmt --write < .chk/changed-ts.txt'`
+`docker run --rm --cpus 6 -v /home/ubuntu/overhedge-build/port-<id>:/w -w /w node:24 bash -lc 'corepack enable && xargs pnpm exec oxfmt --write < .chk/changed-ts.txt'`
 after an `install`.
 
-Update `OVERHEDGE.md` on the patch branch: versions in the header and the build/rollback examples,
+Update `OVERHEDGE.md` on the port branch: versions in the header and the build/rollback examples,
 a "Port <prev> -> <id>" paragraph (what conflicted and how it was resolved), and re-check every
 bullet of "Overlap with upstream" against the new tag. Commit separately.
 
@@ -154,8 +163,8 @@ bullet of "Overlap with upstream" against the new tag. Commit separately.
 # baseline: pristine upstream at the target tag (same container, same suite)
 ~/overhedge-build/scripts/checks.sh base-<id> v<new> install tc wide
 # the port
-~/overhedge-build/scripts/checks.sh patch-<id> v<new>        # install gen fmt tc lint ours mobile wide
-~/overhedge-build/scripts/compare-wide.sh base-<id> patch-<id>
+~/overhedge-build/scripts/checks.sh port-<id> v<new>         # install gen fmt tc lint ours mobile wide
+~/overhedge-build/scripts/compare-wide.sh base-<id> port-<id>
 ```
 
 The two `checks.sh` calls can run in parallel (each container is limited to 6 CPUs). Each takes
@@ -173,17 +182,16 @@ Acceptance criteria (all must hold):
 - The base's own failures are environment/flake noise (11 in 1.4.273's wide run); if the base fails
   `tc` or has hundreds of failures, the environment is broken: stop condition 6.
 
-Failing criteria: fix and re-run the failing step only (`checks.sh patch-<id> v<new> tc`, ...).
+Failing criteria: fix and re-run the failing step only (`checks.sh port-<id> v<new> tc`, ...).
 After 3 fix iterations without meeting the criteria, stop (condition 2).
 
 ### 4.5 Push and build in CI
 
 ```bash
-git -C ~/overhedge-build/base-<id>  push origin <prefix>/base-<id>
-git -C ~/overhedge-build/patch-<id> push origin <prefix>/patch-<id>
+git -C ~/overhedge-build/port-<id> push origin <prefix>/port-<id>
 ~/overhedge-build/scripts/sync-ci.sh v<new> --commit     # upstream CI files on overhedge/ci -> v<new>
 git -C ~/overhedge-build/ci push origin overhedge/ci                    # skip in a rehearsal of the deployed release when nothing changed
-git -C ~/overhedge-build/patch-<id> rev-parse HEAD            # -> <full sha>
+git -C ~/overhedge-build/port-<id> rev-parse HEAD             # -> <full sha>
 ~/overhedge-build/scripts/ci-build.sh <full sha>
 ```
 
@@ -225,7 +233,24 @@ the server deb: report it.
 ### 4.7 Go / no-go
 
 Go (`RESULT=ready`) only when 4.4 acceptance holds, the deb CI run succeeded, and 4.6 passed. Then:
-- not a rehearsal: `gh repo edit ferbiy/orca-overhedge --default-branch overhedge/patch-<id>`.
+- not a rehearsal, promote: `~/overhedge-build/scripts/promote.sh v<new> <port sha> <from-sha>`
+  (`--dry-run` first). It tags `overhedge-port/v<new>` at the port head, moves `overhedge/main` to a
+  merge commit (first parent the old `overhedge/main`, second the port head, tree = the port head's)
+  in one atomic push, deletes `overhedge/port-<id>` and keeps the default branch on `overhedge/main`.
+  If it reports that `overhedge/main` moved during the port, cherry-pick the listed commits onto the
+  port branch, push, rebuild and verify again (4.5, 4.6), then promote with the new main head as
+  `<from-sha>`.
+- not a rehearsal, publish: write the user-facing notes (5-15 lines, Markdown, no headings above
+  `##`: what changed for users since the previous release: the upstream versions pulled in with
+  their notable changes, and what our patch added, changed or dropped, from the port paragraph of
+  OVERHEDGE.md) to `~/overhedge-build/logs/release-notes-<id>.md`, then
+  `~/overhedge-build/scripts/release.sh --deb <deb> --mac <mac zip> --appimage <AppImage> --notes ~/overhedge-build/logs/release-notes-<id>.md --dry-run`
+  (leave out `--mac`/`--appimage` when that build is missing), check the output, and run it again
+  without `--dry-run`. It refuses files whose checksums do not match `SHA256SUMS`, a commit that is
+  not in `overhedge/main`, and any updater metadata. Put the printed `RELEASE_URL` in the result
+  file and the report. A failed release (GitHub outage) does not block the deploy: report it; the
+  command is idempotent and can be re-run by hand.
+- rehearsal: no promote, no release; run `release.sh ... --dry-run` only.
 - run `~/overhedge-build/scripts/deploy.sh --dry-run <deb>` once and put its last lines in the
   report (it shows whether the host could deploy right now and which rollback deb it would use).
 - `~/overhedge-build/scripts/cleanup.sh --dry-run`, then `cleanup.sh` (keeps the installed, pending and
@@ -241,8 +266,10 @@ REASON=<one line: why stopped/failed; empty for ready>
 DEB=/home/ubuntu/overhedge-build/artifacts/orca-ide_<ver>+overhedge.N.g<sha10>_amd64.deb
 APPIMAGE=/home/ubuntu/overhedge-build/artifacts/linux/<name>.AppImage   # empty when there is none
 MAC_ZIP=/home/ubuntu/overhedge-build/artifacts/mac/<name>.zip
-PATCH_BRANCH=overhedge/patch-<id>
-PATCH_SHA=<full sha>
+PORT_TAG=overhedge-port/v<new>
+PORT_SHA=<full sha of the port head = the built commit>
+MAIN_SHA=<overhedge/main after promote.sh>
+RELEASE_URL=<printed by release.sh; empty in a rehearsal or when the release failed>
 ```
 
 `failed` = something broke that is not a judgement call (tooling, GitHub outage); the next run
@@ -264,17 +291,17 @@ No tokens, emails, account or org names; no chat or terminal content.
 ### 4.9 Rehearsal mode
 
 `run-update.sh --rehearsal v<tag>` (prefix `overhedge/rehearsal`, nothing deployed, no stop marker):
-same steps on `overhedge/rehearsal/base-<id>` and `overhedge/rehearsal/patch-<id>`, worktrees
-`rehearsal-base-<id>` / `rehearsal-patch-<id>`. Do not change the fork's default branch. Push the
-rehearsal branches only if the CI build is part of the rehearsal; at the end delete them
-(`git -C ~/overhedge-build/fork push origin :overhedge/rehearsal/base-<id> :overhedge/rehearsal/patch-<id>`, the guard
-allows deleting only `overhedge/rehearsal/*`) and remove the rehearsal worktrees
+same steps on the branch `overhedge/rehearsal/port-<id>`, worktrees `rehearsal-base-<id>` /
+`rehearsal-port-<id>`. No `promote.sh`, no release (only `release.sh --dry-run`), no default-branch
+change. Push the rehearsal branch only if the CI build is part of the rehearsal; at the end delete it
+(`git -C ~/overhedge-build/fork push origin :overhedge/rehearsal/port-<id>`) and remove the rehearsal worktrees
 (`git -C ~/overhedge-build/fork worktree remove --force <dir>`) and local branches. `run-update.sh` deletes the rehearsal deb (and mac zip) after the run, so it never takes a
 keep slot or sorts above a real build. Build the mac app in a rehearsal only from a ref that has the
 updater guard (the mac workflow refuses others, e.g. a re-port of 266). A rehearsal of the release that
-is already deployed re-ports it from the previous patch branch (e.g. 266 -> 273), so it meets the
-same conflicts as the real port did; compare the result with the real `overhedge/patch-<id>`
-(`git diff origin/overhedge/patch-<id> <rehearsal patch> --stat`) and describe the differences in the report. Keep `overhedge/ci` unchanged in a rehearsal
+is already deployed re-ports it from the previous port tag (e.g. `overhedge-port/v1.4.273` -> 278;
+`port-prep.sh` picks it because `overhedge-port/v<new>` exists), so it meets the same conflicts as the
+real port did; compare the result with the real port
+(`git diff overhedge-port/v<new> <rehearsal port head> --stat`) and describe the differences in the report. Keep `overhedge/ci` unchanged in a rehearsal
 unless `sync-ci.sh` shows a real difference (then stop and report it instead).
 
 ## 5. Deploy policy (one switch)
@@ -315,7 +342,7 @@ permission prompt counts as busy), or a Claude chat process under the service us
 6. Environment problems you cannot fix inside `~/overhedge-build` (Docker down, the base itself
    fails `tc`, GitHub permissions) — use `failed` instead when it is clearly transient.
 7. Disk: less than 40 GB free during the run (`df -h ~`), even after `cleanup.sh`.
-8. A major/minor version bump (e.g. 1.4.x -> 1.5.0): branch naming and drift assumptions change.
+8. A major/minor version bump (e.g. 1.4.x -> 1.5.0): release ids and drift assumptions change.
 9. Anything that would need a hard rule broken (section 2).
 
 ## 7. Post-deploy verification and rollback (done by deploy.sh)
@@ -394,7 +421,9 @@ The mac workflow builds an ad-hoc-signed, not notarized `Orca.app` zip (arm64). 
 installed automatically: Gatekeeper quarantine, and each new ad-hoc signature makes macOS ask once
 for the login password for the "Orca Safe Storage" keychain item. The automation only builds and
 verifies it (`artifacts/mac/` on orca-ide, sha256 checked) and names it in the report. Install by
-hand per OVERHEDGE.md "macOS app" (copy the zip to the Mac with `scp orca-ide-ts:overhedge-build/artifacts/mac/<zip> .`).
+hand per OVERHEDGE.md "macOS app": download it from the GitHub Release
+(`github.com/ferbiy/orca-overhedge/releases/latest`), or copy it from orca-ide with
+`scp orca-ide-ts:overhedge-build/artifacts/mac/<zip> .`.
 
 ## 9a. Linux desktop app
 

@@ -12,7 +12,8 @@
 #     (checksum, package, version above the installed one) and writes state/pending/<host>
 #     for every host in hosts.conf; overhedge-deploy.timer acts on them per DEPLOY_POLICY
 #  5. appends the agent's report and the outcome to update-log.md and notifies
-# --rehearsal vX.Y.Z  full pipeline for that release on overhedge/rehearsal-* branches, never deploys
+# --rehearsal vX.Y.Z  full pipeline for that release on overhedge/rehearsal/* branches, never deploys,
+#                     never moves overhedge/main and never publishes a GitHub Release
 # --no-deploy         run normally but never write the pending markers
 # --print-prompt      print the prompt that would be sent and exit
 # --retry             ignore an earlier stop marker for this release (after a human looked)
@@ -67,7 +68,7 @@ set -e
 printf '%s\n' "$info" >> "$OVH_LOG_FILE"
 get() { sed -n "s/^$1=//p" <<<"$info"; }
 TAG=$(get LATEST_TAG); VER=$(get LATEST_VERSION); RID=$(get RELEASE_ID); STATUS=$(get STATUS)
-[ "$retry" = 1 ] && [ "$STATUS" = failed-before ] && { rm -f "$OVH_STATE/stopped-$RID"; STATUS=$([ "$(get PATCH_BRANCH_EXISTS)" = yes ] && echo needs-build || echo needs-port); }
+[ "$retry" = 1 ] && [ "$STATUS" = failed-before ] && { rm -f "$OVH_STATE/stopped-$RID"; STATUS=$([ "$(get PORT_BRANCH_EXISTS)" = yes ] || [ "$(get PORT_TAG_EXISTS)" = yes ] && echo needs-build || echo needs-port); }
 
 if [ -z "$rehearsal" ]; then
   case "$STATUS" in
@@ -103,12 +104,14 @@ set -e
 log "claude exited $crc"
 denied=$(jq -r 'select(.type=="result") | .permission_denials // [] | length' "$J" 2>/dev/null | tail -1)
 
-RESULT=""; REASON=""; DEB=""; APPIMAGE=""; MAC_ZIP=""; PATCH_BRANCH=""; PATCH_SHA=""
+RESULT=""; REASON=""; DEB=""; APPIMAGE=""; MAC_ZIP=""; PORT_TAG=""; PORT_SHA=""; MAIN_SHA=""; RELEASE_URL=""
 # shellcheck disable=SC1090
 [ -f "$RESULT_FILE" ] && . "$RESULT_FILE"
 report=$( [ -f "$REPORT_FILE" ] && cat "$REPORT_FILE" || echo "(the agent wrote no report; transcript: $J)")
 [ -z "$APPIMAGE" ] || report+=$'\n\n'"Linux desktop AppImage (not installed anywhere): \`$APPIMAGE\` on orca-ide; the deb above is the Linux desktop app too."
 [ -z "$MAC_ZIP" ] || report+=$'\n\n'"Mac app (not installed automatically): \`$MAC_ZIP\` on orca-ide."
+[ -z "$MAIN_SHA" ] || report+=$'\n\n'"overhedge/main is now \`${MAIN_SHA:0:10}\` (${PORT_TAG:-port tag missing})."
+[ -z "$RELEASE_URL" ] || report+=$'\n\n'"GitHub Release: $RELEASE_URL"
 tail_note="Transcript: \`$J\` (claude exit $crc, permission denials ${denied:-?}). Run log: \`$OVH_LOG_FILE\`."
 
 case "$RESULT" in
@@ -136,7 +139,7 @@ case "$RESULT" in
         rm -f "$APPIMAGE" "$APPIMAGE.sha256"
         (cd "$OVH_ARTIFACTS/linux" && if ls ./*.AppImage >/dev/null 2>&1; then sha256sum ./*.AppImage | sed 's# \./# #' > SHA256SUMS; else rm -f SHA256SUMS; fi)
       fi
-      for d in "$OVH_HOME/rehearsal-base-$RID" "$OVH_HOME/rehearsal-patch-$RID"; do
+      for d in "$OVH_HOME/rehearsal-base-$RID" "$OVH_HOME/rehearsal-port-$RID"; do
         if [ -d "$d" ] && [ ! -e "$d/.git" ]; then rm -rf "$d"; fi
       done
       git -C "$OVH_HOME/fork" worktree prune 2>/dev/null || true
@@ -149,7 +152,7 @@ case "$RESULT" in
       hosts=""
       while read -r hname _rest; do
         [ -n "$hname" ] || continue
-        printf 'DEB=%s\nVERSION=%s\nCREATED=%s\nPATCH_BRANCH=%s\nPATCH_SHA=%s\n' "$DEB" "$dv" "$RUN_TS" "$PATCH_BRANCH" "$PATCH_SHA" > "$OVH_STATE/pending/$hname"
+        printf 'DEB=%s\nVERSION=%s\nCREATED=%s\nPORT_TAG=%s\nPORT_SHA=%s\n' "$DEB" "$dv" "$RUN_TS" "$PORT_TAG" "$PORT_SHA" > "$OVH_STATE/pending/$hname"
         hosts+="$hname "
       done < <(ovh_hosts)
       case "$DEPLOY_POLICY" in

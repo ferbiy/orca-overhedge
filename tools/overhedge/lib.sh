@@ -14,6 +14,11 @@ OVH_UPSTREAM_REPO=${OVH_UPSTREAM_REPO:-stablyai/orca}
 OVH_SERVICE=${OVH_SERVICE:-orca-serve}
 OVH_PORT=${OVH_PORT:-6768}
 OVH_PKG=${OVH_PKG:-orca-ide}
+# Branch layout (see UPDATE-RUNBOOK.md section 1). The permanent branch cannot be called plain
+# `overhedge`: git refuses a ref `overhedge` next to refs under `overhedge/` (overhedge/ci).
+OVH_MAIN_BRANCH=${OVH_MAIN_BRANCH:-overhedge/main}   # the patched Orca; default branch; releases
+OVH_CI_BRANCH=${OVH_CI_BRANCH:-overhedge/ci}         # workflows + this tooling
+OVH_PORT_TAG_PREFIX=overhedge-port/v                  # overhedge-port/v1.4.278 = the port's head
 
 # Defaults; update.conf overrides them.
 DEPLOY_POLICY=${DEPLOY_POLICY:-night-idle}   # confirm | night-idle | always | off
@@ -88,6 +93,21 @@ ovh_release_id() {
 ovh_installed_version() { dpkg-query -W -f='${Version}' "$OVH_PKG" 2>/dev/null || true; }
 # 1.4.273+overhedge.18.ge5c6fe334d -> 1.4.273
 ovh_base_version() { echo "${1%%+*}"; }
+
+# Port and release names. Port branch (transient, deleted once the port tag exists):
+# <prefix>/port-<id>; port tag: overhedge-port/v<ver>; release tag: v<ver>-overhedge.<n>, where
+# <n> is the deb's build number (+overhedge.<n>. in its version).
+ovh_port_tag() { echo "${OVH_PORT_TAG_PREFIX}$1"; }
+ovh_release_tag() { echo "v$1-overhedge.$2"; }
+# ovh_fetch_port_tags <clone>: origin's overhedge-port/* tags (they may point outside the fetched
+# branches, so tag auto-following does not cover them).
+ovh_fetch_port_tags() {
+  git -C "$1" fetch -q origin "+refs/tags/${OVH_PORT_TAG_PREFIX%v}*:refs/tags/${OVH_PORT_TAG_PREFIX%v}*"
+}
+# ovh_port_versions <clone>: versions with a port tag, oldest first (needs ovh_fetch_port_tags).
+ovh_port_versions() {
+  git -C "$1" tag -l "${OVH_PORT_TAG_PREFIX}*" | sed "s#^${OVH_PORT_TAG_PREFIX}##" | sort -V
+}
 
 # Hosts to deploy to: "<name> <ssh-target|local> <transfer>" per line from hosts.conf
 # (comments and blank lines skipped). Without the file: this host only.

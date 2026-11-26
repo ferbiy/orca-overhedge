@@ -1,8 +1,11 @@
 This is the scheduled update run (@RUN_TS@) for the Overhedge fork of Orca, started headless by
 run-update.sh on the server orca-ide. The fork (github.com/ferbiy/orca-overhedge) carries a small
-patch on top of upstream Orca (stablyai/orca) releases: `overhedge/base-<id>` is the upstream tag,
-`overhedge/patch-<id>` is the patch on it, and OVERHEDGE.md on the newest patch branch explains what
-the patch does and how it was re-applied last time. The servers run the patched `orca-ide` .deb.
+patch on top of upstream Orca (stablyai/orca) releases: `overhedge/main` (the default branch) is the
+patched Orca now, each port re-applies it onto the upstream tag `vX.Y.Z` on a transient branch
+`overhedge/port-<id>`, kept afterwards as the tag `overhedge-port/vX.Y.Z`, and a verified port moves
+`overhedge/main` and is published as a GitHub Release of the fork. OVERHEDGE.md on `overhedge/main`
+explains what the patch does and how it was re-applied last time. The servers run the patched
+`orca-ide` .deb.
 
 The source of truth for how an update is done is the runbook,
 @HOME_DIR@/UPDATE-RUNBOOK.md (the same file as docs/overhedge/UPDATE-RUNBOOK.md on the fork's

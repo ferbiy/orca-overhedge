@@ -7,14 +7,14 @@
 #
 # Output: KEY=value lines (or one JSON object with --json):
 #   LATEST_TAG LATEST_VERSION RELEASE_ID PUBLISHED_AT OFFICIAL_DEB_ASSET(yes|no)
-#   BASE_BRANCH_EXISTS PATCH_BRANCH_EXISTS PREV_PATCH_BRANCH PREV_VERSION RELEASES_BEHIND
+#   PORT_BRANCH_EXISTS PORT_TAG_EXISTS PREV_PORT_TAG PREV_VERSION RELEASES_BEHIND
 #   BUILT_DEB INSTALLED_VERSION DEPLOYED PENDING_DEPLOY FAILED_BEFORE STATUS
 # STATUS / exit code:
 #   up-to-date      10  installed build is already based on the newest release
 #   deploy-pending  11  a verified build for it waits for the deploy timer
 #   wait-for-asset  12  release exists but its official .deb is not published yet
 #   failed-before   13  an earlier run for this release stopped or failed; needs a human
-#   needs-build     0   patch branch exists but no verified deb here
+#   needs-build     0   port branch or port tag exists but no verified deb here
 #   needs-port      0   nothing exists for this release yet
 #   (1 = error)
 # --needs-work: print nothing, only the exit code (0 = an agent run is needed).
@@ -51,16 +51,17 @@ published=$(jq -r .published <<<"$rel")
 asset=no
 jq -e --arg n "orca-ide_${ver}_amd64.deb" '.assets | index($n)' <<<"$rel" >/dev/null && asset=yes
 
-heads=$(git ls-remote --heads "https://github.com/$OVH_FORK_REPO.git" 'overhedge/*' | awk '{sub("refs/heads/","",$2); print $2}')
-has_branch() { grep -qx "$1" <<<"$heads"; }
-base_exists=no; patch_exists=no
-has_branch "overhedge/base-$rid" && base_exists=yes
-has_branch "overhedge/patch-$rid" && patch_exists=yes
+refs=$(git ls-remote "https://github.com/$OVH_FORK_REPO.git" 'refs/heads/overhedge/*' "refs/tags/${OVH_PORT_TAG_PREFIX}*" \
+  | awk '{print $2}' | grep -v '\^{}$' | sed -e 's#^refs/heads/##' -e 's#^refs/tags/##')
+has_ref() { grep -qx "$1" <<<"$refs"; }
+port_branch_exists=no; port_tag_exists=no
+has_ref "overhedge/port-$rid" && port_branch_exists=yes
+has_ref "$(ovh_port_tag "$ver")" && port_tag_exists=yes
 
-# Previous port: highest overhedge/patch-<n> other than this one (numeric ids only).
-prev=$(grep -E '^overhedge/patch-[0-9]+$' <<<"$heads" | sed 's#overhedge/patch-##' | sort -n | awk -v r="$rid" '$1 != r' | tail -1 || true)
-prev_branch=""; prev_version=""
-if [ -n "$prev" ]; then prev_branch="overhedge/patch-$prev"; prev_version="1.4.$prev"; fi
+# Previous port: the newest overhedge-port/v<x> tag below this version.
+prev_version=$(sed -n "s#^${OVH_PORT_TAG_PREFIX}##p" <<<"$refs" | sort -V | while read -r x; do
+  [ "$x" != "$ver" ] && [ "$(printf '%s\n%s\n' "$x" "$ver" | sort -V | head -1)" = "$x" ] && echo "$x"; done | tail -1 || true)
+prev_tag=""; [ -z "$prev_version" ] || prev_tag=$(ovh_port_tag "$prev_version")
 
 behind=0
 installed=$(ovh_installed_version)
@@ -96,7 +97,7 @@ if [ -n "$pending" ]; then status="deploy-pending"; code=11
 elif [ "$deployed" = yes ]; then status="up-to-date"; code=10
 elif [ "$failed" = yes ]; then status="failed-before"; code=13
 elif [ "$asset" = no ]; then status="wait-for-asset"; code=12
-elif [ "$patch_exists" = yes ]; then status="needs-build"; code=0
+elif [ "$port_branch_exists" = yes ] || [ "$port_tag_exists" = yes ]; then status="needs-build"; code=0
 else status="needs-port"; code=0
 fi
 
@@ -108,9 +109,9 @@ LATEST_VERSION=$ver
 RELEASE_ID=$rid
 PUBLISHED_AT=$published
 OFFICIAL_DEB_ASSET=$asset
-BASE_BRANCH_EXISTS=$base_exists
-PATCH_BRANCH_EXISTS=$patch_exists
-PREV_PATCH_BRANCH=$prev_branch
+PORT_BRANCH_EXISTS=$port_branch_exists
+PORT_TAG_EXISTS=$port_tag_exists
+PREV_PORT_TAG=$prev_tag
 PREV_VERSION=$prev_version
 RELEASES_BEHIND=$behind
 BUILT_DEB=$built
