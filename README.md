@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stablyai/orca/releases/tag/v1.4.273"><img src="https://img.shields.io/badge/upstream-Orca%20v1.4.273-08C?style=flat-square" alt="Based on upstream Orca v1.4.273" /></a>
+  <a href="https://github.com/stablyai/orca/releases/tag/v1.4.278"><img src="https://img.shields.io/badge/upstream-Orca%20v1.4.278-08C?style=flat-square" alt="Based on upstream Orca v1.4.278" /></a>
+  <a href="https://github.com/ferbiy/orca-overhedge/releases/latest"><img src="https://img.shields.io/github/v/release/ferbiy/orca-overhedge?style=flat-square&label=release" alt="Latest fork release" /></a>
   <img src="https://img.shields.io/badge/patch-re--ported%20each%20release-6f42c1?style=flat-square" alt="Patch: re-ported onto each upstream release" />
   <a href="https://github.com/ferbiy/orca-clickup-tasks"><img src="https://img.shields.io/badge/plugin-ClickUp%20Tasks-7B68EE?style=flat-square" alt="Plugin: ClickUp Tasks" /></a>
   <img src="https://img.shields.io/badge/builds-Linux%20server%20.deb%20%7C%20macOS%20arm64-4493F8?style=flat-square" alt="Builds: Linux server .deb and macOS arm64 app" />
@@ -272,24 +273,31 @@ Upstream releases about every five days. A scheduled job on our build server not
 release, re-ports the patch onto it, runs the tests, and builds the server .deb and the macOS app.
 It stops and asks a person when upstream changed something the patch relies on, or shipped one of
 our features itself. A verified build is deployed to our servers at night, only when no chat is
-busy, and rolled back by itself if the new version is not healthy. The macOS app is installed by
+busy, and rolled back by itself if the new version is not healthy. Each verified build is published
+on the [Releases page](https://github.com/ferbiy/orca-overhedge/releases). The macOS app is installed by
 hand. The runbook: `docs/overhedge/UPDATE-RUNBOOK.md` on branch `overhedge/ci`.
 
 ### Versions, branches and builds
 
-| What            | Name                                                                               |
-| --------------- | ---------------------------------------------------------------------------------- |
-| Upstream base   | `overhedge/base-<release>` (the upstream tag, e.g. `v1.4.273`)                     |
-| Patch (default) | `overhedge/patch-<release>`, e.g. `overhedge/patch-273`                            |
-| CI workflows    | branch `overhedge/ci`                                                              |
-| Build version   | `<upstream version>+overhedge.<n>.g<sha>`, e.g. `1.4.273+overhedge.21.g0123456789` |
-| Server build    | `orca-ide_<version>+overhedge.<n>.g<sha>_amd64.deb`                                |
-| macOS build     | `Orca-<version>_overhedge.<n>.g<sha>-mac-arm64.zip` (ad-hoc signed)                |
+| What                   | Name                                                                                     |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| Patched Orca (default) | branch `overhedge/main`                                                                  |
+| Upstream base          | the upstream tag, e.g. `v1.4.278`; each port's head is kept as `overhedge-port/v1.4.278` |
+| Releases               | tag `<upstream version>-overhedge.<n>`, e.g. `v1.4.278-overhedge.28`                     |
+| CI workflows, tooling  | branch `overhedge/ci`                                                                    |
+| Upstream mirror        | branch `main`, unchanged                                                                 |
+| Build version          | `<upstream version>+overhedge.<n>.g<sha>`, e.g. `1.4.278+overhedge.28.g7cc005ec10`       |
+| Server build           | `orca-ide_<version>+overhedge.<n>.g<sha>_amd64.deb`                                      |
+| macOS build            | `Orca-<version>_overhedge.<n>.g<sha>-mac-arm64.zip` (ad-hoc signed)                      |
+| Former branches        | tags `archive/overhedge/<name>`, e.g. `archive/overhedge/patch-273`                      |
+
+**Get a build:** download it from the [latest release](https://github.com/ferbiy/orca-overhedge/releases/latest)
+(server .deb, macOS zip, `SHA256SUMS`). OVERHEDGE.md explains installing and rolling back.
 
 <details>
-<summary><b>Get a build</b></summary>
+<summary><b>Build one yourself</b></summary>
 
-Dispatch a workflow from `overhedge/ci` and point it at a commit of the patch branch (use a full
+Dispatch a workflow from `overhedge/ci` and point it at a commit of `overhedge/main` (use a full
 40-character SHA):
 
 ```bash
