@@ -375,8 +375,9 @@ gh workflow run overhedge-mac-app.yml -R ferbiy/orca-overhedge --ref overhedge/c
 
 Same package as the server: the `orca-ide_<ver>+overhedge.<n>.g<sha>_amd64.deb` from "Overhedge
 server deb" is the full Electron desktop app (upstream ships one deb for desktop and headless use).
-The same workflow also packages `orca-linux-<ver>+overhedge.<n>.g<sha>-x86_64.AppImage` as a
-separate artifact (`orca-appimage-<ver>...`) for non-Debian distros; that step is
+The same workflow also packages `Orca-<ver>_overhedge.<n>.g<sha10>-linux-x86_64.AppImage` as a
+separate artifact (`linux-appimage-Orca-<ver>_overhedge.<n>.g<sha10>-linux-x86_64`) for non-Debian
+distros (built as upstream's `orca-linux.AppImage`, then copied to the versioned name); that step is
 `continue-on-error`, so it never blocks the server deb.
 
 - Upstream releases Linux as AppImage + deb + rpm for x64 and arm64 (`release-cut.yml`,
@@ -393,14 +394,31 @@ separate artifact (`orca-appimage-<ver>...`) for non-Debian distros; that step i
   downloads the official deb and hands the user a `sudo apt install` command
   (`linux-package-install-command.ts`). Either would replace the
   fork build, so the guard turns the release updater off for the interactive Linux app. The server
-  is unaffected: `orca serve` runs with a headless install mode and keeps checking as before
-  (no automatic download on a deb, `manual-service-update-required` for remote requests).
+  is unaffected: `orca-ide serve` from the deb runs on the plain-Node orcad runtime, which has no
+  release updater at all (`updater.getStatus` -> `unsupported-headless-serve`,
+  `updater-unavailable`, identical for the official and the fork deb, checked 2026-11-26). The
+  guard's headless-install-mode exception only keeps an Electron-hosted serve on upstream behavior.
 - Secrets: Electron safeStorage on Linux keeps its key in the Secret Service (gnome-keyring,
-  KWallet), looked up by the application name; there is no code signature on Linux. The fork has
+  KWallet; item "Chromium Safe Storage", attribute `application=orca`), looked up by the application
+  name; there is no code signature on Linux. The fork has
   the same name and app id, so switching official <-> fork keeps everything readable, both ways.
   Without a keyring Chromium falls back to `basic_text` (built-in key); Orca warns in Settings, and
   secrets sealed earlier with a keyring stay unreadable until the keyring is back.
 - Data: same `~/.config/orca` and `~/.orca` as the official app.
+- `/usr/bin/orca-ide` is the CLI shim; the window is `/opt/Orca/orca-ide` (the desktop entry's Exec).
+- AppImage: electron-builder's AppRun adds `--no-sandbox` when unprivileged user namespaces are
+  blocked (Ubuntu 24.04 AppArmor), so there it runs without the Chromium sandbox; the deb keeps it
+  (setuid `chrome-sandbox`). Needs the host's GTK/NSS libraries and FUSE (static runtime, no
+  libfuse2). The deb is the recommended install on Debian/Ubuntu.
+- Smoke (2026-11-26, build `1.4.278+overhedge.30.gbce58c734d`, Ubuntu 24.04 container, Xvfb,
+  unlocked gnome-keyring): deb and AppImage start and render the window; `updater.getStatus` reports
+  `interactive` / `updater-unavailable` / `idle` and no feed request, where the official deb logs
+  `[autoUpdater] Checking for update`; the deb created the keyring item above; `orca-ide plugin
+  install ferbiy/orca-clickup-tasks@<sha> --json` returns `approval_required` with the access list
+  (the official deb rejects the manifest: `chat:send` is fork-only). In the container the AppImage
+  fell back to `basic_text` (Orca could not identify the desktop); on such a desktop start it with
+  `--password-store=gnome-libsecret`. Install guide for developers (Ukrainian):
+  `~/overhedge-build/LINUX-DESKTOP-INSTALL.md` on orca-ide.
 
 ## Download a build
 
