@@ -43,10 +43,13 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   `orca orchestration worker-start`: the new Claude chat or terminal is pinned before it starts.
   This differs from upstream's `orca account select --agent claude --account ...` (new in 1.4.266),
   which changes the host-wide selection for every later launch.
-- The macOS build never updates itself to an official release: `releaseUpdatesEnabled()`
-  (`src/main/updater/overhedge-release-updates.ts`) is false for a darwin build whose version
-  carries `+overhedge.`, and the updater's checks, downloads, nudges and pinned/local-build picks
-  go through it (`UpdaterScheduling.releaseUpdatesAllowed()`). Linux keeps upstream's behavior.
+- The fork's desktop builds never update themselves to an official release:
+  `releaseUpdatesEnabled(installMode)` (`src/main/updater/overhedge-release-updates.ts`) is false
+  for a darwin or linux build whose version carries `+overhedge.`, and the updater's checks,
+  downloads, nudges and pinned/local-build picks go through it
+  (`UpdaterScheduling.releaseUpdatesAllowed()`). Exception: Linux `orca serve` (install mode
+  `supervised-headless-serve`/`unsupported-headless-serve`, i.e. the team server) keeps upstream's
+  behavior, which never installs a release on its own (see "Server facts"). See "Linux desktop app".
 - Plugin chat send: `chat.list` / `chat.send` behind a new `chat:send` capability. See "Plugin
   chat send" below.
 - Cross-account Claude peers: every Claude chat or terminal on the host lists and messages every
@@ -350,6 +353,37 @@ gh workflow run overhedge-mac-app.yml -R ferbiy/orca-overhedge --ref overhedge/c
 - Install (manual): quit Orca; keep the official app as `Orca-official-<version>.app`; unzip the
   artifact; `xattr -dr com.apple.quarantine Orca.app`; move it to `/Applications`. Rollback:
   quit, reinstall the official app from https://github.com/stablyai/orca/releases (or orca.dev).
+
+## Linux desktop app
+
+Same package as the server: the `orca-ide_<ver>+overhedge.<n>.g<sha>_amd64.deb` from "Overhedge
+server deb" is the full Electron desktop app (upstream ships one deb for desktop and headless use).
+The same workflow also packages `orca-linux-<ver>+overhedge.<n>.g<sha>-x86_64.AppImage` as a
+separate artifact (`orca-appimage-<ver>...`) for non-Debian distros; that step is
+`continue-on-error`, so it never blocks the server deb.
+
+- Upstream releases Linux as AppImage + deb + rpm for x64 and arm64 (`release-cut.yml`,
+  `--linux AppImage deb rpm`). We build x64 deb + AppImage only.
+- The deb installs `/opt/Orca`, `/usr/share/applications/orca-ide.desktop` (`StartupWMClass=orca`),
+  hicolor icons and `/usr/bin/orca-ide`; `after-install.sh` sets `chrome-sandbox` to 4755, so the
+  Chromium sandbox works on Ubuntu 24.04's AppArmor userns restriction. Its `depends` include
+  libsecret-1-0 plus the headless helpers (xvfb, xdotool, xclip, python3-gi), harmless on a desktop.
+  Package name `orca-ide`, the same as the official deb: installing ours over it (or the reverse
+  with `--allow-downgrades`) is a normal dpkg upgrade; dpkg sorts `<base>+overhedge.N` above `<base>`.
+- Updates: upstream checks `https://github.com/stablyai/orca/releases/latest/download`
+  (`latest-linux.yml`). On an AppImage it downloads and installs on quit automatically
+  (electron-updater AppImageUpdater, when automatic updates are on); on a deb it offers the update,
+  downloads the official deb and hands the user a `sudo apt install` command
+  (`linux-package-install-command.ts`). Either would replace the
+  fork build, so the guard turns the release updater off for the interactive Linux app. The server
+  is unaffected: `orca serve` runs with a headless install mode and keeps checking as before
+  (no automatic download on a deb, `manual-service-update-required` for remote requests).
+- Secrets: Electron safeStorage on Linux keeps its key in the Secret Service (gnome-keyring,
+  KWallet), looked up by the application name; there is no code signature on Linux. The fork has
+  the same name and app id, so switching official <-> fork keeps everything readable, both ways.
+  Without a keyring Chromium falls back to `basic_text` (built-in key); Orca warns in Settings, and
+  secrets sealed earlier with a keyring stay unreadable until the keyring is back.
+- Data: same `~/.config/orca` and `~/.orca` as the official app.
 
 ## Download the artifact
 
