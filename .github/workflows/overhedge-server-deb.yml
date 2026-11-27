@@ -189,10 +189,14 @@ jobs:
       - name: Load packaged node-pty on the Linux floor
         uses: nick-fields/retry@v4
         with:
-          timeout_minutes: 10
+          # Backstop only, as release-cut (1.4.280): the smoke's per-phase limits fail a stall fast.
+          timeout_minutes: 8
           max_attempts: 3
           retry_wait_seconds: 30
           command: node config/scripts/desktop-distribution/runtime-verification/run-linux-packaged-node-pty-floor-smoke.mjs --app-dir dist/linux-unpacked
+        env:
+          # As release-cut (1.4.280): the public Ubuntu archive stalls apt-get update on x64 runners.
+          ORCA_NODE_PTY_FLOOR_APT_MIRROR: http://azure.archive.ubuntu.com/ubuntu
 
       - name: Describe the package
         id: describe
