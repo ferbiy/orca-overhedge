@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { lazyZodSchema } from '../../../../shared/schema/lazy-zod-schema'
 import { PLUGIN_HOST_API } from '../../../../shared/plugins/workers/plugin-host-api'
 import { pluginWorkspaceId } from '../../../../shared/plugins/workers/plugin-host-api-workspace-methods'
 import {
@@ -23,26 +24,32 @@ import { desktopPairedRuntimeHosts } from './plugin-chat-paired-runtime'
 const api = PLUGIN_HOST_API
 
 // The parts of each runtime answer these methods read; anything else is dropped.
-const worktreeRecord = z.object({
-  id: z.string(),
-  identity: z.object({ key: z.string() }).optional()
-})
-const worktreeCreateAnswer = z.object({ worktree: worktreeRecord })
-const worktreeShowAnswer = z.object({ worktree: worktreeRecord })
-const agentLaunchAnswer = z.object({
-  worktreeId: z.string(),
-  outcome: z.object({ handle: z.string() })
-})
-const worktreeListAnswer = z.object({
-  worktrees: z.array(
-    worktreeRecord.extend({
-      repoId: z.string(),
-      path: z.string(),
-      displayName: z.string().optional(),
-      hostId: z.string().optional()
-    })
-  )
-})
+const worktreeRecord = lazyZodSchema(() =>
+  z.object({
+    id: z.string(),
+    identity: z.object({ key: z.string() }).optional()
+  })
+)
+const worktreeCreateAnswer = lazyZodSchema(() => z.object({ worktree: worktreeRecord }))
+const worktreeShowAnswer = lazyZodSchema(() => z.object({ worktree: worktreeRecord }))
+const agentLaunchAnswer = lazyZodSchema(() =>
+  z.object({
+    worktreeId: z.string(),
+    outcome: z.object({ handle: z.string() })
+  })
+)
+const worktreeListAnswer = lazyZodSchema(() =>
+  z.object({
+    worktrees: z.array(
+      worktreeRecord.extend({
+        repoId: z.string(),
+        path: z.string(),
+        displayName: z.string().optional(),
+        hostId: z.string().optional()
+      })
+    )
+  })
+)
 
 const listedId = (worktree: z.output<typeof worktreeRecord>): string =>
   pluginWorkspaceId({ id: worktree.id, identityKey: worktree.identity?.key })

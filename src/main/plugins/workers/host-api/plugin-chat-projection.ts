@@ -1,5 +1,6 @@
 // Overhedge: plugin chat send (`chat:send`); see OVERHEDGE.md "Plugin chat send".
 import { z } from 'zod'
+import { lazyZodSchema } from '../../../../shared/schema/lazy-zod-schema'
 import { AGENT_STATUS_STATES } from '../../../../shared/agent-status/contracts/agent-status-types'
 import { structuredAgentSessionIdFromTabId } from '../../../../shared/agent-session/view/structured-agent-session-tab-id'
 import { parsePaneKey } from '../../../../shared/workspace-layout/stable-pane-id'
@@ -17,22 +18,24 @@ import type { PluginHostResult } from '../../../../shared/plugins/workers/plugin
 export type PluginChatRow = PluginHostResult<'chat.list'>['chats'][number]
 
 // The parts of an `agent.list` answer this reads; the last reply and anything else are dropped.
-export const agentListAnswer = z.object({
-  agents: z.array(
-    z.object({
-      kind: z.string(),
-      agent: z.string().nullable().optional(),
-      state: z.enum(AGENT_STATUS_STATES),
-      workspace: z.string(),
-      repo: z.string().optional(),
-      hostId: z.string().optional(),
-      paneKey: z.string(),
-      title: z.string().nullable().optional(),
-      updatedAt: z.number().finite()
-    })
-  ),
-  truncated: z.boolean().optional()
-})
+export const agentListAnswer = lazyZodSchema(() =>
+  z.object({
+    agents: z.array(
+      z.object({
+        kind: z.string(),
+        agent: z.string().nullable().optional(),
+        state: z.enum(AGENT_STATUS_STATES),
+        workspace: z.string(),
+        repo: z.string().optional(),
+        hostId: z.string().optional(),
+        paneKey: z.string(),
+        title: z.string().nullable().optional(),
+        updatedAt: z.number().finite()
+      })
+    ),
+    truncated: z.boolean().optional()
+  })
+)
 export type AgentListAnswer = z.output<typeof agentListAnswer>
 
 /** The chat session a status row's pane shows; null for a terminal agent or a malformed key. */

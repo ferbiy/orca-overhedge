@@ -1,5 +1,6 @@
 // Overhedge: wires the Claude per-chat account commands into the runtime RPC surface.
 import { z } from 'zod'
+import { lazyZodSchema } from '../../../../../shared/schema/lazy-zod-schema'
 import { getClaudeProfileRouter } from '../../../../claude-accounts/profiles/routing/claude-profile-installed-router'
 import {
   describeChatAccount,
@@ -165,19 +166,21 @@ export async function interceptClaudeAccountSlashCommand(
   })
 }
 
-const MigrateParams = z
-  .object({
-    to: z.string().min(1).max(512).optional(),
-    unpin: z.boolean().optional(),
-    chatIds: z.array(z.string().min(1).max(512)).max(512).optional(),
-    withWorkersOf: z.array(z.string().min(1).max(512)).max(64).optional(),
-    allOn: z.string().min(1).max(512).optional(),
-    dryRun: z.boolean().optional(),
-    restart: z.boolean().optional(),
-    yes: z.boolean().optional(),
-    timeoutSeconds: z.number().int().min(0).max(3600).optional()
-  })
-  .strict()
+const MigrateParams = lazyZodSchema(() =>
+  z
+    .object({
+      to: z.string().min(1).max(512).optional(),
+      unpin: z.boolean().optional(),
+      chatIds: z.array(z.string().min(1).max(512)).max(512).optional(),
+      withWorkersOf: z.array(z.string().min(1).max(512)).max(64).optional(),
+      allOn: z.string().min(1).max(512).optional(),
+      dryRun: z.boolean().optional(),
+      restart: z.boolean().optional(),
+      yes: z.boolean().optional(),
+      timeoutSeconds: z.number().int().min(0).max(3600).optional()
+    })
+    .strict()
+)
 
 export const CLAUDE_CHAT_ACCOUNT_METHODS = [
   defineMethod({
