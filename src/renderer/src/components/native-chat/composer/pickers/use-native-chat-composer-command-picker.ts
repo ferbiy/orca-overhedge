@@ -15,6 +15,7 @@ import { useNativeChatMentionNameMatches } from '../../native-chat-composer-room
 import type { NativeChatComposerRoom } from '../native-chat-composer-types'
 import type { NativeChatPickerItem } from '../../../../../../shared/native-chat/input/composer/native-chat-picker-items'
 import { isNativeChatSideChatCommand } from '../../../../../../shared/native-chat/input/commands/native-chat-side-chat-command'
+import { orcaSlashCommandNeedsArgument } from '../../../../../../shared/native-chat/input/composer/overhedge-slash-arguments'
 
 type PickerArgs = Parameters<typeof useNativeChatPickerState>[0]
 type ResumeArgs = Parameters<typeof useNativeChatResumeCommand>[0]
@@ -114,9 +115,24 @@ export function useNativeChatComposerCommandPicker(
     (): NativeChatResumeCommand => ({
       matchesDraft: (draft) => sideMatches(draft) || resumeMatches(draft),
       consume: (draft) => sideConsume(draft) || resumeConsume(draft),
-      interceptPick: (pick) => sideIntercept(resumeIntercept(pick))
+      // overhedge: Enter on a row whose command needs an argument completes it (`/orca-migrate `).
+      interceptPick: (pick) =>
+        sideIntercept(
+          resumeIntercept((item) =>
+            orcaSlashCommandNeedsArgument(agentCommands, item) ? completeItem(item) : pick(item)
+          )
+        )
     }),
-    [resumeConsume, resumeIntercept, resumeMatches, sideConsume, sideIntercept, sideMatches]
+    [
+      agentCommands,
+      completeItem,
+      resumeConsume,
+      resumeIntercept,
+      resumeMatches,
+      sideConsume,
+      sideIntercept,
+      sideMatches
+    ]
   )
   return {
     picker,

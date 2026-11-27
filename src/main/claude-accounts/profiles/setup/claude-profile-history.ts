@@ -12,6 +12,7 @@ import {
 } from '../claude-profile-report'
 import { mergeClaudeProfilePromptHistory } from './claude-profile-prompt-history'
 import { shareClaudeProfileSessions } from './claude-profile-shared-sessions'
+import { installOrcaClaudeCommands } from './claude-profile-orca-commands'
 
 // `sessions` is shared separately (Overhedge: claude-profile-shared-sessions.ts).
 export const CLAUDE_PROFILE_HISTORY_DIRS = [
@@ -62,6 +63,10 @@ export async function shareClaudeProfileHistory(args: {
   // Overhedge: link the live-session registry too, so peers under other accounts are listed.
   await runClaudeProfileSurface(report, 'sessions', () =>
     shareClaudeProfileSessions({ profileHome: args.profileHome, defaultHome, platform, report })
+  )
+  // Overhedge: `/orca-account` and `/orca-migrate` for terminal Claude (custom commands).
+  await runClaudeProfileSurface(report, 'orca-commands', () =>
+    installOrcaClaudeCommands({ profileHome: args.profileHome, defaultHome })
   )
   await runClaudeProfileSurface(report, 'history.jsonl', () =>
     mergeClaudeProfilePromptHistory(args.profileHome, defaultHome, platform, report)

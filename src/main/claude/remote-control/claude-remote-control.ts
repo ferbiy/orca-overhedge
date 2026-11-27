@@ -4,6 +4,10 @@
 
 import type { Query } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentSessionSlashCommand } from '../../../shared/agent-session/agent-session-wire'
+import type {
+  OrcaSlashArguments,
+  WithOrcaSlashArguments
+} from '../../../shared/native-chat/input/composer/overhedge-slash-arguments'
 
 export type ClaudeRemoteControlCommand =
   | { action: 'enable'; name?: string }
@@ -90,18 +94,36 @@ export function claudeQueryRemoteControl(
     : null
 }
 
-export const CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS: AgentSessionSlashCommand[] = [
+// The composer offers these after `/rc ` (overhedge-slash-arguments.ts); any other word is a name.
+const REMOTE_CONTROL_ARGUMENTS: OrcaSlashArguments = {
+  positions: [
+    [
+      {
+        value: 'on',
+        hint: '[name]',
+        description: 'Turn Remote Control on; /rc <name> (any other word) also names the session'
+      },
+      { value: 'off', description: 'Turn Remote Control off' },
+      { value: 'status', description: 'Show whether Remote Control is on' }
+    ]
+  ]
+}
+
+export const CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS: (AgentSessionSlashCommand &
+  WithOrcaSlashArguments)[] = [
   {
     name: 'remote-control',
     kind: 'command',
     description: 'Orca: turn Claude Code Remote Control on (off, status) for this chat',
-    argumentHint: '[on [name]|<name>|off|status]'
+    argumentHint: '[on [name]|<name>|off|status]',
+    orcaArguments: REMOTE_CONTROL_ARGUMENTS
   },
   {
     name: 'rc',
     kind: 'command',
     description: 'Orca: alias for /remote-control',
-    argumentHint: '[on [name]|<name>|off|status]'
+    argumentHint: '[on [name]|<name>|off|status]',
+    orcaArguments: REMOTE_CONTROL_ARGUMENTS
   }
 ]
 
