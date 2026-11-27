@@ -17,6 +17,8 @@ import {
 import { resolvePluginProject, type PluginProjectTarget } from './plugin-host-project-target'
 import { recordPluginOpenedTerminal } from './plugin-opened-terminals'
 import { PLUGIN_AGENT_RESUME_HANDLERS } from './plugin-host-agent-resume-binding'
+import { createWorkspaceOnPairedServer, pairedCreateServer } from './plugin-host-paired-projects'
+import { desktopPairedRuntimeHosts } from './plugin-chat-paired-runtime'
 
 const api = PLUGIN_HOST_API
 
@@ -65,6 +67,11 @@ const setupDecisionRequired = (): PluginHostCallError =>
 export const PLUGIN_WORKSPACE_CREATE_HANDLERS = {
   'workspace.create': bind(api['workspace.create'], async (params, ctx) => {
     const call = rpc(ctx.services)
+    // Overhedge: a project on a paired Orca server is created there (plugin-host-paired-projects.ts).
+    const server = await pairedCreateServer(ctx, params, call, desktopPairedRuntimeHosts)
+    if (server) {
+      return createWorkspaceOnPairedServer(ctx, params, server, desktopPairedRuntimeHosts)
+    }
     const project = await resolvePluginProject(
       call,
       params.projectId,

@@ -13,6 +13,8 @@ import {
 } from './plugin-host-runtime-call'
 import { listPluginProjects, listPluginWorkspaces } from './plugin-host-workspace-list'
 import { recordPluginOpenedTerminal } from './plugin-opened-terminals'
+import { withPairedServerProjects } from './plugin-host-paired-projects'
+import { desktopPairedRuntimeHosts } from './plugin-chat-paired-runtime'
 
 const api = PLUGIN_HOST_API
 const DEFAULT_READ_LINES = 200
@@ -49,8 +51,13 @@ export const PLUGIN_WORKSPACE_ACTION_HANDLERS = {
       services.runtimeRpc ?? services
     )
   ),
-  'project.list': bind(api['project.list'], async (_params, { services }) =>
-    listPluginProjects(rpc(services))
+  'project.list': bind(api['project.list'], async (_params, ctx) =>
+    // Overhedge: paired servers' projects too (plugin-host-paired-projects.ts).
+    withPairedServerProjects(
+      ctx,
+      await listPluginProjects(rpc(ctx.services)),
+      desktopPairedRuntimeHosts
+    )
   ),
   'workspace.open': bind(api['workspace.open'], async ({ workspaceId }, ctx) => {
     const scope = parseWorkspaceKey(workspaceId)

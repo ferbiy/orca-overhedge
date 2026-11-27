@@ -33,7 +33,10 @@ const agentsListParams = z
   .strictObject({
     /** A workspace by the id `workspace.list` gives, instead of the focused one (host API 1.10;
      *  older hosts refuse it with `invalid_params`). */
-    workspaceId: pluginWorkspaceIdSchema.optional()
+    workspaceId: pluginWorkspaceIdSchema.optional(),
+    /** Overhedge: the paired Orca server `workspaceId` is on (`runtime:…`, as `project.list`
+     *  gives it); desktop app only. Its agents' `terminalId` is null. */
+    hostId: z.string().min(1).max(1024).optional()
   })
   .optional()
 const agentsListResult = z.object({

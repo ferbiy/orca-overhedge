@@ -78,6 +78,9 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   colours" below.
 - Plugin task board: a task source can offer a Kanban board (status columns, drag and drop to
   change status) beside its list. See "Plugin task board" below.
+- Plugin projects on paired servers: in the desktop app, a plugin's `project.list` also lists the
+  projects of each paired Orca server, `workspace.create` for one of them makes the workspace
+  (and starts its agent) on that server, and `agents.list` reads its agents there. See "Plugin projects on paired servers" below.
 
 ## Overlap with upstream (checked against v1.4.278)
 
@@ -277,6 +280,38 @@ regenerated plugin reference docs and typings. Everything else is in new files:
 `src/shared/plugins/workers/plugin-host-api-chat.ts`,
 `src/shared/plugins/capabilities/plugin-chat-send-capability.ts` and
 `src/main/plugins/workers/host-api/plugin-{host-chat-bindings,chat-projection,chat-paired-runtime}.ts`.
+
+## Plugin projects on paired servers
+
+Upstream's `project.list` and `workspace.create` read and write this computer's runtime only
+(`repo.list` / `worktree.create` in process), so a desktop paired with an Orca server never showed
+the server's projects to a plugin: our ClickUp plugin's "Start <agent>" menu listed only "(this
+computer)" projects. In the desktop app (`services.desktop`):
+
+- `project.list` adds each paired server's own projects (its `repo.list`, rows it keeps for its own
+  SSH hosts left out) after this computer's, with `hostId: runtime:<environmentId>` and the
+  server's name as `hostLabel`. A server that does not answer within 8 s is named in
+  `unreachableHostIds`; the list still answers. Paired servers are the environments the desktop
+  has saved minus ones the person disconnected, the same set and transport as `chat.list`
+  (`plugin-chat-paired-runtime.ts`), with background calls (a listing does not wake an idle host).
+- `workspace.create` with such a `hostId`, when this computer's catalog has no row of that project
+  for that host, runs on the server: the calls `orca worktree create --agent` makes there
+  (`worktree.list` for a free name, then `agent.launch` with a `create-worktree` target, or
+  `worktree.create` without an agent), never `run`, an approved setup hash or a startup command.
+  It is made in the background; `open: true` is refused (the server has no window to show it).
+  Approval is re-checked right before the write. The returned `workspaceId` and `terminalId` are
+  the server's.
+- `agents.list({ workspaceId, hostId })` with a paired server's `hostId` reads that server's
+  `agent.list` for the workspace (a background poll); `terminalId` is null there (the server's
+  terminals are not this computer's). Without `hostId`, or with `local`, it is upstream's.
+- Not covered: this computer's `workspace.list` and agent events (`agent.status.changed`) still
+  report this computer only, so a plugin follows a server run by polling `agents.list`.
+
+Upstream files touched: `plugin-host-workspace-method-bindings.ts` (`project.list`, 3 lines),
+`plugin-host-workspace-create-bindings.ts` (4 lines), `plugin-host-method-bindings.ts`
+(`agents.list`, 5 lines), `plugin-host-api-workspace-methods.ts` (two optional result fields,
+summary), `plugin-host-api-panel-methods.ts` (optional `hostId` param), plus the regenerated plugin reference docs and typings. The rest
+is in `src/main/plugins/workers/host-api/plugin-host-paired-projects.ts`.
 
 ## Cross-account Claude peers
 
