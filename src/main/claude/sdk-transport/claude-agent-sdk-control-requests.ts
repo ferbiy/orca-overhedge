@@ -8,6 +8,16 @@ import {
   providerDiagnostic,
   withProviderDiagnostic
 } from '../../../shared/agent-session/failures/agent-session-failure'
+import {
+  claudeQueryRemoteControl,
+  type ClaudeRemoteControlResponse
+} from '../remote-control/claude-remote-control'
+
+type ClaudeRemoteControlRequest = (
+  enabled: boolean,
+  name?: string,
+  options?: ClaudeControlOptions
+) => Promise<ClaudeRemoteControlResponse>
 
 export class ClaudeControlRequestError extends Error {
   constructor(
@@ -214,6 +224,8 @@ export type ClaudeControlSurface = {
   mcp?: ClaudeMcpControls
   /** Stops or restarts the CLI generating prompt suggestions; a new process starts unpaused. */
   setPromptSuggestionsPaused?: (paused: boolean, options?: ClaudeControlOptions) => Promise<void>
+  /** overhedge: absent when this SDK has no enableRemoteControl. */
+  remoteControl?: ClaudeRemoteControlRequest
 }
 
 type InterruptingQuery = {
@@ -223,8 +235,13 @@ type InterruptingQuery = {
 }
 
 export function createClaudeControlSurface(query: Query): ClaudeControlSurface {
+  const remoteControl = claudeQueryRemoteControl(query)
   return {
     mcp: createClaudeMcpControls(query),
+    ...(remoteControl && {
+      remoteControl: (enabled, name, options) =>
+        runClaudeControl('remote_control', () => remoteControl(enabled, name), options?.timeoutMs)
+    }),
     interrupt: (options) =>
       runClaudeControl(
         'interrupt',

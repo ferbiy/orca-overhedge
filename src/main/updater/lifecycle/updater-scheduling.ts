@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { releaseUpdatesEnabled } from '../overhedge-release-updates'
 import { isMacInstallRequested } from '../mac-install/updater-mac-install'
 import { withUpdaterSpan } from '../../observability/instrumentation'
 import {
@@ -12,6 +12,11 @@ import { UpdaterCheckFailure } from './updater-check-failure'
 import { getDelayedUpdateWakeDelayMs } from '../releases/updater-release-delay'
 
 export abstract class UpdaterScheduling extends UpdaterCheckFailure {
+  /** Overhedge: `app.isPackaged` for the updater's gates, but false for the fork's desktop builds. */
+  protected releaseUpdatesAllowed(): boolean {
+    return releaseUpdatesEnabled(this.updateInstallMode)
+  }
+
   protected getAutomaticRetryInterval(): number {
     return AUTO_UPDATE_RETRY_INTERVAL_MS
   }
@@ -75,7 +80,7 @@ export abstract class UpdaterScheduling extends UpdaterCheckFailure {
     ) {
       return false
     }
-    if (!app.isPackaged) {
+    if (!this.releaseUpdatesAllowed()) {
       this.sendStatus({ state: 'not-available' })
       return false
     }

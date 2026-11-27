@@ -49,7 +49,10 @@ export const WorkerStartParams = lazyZodSchema(() =>
       crossStoreParent: CrossStoreParentRefSchema.optional(),
       /** Only from the paired Orca coordinating this Run: the start is in a chat lineage there, so it and
        *  the workers it starts start as chats here too. */
-      chatLineage: z.literal(true).optional()
+      chatLineage: z.literal(true).optional(),
+      /** Overhedge: an Orca-managed Claude account (id or full email) the new worker is pinned to
+       *  before it starts. Gate on overhedge.claude-launch-account.v1; older hosts strip it. */
+      account: OptionalWorkerLaunchPreference
     })
     .superRefine((params, ctx) => {
       if (!params.task && !params.spec) {

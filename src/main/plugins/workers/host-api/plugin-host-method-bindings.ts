@@ -31,6 +31,8 @@ import { PLUGIN_WORKSPACE_CREATE_HANDLERS } from './plugin-host-workspace-create
 import { PLUGIN_AUTOMATION_HANDLERS } from './plugin-host-automation-bindings'
 import { PLUGIN_AGENT_HISTORY_HANDLERS } from './plugin-host-agent-history-bindings'
 import { PLUGIN_PROJECT_VISIBILITY_HANDLERS } from './plugin-host-project-visibility-binding'
+import { PLUGIN_CHAT_HANDLERS } from './plugin-host-chat-bindings'
+import { withPairedServerAgents } from './plugin-host-paired-projects'
 import {
   pluginHostRpc as rpc,
   pluginWorkspaceSelector as workspaceSelector,
@@ -172,30 +174,33 @@ const HANDLERS: Record<PluginHostMethodName, BoundPluginHostMethod> = {
       return surface === 'worker' ? projected : pluginFrameWorkspaceContext(projected)
     }
   ),
-  'agents.list': bind(api['agents.list'], async (params, { services, scope }) => {
-    const worktreeId = params?.workspaceId
-      ? worktreeShowAnswer.parse(
-          await rpc(services)(
-            'worktree.show',
-            { worktree: workspaceSelector(params.workspaceId), matchFolderWorkspaces: true },
-            scope.signal ? { signal: scope.signal } : {}
-          )
-        ).worktree.id
-      : (await services.resolveActiveWorktreeContext())?.worktreeId
-    if (!worktreeId) {
-      return { agents: [] }
-    }
-    const terminals = await services.listWorktreeTerminals(worktreeId).catch(() => [])
-    return {
-      agents: projectPluginWorkspaceAgents(
-        worktreeId,
-        terminals,
-        services.listAgentStatuses(),
-        // Only read when the workspace has agents: it reads the orchestration database.
-        () => services.listAgentTaskTitles?.() ?? new Map()
-      )
-    }
-  }),
+  'agents.list': bind(api['agents.list'], async (params, ctx) =>
+    // Overhedge: a paired server's workspace is read there (plugin-host-paired-projects.ts).
+    withPairedServerAgents(ctx, params, async ({ services, scope }) => {
+      const worktreeId = params?.workspaceId
+        ? worktreeShowAnswer.parse(
+            await rpc(services)(
+              'worktree.show',
+              { worktree: workspaceSelector(params.workspaceId), matchFolderWorkspaces: true },
+              scope.signal ? { signal: scope.signal } : {}
+            )
+          ).worktree.id
+        : (await services.resolveActiveWorktreeContext())?.worktreeId
+      if (!worktreeId) {
+        return { agents: [] }
+      }
+      const terminals = await services.listWorktreeTerminals(worktreeId).catch(() => [])
+      return {
+        agents: projectPluginWorkspaceAgents(
+          worktreeId,
+          terminals,
+          services.listAgentStatuses(),
+          // Only read when the workspace has agents: it reads the orchestration database.
+          () => services.listAgentTaskTitles?.() ?? new Map()
+        )
+      }
+    })
+  ),
   'terminal.sendText': bind(api['terminal.sendText'], async (params, { services, scope }) => {
     const context = await services.resolveActiveWorktreeContext()
     if (!context) {
@@ -278,7 +283,8 @@ const HANDLERS: Record<PluginHostMethodName, BoundPluginHostMethod> = {
   ...PLUGIN_TERMINAL_ACTION_HANDLERS,
   ...PLUGIN_WORKSPACE_CREATE_HANDLERS,
   ...PLUGIN_AUTOMATION_HANDLERS,
-  ...PLUGIN_AGENT_HISTORY_HANDLERS
+  ...PLUGIN_AGENT_HISTORY_HANDLERS,
+  ...PLUGIN_CHAT_HANDLERS
 }
 
 function requireDesktop(services: PluginHostServices): PluginDesktopFrameServices {

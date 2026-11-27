@@ -117,12 +117,16 @@ const projectListResult = lazyZodSchema(() =>
           path: z.string().max(ID_MAX),
           /** Hidden from Orca's sidebar on this host (`project.setHidden`); its workspaces still
            *  run. Absent before host API 1.9. */
-          hidden: z.boolean().optional()
+          hidden: z.boolean().optional(),
+          /** Overhedge: the paired Orca server's name, on a server's project. */
+          hostLabel: z.string().max(512).optional()
         })
       )
       .max(PLUGIN_PROJECT_LIST_LIMIT),
     /** More projects exist than the list holds, or some were left out for an over-long id or path. */
-    truncated: z.boolean()
+    truncated: z.boolean(),
+    /** Overhedge: paired Orca servers whose projects could not be read now (desktop app only). */
+    unreachableHostIds: z.array(z.string().max(PLUGIN_HOST_ID_MAX_LENGTH)).max(32).optional()
   })
 )
 
@@ -270,7 +274,7 @@ export const PLUGIN_WORKSPACE_ACTIONS_API = {
   }),
   'project.list': spec({
     summary:
-      'Lists your projects (repositories and folders) on every host; `id` is what `workspace.list` rows name as `projectId`. `hostId` is always named: `local`, `ssh:…` or `runtime:…`.',
+      'Lists your projects (repositories and folders) on every host, in the desktop app also those of each paired Orca server (Overhedge); `id` is what `workspace.list` rows name as `projectId`. `hostId` is always named: `local`, `ssh:…` or `runtime:…`.',
     since: 7,
     scope: 'any-workspace',
     capability: 'workspace:read',

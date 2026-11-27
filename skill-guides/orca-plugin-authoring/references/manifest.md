@@ -209,7 +209,7 @@ An MCP server Orca offers to the agents it launches, beside the user’s own.
 
 A host API the plugin may call once the user consents.
 
-- `kind` (one of workspace:read, workspace:write, agent:read, agent:launch, terminal:send, terminal:read, notifications:show, storage:own, secrets:own, settings:own, appearance:write, workspace:create, automation:read, automation:write, history:read, required, since 1.4.160): Capability granted on user consent.
+- `kind` (one of workspace:read, workspace:write, agent:read, agent:launch, terminal:send, terminal:read, notifications:show, storage:own, secrets:own, settings:own, appearance:write, workspace:create, automation:read, automation:write, history:read, chat:send, required, since 1.4.160): Capability granted on user consent.
 
 ## Screenshot
 

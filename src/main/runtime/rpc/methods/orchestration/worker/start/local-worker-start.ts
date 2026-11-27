@@ -39,6 +39,7 @@ import {
 } from '../release/retried-worker-terminal-release'
 import { requireWorkerAuthority } from './placement/worker-placement-topology'
 import { joinWorkerStartWarnings } from './launch/worker-launch-preferences'
+import { withLocalWorkerClaudeAccount } from './worker-start-claude-account'
 import { deliverAndSettleWorkerStartReadiness } from './readiness/worker-start-readiness-settlement'
 import { handOverWhenReady, wakeReusedSleptAgent } from './readiness/placed-worker-readiness'
 import type { WorkerStartMutation } from './worker-start-mutation'
@@ -92,21 +93,25 @@ export async function startLocalWorker(args: {
   const existingWorktree =
     requestedWorktree === 'current' ? `id:${coordinatorWorktreeId}` : requestedWorktree
   const targetLabel = workerStartTargetLabel({ ...args.params, createsWorktree, requestedWorktree })
+  // Overhedge: also resolves the new worker's Claude account, before the Run is bound.
   const {
     agent,
     launch,
     warning: retryLaunchWarning
-  } = await resolveLocalWorkerStartLaunch({
-    params,
-    createsWorktree,
-    existingWorktree,
-    targetLabel,
-    runtime,
-    resolveTarget: async () =>
-      createsWorktree
-        ? { repo: (await creationTargetFor(coordinatorWorktreeId)).repoSelector }
-        : { worktree: existingWorktree }
-  })
+  } = withLocalWorkerClaudeAccount(
+    await resolveLocalWorkerStartLaunch({
+      params,
+      createsWorktree,
+      existingWorktree,
+      targetLabel,
+      runtime,
+      resolveTarget: async () =>
+        createsWorktree
+          ? { repo: (await creationTargetFor(coordinatorWorktreeId)).repoSelector }
+          : { worktree: existingWorktree }
+    }),
+    args
+  )
 
   const creationTarget = createsWorktree
     ? await creationTargetFor(coordinatorWorktreeId)

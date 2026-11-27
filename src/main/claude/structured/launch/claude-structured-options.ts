@@ -255,3 +255,7 @@ async function confirmClaudeOption(
     }
   }
 }
+
+// Overhedge: reached through this module's namespace import in claude-structured-session-adapter.ts,
+// which sits at its line budget.
+export { withClaudeRemoteControlCommands } from '../../remote-control/claude-remote-control'

@@ -132,7 +132,7 @@ declare module 'orca/host' {
     }
     /** The agents in the focused workspace, or in the one `workspaceId` names (rejected when no workspace has it): their terminal, title, agent kind, status, session and dispatched task. `agent.status.changed` reports each change after. Since host API 1.2; `workspaceId` since 1.10. */
     "agents.list": {
-      params: { workspaceId?: string } | undefined
+      params: { workspaceId?: string; hostId?: string } | undefined
       result: { agents: { terminalId: string | null; title: string | null; agent: string | null; state: "working" | "blocked" | "waiting" | "done"; stateStartedAt: number; sessionId?: string | null; task?: { title: string } | null }[] }
       surfaces: "worker" | "panel" | "editor"
     }
@@ -166,10 +166,10 @@ declare module 'orca/host' {
       result: { workspaces: { id: string; kind: "worktree" | "folder"; name: string; project?: string | null; projectId?: string | null; path: string; branch: string | null; hostId: string | null; status?: { state: "working" | "permission" | "done" | "active" | "inactive"; unread: boolean; terminalCount: number; lastActivityAt: number | null } }[]; truncated: boolean; statusTruncated?: boolean }
       surfaces: "worker"
     }
-    /** Lists your projects (repositories and folders) on every host; `id` is what `workspace.list` rows name as `projectId`. `hostId` is always named: `local`, `ssh:…` or `runtime:…`. Since host API 1.7. */
+    /** Lists your projects (repositories and folders) on every host, in the desktop app also those of each paired Orca server (Overhedge); `id` is what `workspace.list` rows name as `projectId`. `hostId` is always named: `local`, `ssh:…` or `runtime:…`. Since host API 1.7. */
     "project.list": {
       params: Record<string, never> | undefined
-      result: { projects: { id: string; name: string; kind: "git" | "folder"; hostId: string | null; path: string; hidden?: boolean }[]; truncated: boolean }
+      result: { projects: { id: string; name: string; kind: "git" | "folder"; hostId: string | null; path: string; hidden?: boolean; hostLabel?: string }[]; truncated: boolean; unreachableHostIds?: string[] }
       surfaces: "worker"
     }
     /** Shows a workspace in Orca, as clicking it in the sidebar does; a folder workspace needs the desktop app. Since host API 1.3. */
@@ -278,6 +278,18 @@ declare module 'orca/host' {
     "agent.listSessions": {
       params: { workspaceId?: string; limit?: number } | undefined
       result: { sessions: { sessionId: string; agent: string; title: string; workspaceId: string | null; hostId: string; branch: string | null; createdAt: number | null; updatedAt: number; messageCount: number; totalTokens: number; running: boolean }[]; truncated: boolean }
+      surfaces: "worker"
+    }
+    /** Open Orca chats (not terminal agents) on this computer and on paired Orca servers: id, host, agent, chat name, workspace, project, status. Never their messages. Since host API 1.10. */
+    "chat.list": {
+      params: { hostId?: string } | undefined
+      result: { chats: { chatId: string; hostId: string; hostLabel: string | null; agent: string | null; title: string | null; workspace: string; project: string | null; state: "working" | "blocked" | "waiting" | "done"; updatedAt: number }[]; unreachableHostIds: string[]; truncated: boolean }
+      surfaces: "worker"
+    }
+    /** Sends plain text as the person's message into an open chat `chat.list` gives, on its host; a busy chat queues it. Never opens a chat or reaches a terminal agent. Since host API 1.10. */
+    "chat.send": {
+      params: { chatId: string; hostId: string; text: string }
+      result: { status: "sent" | "queued" }
       surfaces: "worker"
     }
     /** The font family, size, weight, line height, ligatures, word wrap and minimap Orca's file editor uses now, editor zoom included. `editor.typography.changed` reports each change after. Since host API 1.6. */

@@ -13,7 +13,7 @@ import {
   resolveWorkerStartRun,
   qualifyLiveWorkerFollowUp
 } from './start/admission/worker-start-authority'
-import { parseTaskDeps } from './start/admission/task-deps-argument'
+import { parseTaskDeps, withWorkerStartClaudeAccount } from './start/admission/task-deps-argument'
 import { WorkerStartParams } from '../../../../../../shared/rpc-contract/orchestration/orchestration-worker-start-params'
 import {
   isWorkerStartTimeoutWithinTimerLimit,
@@ -62,7 +62,7 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
     requires: ['accounts'],
     permission: 'workspace',
     params: WorkerStartParams,
-    handler: async (params, ctx) => startWorker(params, ctx)
+    handler: async (params, ctx) => startWorker(withWorkerStartClaudeAccount(params, ctx), ctx)
   })
 ]
 

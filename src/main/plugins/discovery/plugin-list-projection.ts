@@ -35,6 +35,7 @@ import {
 import { pluginExecutionProfile } from '../../../shared/plugins/contributions/plugin-execution-profile'
 import { isRequiredTeamPluginInstall } from '../installation/plugin-team-install-policy'
 import { installedPluginReleasePolicyError } from '../activation/plugin-activation-policy'
+import { withPluginTaskSources } from '../../../shared/plugins/tasks/plugin-task-source-commands'
 
 const PLUGIN_LIST_PROJECTION_CONCURRENCY = 4
 
@@ -287,7 +288,8 @@ export async function buildPluginList(
       }
     }
   )
-  const orderedEntries = entries.toSorted(
+  const listed = entries.map(withPluginTaskSources)
+  const orderedEntries = listed.toSorted(
     (a, b) =>
       (lock.plugins[a.pluginKey]?.installedAt ?? Infinity) -
         (lock.plugins[b.pluginKey]?.installedAt ?? Infinity) ||

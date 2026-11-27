@@ -23,8 +23,10 @@ import { parseAgentSessionOperationTimestamp } from '../../shared/agent-session/
 import type { RuntimeStatus } from '../../shared/remote-runtime/session-graph/runtime-session-contracts'
 import type { TuiAgent } from '../../shared/agent-launch/catalog/tui-agent'
 import { isTuiAgent } from '../../shared/agent-launch/catalog/tui-agent-config'
+import { CLAUDE_LAUNCH_ACCOUNT_RUNTIME_CAPABILITY } from '../../shared/remote-runtime/protocol/account-runtime-capabilities'
 import {
   getOptionalStringFlag,
+  getPresentStringFlag,
   getRequiredStringFlag,
   getRequiredStringFlagAllowingEmpty,
   rejectValuelessFlag
@@ -47,6 +49,38 @@ export type CliAgentLaunch = {
   sessionOptions?: Record<string, string>
   operationId?: string
   surface?: AgentLaunchSurface
+  /** Overhedge: `--account`, the Orca-managed Claude account the new chat starts under. */
+  claudeAccount?: string
+}
+
+export const CLAUDE_ACCOUNT_AGENT_ONLY_MESSAGE =
+  '--account applies only to --agent claude: it names an Orca-managed Claude account.'
+
+export const CLAUDE_ACCOUNT_UNSUPPORTED_MESSAGE =
+  'This Orca host cannot start a Claude chat on a chosen account (--account). Update Orca on the execution host, or omit --account.'
+
+/** `--account <id|email>`: only for Claude, refused before anything is sent otherwise. */
+export function readCliClaudeAccount(flags: Flags, agent: string | undefined): string | undefined {
+  const account = getPresentStringFlag(flags, 'account')?.trim()
+  if (account === undefined) {
+    return undefined
+  }
+  if (!account) {
+    throw new RuntimeClientError('invalid_argument', 'Missing value for --account')
+  }
+  if (agent !== undefined && agent !== 'claude') {
+    throw new RuntimeClientError('invalid_argument', CLAUDE_ACCOUNT_AGENT_ONLY_MESSAGE)
+  }
+  return account
+}
+
+export function assertClaudeAccountSupported(
+  account: string | undefined,
+  capabilities: readonly string[] | null | undefined
+): void {
+  if (account !== undefined && !capabilities?.includes(CLAUDE_LAUNCH_ACCOUNT_RUNTIME_CAPABILITY)) {
+    throw new RuntimeClientError('incompatible_runtime', CLAUDE_ACCOUNT_UNSUPPORTED_MESSAGE)
+  }
 }
 
 function readSurfaceFlag(flags: Flags): AgentLaunchSurface | undefined {
@@ -93,9 +127,11 @@ export function readCliAgentLaunch(
     throw new RuntimeClientError('invalid_argument', 'Malformed --retry-launch operation ID')
   }
   const surface = readSurfaceFlag(flags)
+  const claudeAccount = readCliClaudeAccount(flags, agent)
   return {
     agent,
     ...(surface ? { surface } : {}),
+    ...(claudeAccount ? { claudeAccount } : {}),
     ...(operationId ? { operationId } : {}),
     ...(typeof prompt === 'string' && prompt.trim()
       ? { prompt: { text: prompt, delivery: 'submit' as const } }
@@ -153,6 +189,7 @@ export async function callAgentLaunch(
       'This Orca host cannot start Pi on a chosen model. Update Orca on the execution host, or omit --model.'
     )
   }
+  assertClaudeAccountSupported(launch.claudeAccount, capabilities)
   if (!capabilities.includes(AGENT_LAUNCH_LOCAL_PRESENTATION_RUNTIME_CAPABILITY)) {
     throw new RuntimeClientError(
       'incompatible_runtime',
