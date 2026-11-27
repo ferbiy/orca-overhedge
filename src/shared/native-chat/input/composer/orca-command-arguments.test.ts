@@ -7,8 +7,9 @@ import {
   deriveOrcaSlashArgumentAutocomplete,
   isOrcaSlashArgumentItem,
   orcaSlashCommandNeedsArgument,
-  readOrcaSlashArguments
-} from './overhedge-slash-arguments'
+  readOrcaSlashArguments,
+  type WithOrcaSlashArguments
+} from './orca-command-arguments'
 import type { NativeChatPickerItem } from './native-chat-picker-items'
 
 const accounts = [
@@ -16,7 +17,7 @@ const accounts = [
   { value: 'me@example.com', hint: 'current', description: 'id bbbb2222' },
   { value: 'auto', description: 'Remove the pin' }
 ]
-const reported = [
+const reported: (AgentSessionSlashCommand & WithOrcaSlashArguments)[] = [
   { name: 'compact', kind: 'command' },
   {
     name: 'orca-account',
@@ -34,7 +35,7 @@ const reported = [
     kind: 'command',
     orcaArguments: { positions: [[{ value: 'on', hint: '[name]' }, { value: 'off' }, { value: 'status' }]] }
   }
-] as AgentSessionSlashCommand[]
+]
 const commands = sessionSlashCommandSuggestions('claude', reported)
 
 function values(before: string, dismissed: string | null = null): string[] | null {

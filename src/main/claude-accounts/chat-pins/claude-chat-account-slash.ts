@@ -3,7 +3,7 @@ import type { AgentSessionSlashCommand } from '../../../shared/agent-session/age
 import type {
   OrcaSlashArgumentChoice,
   WithOrcaSlashArguments
-} from '../../../shared/native-chat/input/composer/overhedge-slash-arguments'
+} from '../../../shared/native-chat/input/composer/orca-command-arguments'
 
 export const ORCA_ACCOUNT_USAGE = [
   'Usage:',

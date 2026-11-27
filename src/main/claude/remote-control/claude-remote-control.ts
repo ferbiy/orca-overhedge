@@ -7,7 +7,7 @@ import type { AgentSessionSlashCommand } from '../../../shared/agent-session/age
 import type {
   OrcaSlashArguments,
   WithOrcaSlashArguments
-} from '../../../shared/native-chat/input/composer/overhedge-slash-arguments'
+} from '../../../shared/native-chat/input/composer/orca-command-arguments'
 
 export type ClaudeRemoteControlCommand =
   | { action: 'enable'; name?: string }
@@ -94,7 +94,7 @@ export function claudeQueryRemoteControl(
     : null
 }
 
-// The composer offers these after `/rc ` (overhedge-slash-arguments.ts); any other word is a name.
+// The composer offers these after `/rc ` (orca-command-arguments.ts); any other word is a name.
 const REMOTE_CONTROL_ARGUMENTS: OrcaSlashArguments = {
   positions: [
     [

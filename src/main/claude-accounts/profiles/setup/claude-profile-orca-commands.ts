@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { isDefinitiveAbsence } from '../../../../shared/errors/definitive-filesystem-absence'
 import type { ClaudeProfileSurfaceOutcome } from '../claude-profile-report'
 
 export const ORCA_CLAUDE_COMMANDS_DIR = 'commands'
@@ -122,7 +123,7 @@ async function readIfPresent(path: string): Promise<string | null> {
   try {
     return await readFile(path, 'utf8')
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    if (isDefinitiveAbsence(error)) {
       return null
     }
     throw error

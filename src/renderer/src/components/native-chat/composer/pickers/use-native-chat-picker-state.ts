@@ -29,7 +29,7 @@ import {
   applyOrcaSlashArgument,
   deriveOrcaSlashArgumentAutocomplete,
   isOrcaSlashArgumentItem
-} from '../../../../../../shared/native-chat/input/composer/overhedge-slash-arguments'
+} from '../../../../../../shared/native-chat/input/composer/orca-command-arguments'
 import {
   classifyNativeChatSend,
   type NativeChatSendClassification,

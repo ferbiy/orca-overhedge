@@ -1,7 +1,7 @@
 // Overhedge: the argument values the composer offers after `/orca-account ` and `/orca-migrate `:
 // this host's managed Claude accounts (the chat's current one marked) and `auto`.
 import type { ClaudeManagedAccount } from '../../../shared/agent-accounts/managed-account-types'
-import type { OrcaSlashArgumentChoice } from '../../../shared/native-chat/input/composer/overhedge-slash-arguments'
+import type { OrcaSlashArgumentChoice } from '../../../shared/native-chat/input/composer/orca-command-arguments'
 import { claudeAccountLabel, pinnedClaudeAccountForChat } from './claude-chat-account-pins'
 
 export type ClaudeAccountChoiceRouter = {

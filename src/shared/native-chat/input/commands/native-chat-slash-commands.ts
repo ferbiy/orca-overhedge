@@ -2,7 +2,7 @@
 
 import type { AgentSessionSlashCommand } from '../../../agent-session/agent-session-wire'
 import type { AgentType } from '../../../agent-status/contracts/agent-status-types'
-import { orcaSlashArgumentsField } from '../composer/overhedge-slash-arguments'
+import { orcaSlashArgumentsField } from '../composer/orca-command-arguments'
 
 /** Terminal replies: composer answers locally without sending; transcript surfaces an agent-written row; absent means terminal/effect-only feedback. */
 export type NativeChatCommandReply = 'composer' | 'transcript'

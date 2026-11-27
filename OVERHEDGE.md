@@ -68,7 +68,10 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   on, prompts typed in claude.ai or the Claude app show in the Orca chat as user rows, and their
   replies as normal turns (`claude-remote-control-user-turn.ts`).
 - The slash menu of a Claude chat lists `/rc`, `/remote-control` (live child only),
-  `/orca-account` and `/orca-migrate`, appended to the catalog the server already reports.
+  `/orca-account` and `/orca-migrate`, appended to the catalog the server already reports. After
+  `/<command> ` the menu offers the arguments: the host's managed accounts and `auto`, then
+  `--with-workers`; `on`, `off`, `status`. `/orca-account` and `/orca-migrate` also exist in
+  terminal Claude, as Claude Code custom commands Orca installs. See "Arguments of our commands".
 - Per-chat Claude account pins: `/orca-account [<account>|auto]` and
   `/orca-migrate <account>|auto [--with-workers]` in a Claude chat; `orca account migrate` on the
   CLI (with opt-in `--restart` for terminal Claude tabs: on a headless server, once the turn has
@@ -335,6 +338,61 @@ Upstream files touched: `plugin-host-workspace-method-bindings.ts` (`project.lis
 (`agents.list`, 5 lines), `plugin-host-api-workspace-methods.ts` (two optional result fields,
 summary), `plugin-host-api-panel-methods.ts` (optional `hostId` param), plus the regenerated plugin reference docs and typings. The rest
 is in `src/main/plugins/workers/host-api/plugin-host-paired-projects.ts`.
+
+## Arguments of our commands (former branch `overhedge/slash-args`)
+
+UI chats (desktop composer; mobile shows the rows as before, without values):
+
+- `/orca-account ` lists the managed Claude accounts of the host the chat runs on (a server chat:
+  the server's accounts), by email (by id when two share an email), each with its short id; the
+  chat's pinned account is marked `current` (an unpinned chat: its global account `global`, and
+  `auto` `current`), then `auto`. `/orca-migrate ` the same, then `--with-workers`. `/rc ` and
+  `/remote-control ` offer `on [name]`, `off`, `status` (the `on` row says any other word is a
+  session name). Typing filters; Tab, Enter or a click inserts the value and a space; a fully
+  typed value or a word matching nothing closes the menu, so Enter sends. Enter on the
+  `/orca-migrate` row completes it instead of sending the bare (usage-only) command.
+- How: the host puts the values on its catalog rows as `orcaArguments` (`{ positions, required }`;
+  `withOrcaAccountCommands` in `claude-chat-account-slash.ts` with
+  `claude-chat-account-slash-choices.ts`, per chat and recomputed on every catalog read, i.e. each
+  time the menu opens; `CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS` for `/rc`). The composer reads them
+  in `src/shared/native-chat/input/composer/orca-command-arguments.ts`. Upstream has no
+  argument completion (only `argumentHint` text); the extra wire field passes through unchanged
+  (no schema), older clients ignore it.
+- Upstream files touched (one hook each): `native-chat-slash-commands.ts`
+  (`sessionSlashCommandSuggestions` keeps the field), `use-native-chat-picker-state.ts` (`derive`
+  tries ours first; `completeItem` applies our value), `use-native-chat-composer-command-picker.ts`
+  (`interceptPick`: Enter on a row that needs an argument completes it),
+  `structured-agent-session-command-reads.ts` (passes the chat's choices). Tests:
+  `orca-command-arguments.test.ts`, `claude-chat-account-slash-choices.test.ts`, a case in
+  `claude-remote-control.test.ts`.
+
+Terminal Claude (`claude` in an Orca terminal pane):
+
+- `/orca-account [<account>|auto]` and `/orca-migrate <account>|auto [--with-workers]` are Claude
+  Code custom commands (Claude Code completes the name and shows `argument-hint`; it has no value
+  completion). Without arguments Claude runs `orca account list --agent claude` and
+  `orca account migrate --unpin --chat "terminal:$ORCA_PANE_KEY" --dry-run` and lists the
+  accounts with this pane's pin; with an account it runs
+  `orca account migrate --to <account> --chat "terminal:$ORCA_PANE_KEY"` (`--unpin` for `auto`;
+  `--with-workers "terminal:$ORCA_PANE_KEY"` for `/orca-migrate ... --with-workers`), via
+  `${ORCA_CLI_COMMAND:-orca}`. The pin takes effect at the next Claude start in the pane; Claude
+  relays Orca's "type /exit, then run ..." line, or `--restart` from another terminal. It never
+  restarts its own pane (that would wait on its own turn).
+- Installed by account setup on every Claude launch Orca routes (`shareClaudeProfileHistory` ->
+  `installOrcaClaudeCommands`, `claude-profile-orca-commands.ts`): it writes
+  `<default home>/commands/orca-account.md` and `orca-migrate.md` (`~/.claude`, or the user's
+  CLAUDE_CONFIG_DIR), and provisioning links that `commands` folder into every managed account
+  folder, so System default and every account see them. A file without the
+  `orca-managed-command: overhedge` marker is the user's and is never overwritten; Orca's copy is
+  rewritten whenever its text changes. Nothing to install by hand on the server.
+- The Mac's own config folders (`~/.claude-team`, `~/.claude-personal`, used by the shell aliases,
+  not by Orca) are not Orca's; link their `commands` once like their other shared folders:
+  `ln -s ~/.claude/commands ~/.claude-team/commands` (same for `~/.claude-personal`; only where
+  no `commands` folder exists yet).
+- Shell completion for the `orca` CLI: upstream ships none (no `orca completion`), so nothing to
+  register.
+- Re-apply after an Orca update: part of the patch. If upstream adds its own argument completion,
+  move the values onto it and drop ours.
 
 ## Cross-account Claude peers
 

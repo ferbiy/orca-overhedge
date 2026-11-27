@@ -34,11 +34,14 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value.slice(0, MAX_TEXT) : undefined
 }
 
-function readChoice(value: unknown): OrcaSlashArgumentChoice | null {
-  if (typeof value !== 'object' || value === null) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function readChoice(entry: unknown): OrcaSlashArgumentChoice | null {
+  if (!isRecord(entry)) {
     return null
   }
-  const entry = value as Record<string, unknown>
   const word = entry.value
   if (typeof word !== 'string' || !/^\S+$/u.test(word) || word.length > MAX_VALUE) {
     return null
@@ -50,14 +53,11 @@ function readChoice(value: unknown): OrcaSlashArgumentChoice | null {
 
 /** The row's choices when they are well formed; anything else reads as none (a host may be newer). */
 export function readOrcaSlashArguments(row: unknown): OrcaSlashArguments | undefined {
-  const raw =
-    typeof row === 'object' && row !== null
-      ? (row as Record<string, unknown>).orcaArguments
-      : undefined
-  if (typeof raw !== 'object' || raw === null) {
+  const raw = isRecord(row) ? row.orcaArguments : undefined
+  if (!isRecord(raw)) {
     return undefined
   }
-  const positions = (raw as Record<string, unknown>).positions
+  const positions = raw.positions
   if (!Array.isArray(positions)) {
     return undefined
   }
@@ -73,7 +73,7 @@ export function readOrcaSlashArguments(row: unknown): OrcaSlashArguments | undef
   }
   return {
     positions: read,
-    ...((raw as Record<string, unknown>).required === true ? { required: true as const } : {})
+    ...(raw.required === true ? { required: true as const } : {})
   }
 }
 
