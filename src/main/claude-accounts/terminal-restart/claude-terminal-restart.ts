@@ -11,6 +11,7 @@ export type ClaudePaneRestartRefusal =
   | 'viewer_cannot_follow'
   | 'no_resume_command'
   | 'busy'
+  | 'saved_layout_differs'
   | 'stop_failed'
   | 'create_failed'
 
@@ -73,7 +74,9 @@ const REFUSALS: Record<
   not_local: 'the pane is not a live local terminal of this host',
   viewer_cannot_follow: 'a client viewing the pane could not follow a new terminal',
   no_resume_command: 'Orca could not build the resume command for this session',
-  busy: 'the pane is busy (another restart, or the session runs in another pane, or it changed)'
+  busy: 'the pane is busy (another restart, or the session runs in another pane, or it changed)',
+  saved_layout_differs:
+    'the saved layout gives the pane to another terminal or lacks its tab, so no new terminal could take it'
 }
 
 type IdleState = 'idle' | 'working' | 'question'
