@@ -1,5 +1,14 @@
 {
   "overhedge": {
+    "chatMentions": {
+      "heading": "Open chats",
+      "legacy": "{{value0}} runs an older Orca: its chats show their titles, not their names",
+      "loading": "Reading chats on {{value0}}…",
+      "loadingServers": "Reading chats on paired servers…",
+      "thisComputer": "this computer",
+      "thisMac": "this Mac",
+      "unreachable": "{{value0}} can't be reached now"
+    },
     "taskSources": {
       "actionFailed": "{{value0}} failed: {{value1}}",
       "board": {

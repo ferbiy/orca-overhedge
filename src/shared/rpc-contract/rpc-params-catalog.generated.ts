@@ -694,6 +694,7 @@ import {
   NotificationUnsubscribeParams,
   NotificationsSubscribeParams
 } from './notifications/notifications-params'
+import { OpenChatListParams } from './open-chat-list-params'
 import {
   OrcaAccountSelectOrgParams,
   OrcaAccountSignInCompleteParams,
@@ -1192,6 +1193,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agent.launch': AgentLaunch,
   'agent.launchReplay': AgentLaunchReplay,
   'agent.list': AgentListParams,
+  'agent.listOpenChats': OpenChatListParams,
   'agent.read': AgentReadParams,
   'agent.show': AgentShowParams,
   'agentActivity.clear': AgentActivityClearParams,

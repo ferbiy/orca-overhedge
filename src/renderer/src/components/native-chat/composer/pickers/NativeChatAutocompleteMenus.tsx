@@ -28,6 +28,9 @@ import { NativeChatMentionChatList } from './NativeChatMentionChatList'
 import { cn } from '@/lib/class-names'
 import { localizeSlashCommandDescription } from './native-chat-slash-command-descriptions'
 import { nativeChatPickerEmptyText } from './native-chat-picker-empty-text'
+// Overhedge: the "Open chats" group of `@` (OVERHEDGE.md).
+import { OpenChatsGroup } from '../../open-chat-mentions/OpenChatMentionParts'
+import { crewAgentValueCount } from '../../open-chat-mentions/open-chat-mention-rows'
 
 export const NativeChatPickerMenu = memo(function NativeChatPickerMenu({
   autocomplete,
@@ -291,13 +294,14 @@ export const NativeChatMentionMenu = memo(function NativeChatMentionMenu({
           ? t('components.native-chat.composer.filesLoadFailed', "Couldn't load files")
           : room?.withFiles && room.unavailable.length > 0
             ? null
-            : nativeChatMentionEmptyText(room !== null, room?.query)
+            : nativeChatMentionEmptyText(room !== null && room.query !== undefined, room?.query)
   // The room's bots lead, then this chat's crew agents, then files, each under its heading.
   const { bots, agentCount, listed } = groupNativeChatMentionValues(
     files,
     room?.mentions,
     room?.agents
   )
+  const crewEnd = bots + crewAgentValueCount(files.slice(bots, listed))
   const recent = Math.min(room?.recentCount ?? 0, bots)
   const fileCount = files.length - listed
   const grouped = room?.withFiles === true && bots + room.unavailable.length > 0
@@ -368,10 +372,14 @@ export const NativeChatMentionMenu = memo(function NativeChatMentionMenu({
         {files.slice(recent, bots).map((path, index) => option(path, index + recent))}
       </div>
       {grouped ? <NativeChatUnavailableMentions room={room} /> : null}
-      {agentCount > 0 ? <PickerGroupHeading kind="agents" /> : null}
+      {crewEnd > bots ? <PickerGroupHeading kind="agents" /> : null}
       <div className="flex flex-col gap-0.5">
-        {files.slice(bots, listed).map((path, index) => option(path, index + bots))}
+        {files.slice(bots, crewEnd).map((path, index) => option(path, index + bots))}
       </div>
+      <OpenChatsGroup
+        values={files.slice(crewEnd, listed)}
+        option={(path, index) => option(path, index + crewEnd)}
+      />
       {headed && files.length > listed ? <PickerGroupHeading kind="files" /> : null}
       <div className="flex flex-col gap-0.5">
         {files.slice(listed).map((path, index) => option(path, index + listed))}

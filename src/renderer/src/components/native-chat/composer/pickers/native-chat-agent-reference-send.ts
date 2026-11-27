@@ -12,6 +12,8 @@ import {
   projectNativeChatPastedText,
   projectNativeChatPastedTextParts
 } from '../../paste/native-chat-composer-pasted-text-references'
+// Overhedge: an open chat's mention routes with its host and kind (OVERHEDGE.md).
+import { openChatReferenceNote } from '../../open-chat-mentions/open-chat-reference'
 
 type SelectedReference = {
   reference: OrchestrationAgentReference
@@ -142,8 +144,9 @@ export function serializeNativeChatAgentReferences(
   const body = projected
     .map((part) => (typeof part === 'string' ? part : `@${part.opaque.label}`))
     .join('')
-  const notes = [...selected.values()].map(({ reference, label }) =>
-    agentReferenceNote(label, reference.address)
+  const notes = [...selected.values()].map(
+    ({ reference, label }) =>
+      openChatReferenceNote(label, reference) ?? agentReferenceNote(label, reference.address)
   )
   return layout === 'goal'
     ? `${body.trimEnd()} ${notes.join(' ')}`

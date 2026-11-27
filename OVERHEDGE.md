@@ -104,6 +104,10 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
 - Plugin projects on paired servers: in the desktop app, a plugin's `project.list` also lists the
   projects of each paired Orca server, `workspace.create` for one of them makes the workspace
   (and starts its agent) on that server, and `agents.list` reads its agents there. See "Plugin projects on paired servers" below.
+- Chat mentions of open chats: the `@` menu of a native chat has an "Open chats" group listing
+  every open chat and agent terminal on this computer and on each paired Orca server, by the
+  name the user gave it; picking one inserts upstream's agent pill, and the sent message tells the
+  agent exactly how to reach that chat. See "Chat mentions of open chats" below.
 
 ## Overlap with upstream (checked against v1.4.280)
 
@@ -119,6 +123,9 @@ Remote Control test. Then the `overhedge/peers` code commits were cherry-picked 
   `retireStructuredAgentSessionChildOnOtherAccount`). "Other account" is measured against the
   launch account home, which our patch resolves to the pin for a pinned chat, so pinned chats keep
   their agent and pin; unpinned chats follow upstream. Compatible, nothing to change.
+- Chat mentions of open chats: upstream 1.4.280's `@` menu lists this chat's crew (its manager,
+  workers and peers) only. On each port check whether upstream widened crew mentions to every
+  open chat (`useNativeChatComposerMentions`, `crewAgentMentions`); if it did, drop ours.
 - Plugin chat send (`chat.list`/`chat.send`) and Badge/status colours: not in upstream 1.4.280
   (no `chat:send` capability; Badge has no `color`; `ui.catalog` still 4).
 - Per-chat account pins and `--account` on launches: not in upstream. Upstream's account model is
@@ -396,6 +403,65 @@ Terminal Claude (`claude` in an Orca terminal pane):
   register.
 - Re-apply after an Orca update: part of the patch. If upstream adds its own argument completion,
   move the values onto it and drop ours.
+
+## Chat mentions of open chats (former branch `overhedge/chat-mentions`)
+
+Built 2026-11-28 (research notes: `decisions/chat-mentions/` in the founder's workspace).
+
+The `@` menu of a native (structured) chat gets an "Open chats" group after the crew agents and
+before the files: every open chat and agent terminal on this computer and, for a chat on this
+computer, on each paired Orca server (a chat on a server lists only that server's: mail from there
+reaches no other host). This chat is left out, and so is an agent the crew group already lists.
+
+- Names: a row shows the name the user gave the chat: an Orca rename or `/rename` of a UI chat
+  (`conversationNameSource: 'user'`), or a `/rename`/`--name` of a terminal Claude (the session's
+  `name` with `nameSource: "user"` in `<claude config>/sessions/<pid>.json`, matched by the session
+  id its hooks report). A chat nobody named shows its Orca title, dimmed, still pickable. A name
+  shared by several rows gets a muted `workspace · host · agent` suffix (and the start of its id
+  if even that repeats); a unique one only notes another host or a non-Claude-chat agent
+  (`Codex chat`, `Claude terminal`). Bare `@` shows the first 6 (this host first, named ones
+  first, then the most recent); typing matches names by word start, never workspaces, so a file
+  path after `@` doesn't pull a chat in.
+- `/rename` in a UI chat needed no change: Claude handles the command itself (it emits
+  `session_title_changed`; checked on 2.1.332 in stream-json mode), upstream names the Orca chat
+  from it with source `user` (`claude-user-rename.ts`), and an Orca rename is pushed to Claude
+  with `rename_session` (`structured-agent-session-provider-naming.ts`). So the name is the same in
+  this menu, the chat's tab and terminal Claude's native `@session` list.
+- On pick, upstream's agent pill (`nativeChatAgentReference`) goes in. Its opaque `hostKey`
+  attribute carries `open-chat:{host, on, hostLabel, workspace, kind, agent, peer}`. On send,
+  upstream's serializer writes `@name` in the body (clashing labels numbered) and, for an open
+  chat, our routing line instead of upstream's:
+  `[Orca chat "MAESTRO" (Claude chat in workspace "maestro" on the paired Orca server orca-ide):
+  orca_session_id:... -- message it with orca orchestration send --to orca_session_id:... --on
+  orca-ide --subject "<topic>" --body "<message>"]`. A terminal is addressed by its `term_...`
+  handle (its Orca session id can't be sent to). When the chat is on the same host and a live
+  Claude session there carries exactly its user-given name, the line adds `; while its Claude runs
+  it is also the Claude Code session "<name>" here, so SendMessage to "<name>" reaches it too`.
+  `--on` is the server's saved name when that is a plain, unique word, else its environment id.
+- Data: `agent.listOpenChats` (new, read-only, `workspace` permission) answers a host's own rows
+  from `worktree.ps`, its session records and the sessions folder (only `<pid>.json`, never the
+  `.key` files; read at most every 2 s). The desktop reads this computer's in process and each
+  paired server's through its own transport with background calls (no idle host is woken, a
+  disconnected one is refused); a server whose Orca predates the method is read with `agent.list`
+  (chats only, titles only, footer "runs an older Orca"). Reads start when `@` opens, are cached
+  10 s per host, and remote rows appear when they arrive; a muted footer names a host still being
+  read or out of reach.
+
+Upstream files touched: `native-chat-composer-room.ts` (merge and rank, about 8 lines),
+`NativeChatComposerPane.tsx` (passes the structured transport, 1 line),
+`NativeChatAutocompleteMenus.tsx` (crew/open-chat split, the "Open chats" group, and the empty
+text of an agents-only menu reads "No matching files" again, about 8 lines),
+`native-chat-agent-reference-send.ts` (our note first, 2 lines), `agent-conversation-methods.ts`
+(registers the method, 3 lines), `en.json` (keys in our `overhedge` block), and the regenerated
+`rpc-params-catalog.generated.ts`. The rest is in `src/renderer/src/components/native-chat/
+open-chat-mentions/`, `src/main/chat-mentions/`, `src/shared/chat-mentions/`,
+`src/shared/rpc-contract/open-chat-list-params.ts` and
+`src/main/runtime/rpc/methods/agent-conversations/open-chat-list-method.ts`.
+
+Not covered: PTY (terminal-hosted) native chats and the mobile composer have no "Open chats"
+group (they don't know their own session and host); delivery to a chat on a paired server goes
+through Orca's own `--on` mail, which was not exercised live here (no real chat was messaged).
+The server lists names only once its deb carries this change.
 
 ## Cross-account Claude peers
 

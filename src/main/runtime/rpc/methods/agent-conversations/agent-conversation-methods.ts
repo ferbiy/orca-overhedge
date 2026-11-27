@@ -15,6 +15,7 @@ import {
 } from '../../../agent-conversations/agent-conversation-list'
 import { resolveAgentConversation } from '../../../agent-conversations/agent-conversation-address'
 import { readAgentConversation } from '../../../agent-conversations/agent-conversation-read'
+import { OPEN_CHAT_METHODS } from './open-chat-list-method'
 
 // Listing reads every workspace's open agents, so no workspace page may hide one.
 const AGENT_LIST_WORKTREE_LIMIT = 10_000
@@ -51,5 +52,7 @@ export const AGENT_CONVERSATION_METHODS = [
     params: AgentReadParams,
     handler: async (params, ctx): Promise<AgentReadResult> =>
       readAgentConversation(ctx, await resolveAgentConversation(ctx.runtime, params.id), params)
-  })
+  }),
+  // Overhedge: the composer's "Open chats" mentions (OVERHEDGE.md).
+  ...OPEN_CHAT_METHODS
 ]

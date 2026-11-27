@@ -132,7 +132,8 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
       terminalTabId,
       structuredWorktreeId: structuredTransport?.worktreeId,
       caret,
-      notices
+      notices,
+      openChatSelf: structuredTransport
     })
     const { autocomplete } = mentions
 

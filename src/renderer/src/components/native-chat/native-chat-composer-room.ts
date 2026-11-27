@@ -41,10 +41,15 @@ import {
 } from '../orchestration-crew/use-native-chat-crew'
 import {
   crewAgentMentions,
-  rankNativeChatCrewMentions,
   NO_CREW_AGENT_MENTIONS
 } from '../orchestration-crew/native-chat-crew-mentions'
 import type { NativeChatMentionToken } from './composer/editor/native-chat-composer-input'
+// Overhedge: the "Open chats" group of `@` (OVERHEDGE.md).
+import {
+  useWithOpenChatMentions,
+  type OpenChatComposerSelf
+} from './open-chat-mentions/use-open-chat-mentions'
+import { rankAgentAndOpenChatMentions } from './open-chat-mentions/open-chat-mention-rows'
 
 const memberOf = (room: NativeChatComposerRoom | undefined, value: string) =>
   room?.mentions.find((mention) => nativeChatMentionValue(mention) === value)
@@ -78,6 +83,7 @@ export function useNativeChatComposerMentions(
   {
     caret: caretAt,
     notices = NO_NOTICES,
+    openChatSelf,
     ...files
   }: {
     terminalTabId: string
@@ -85,6 +91,8 @@ export function useNativeChatComposerMentions(
     caret?: number
     /** The composer's own notices; a picked chat that can't go adds its own. */
     notices?: readonly NativeChatComposerNotice[]
+    /** Overhedge: the structured chat this composer writes in; it lists the app's open chats. */
+    openChatSelf?: OpenChatComposerSelf
   }
 ) {
   const t = useTranslate()
@@ -134,13 +142,17 @@ export function useNativeChatComposerMentions(
       ? 'local'
       : crew.target.environmentId
     : null
-  const crewAgents = useMemo(
-    () =>
-      crewRows && crewHost ? crewAgentMentions(crewRows, crewHost, t) : NO_CREW_AGENT_MENTIONS,
-    [crewRows, crewHost, t]
+  const crewAgents = useWithOpenChatMentions(
+    useMemo(
+      () =>
+        crewRows && crewHost ? crewAgentMentions(crewRows, crewHost, t) : NO_CREW_AGENT_MENTIONS,
+      [crewRows, crewHost, t]
+    ),
+    menuOpen,
+    openChatSelf
   )
   const agents = useMemo(
-    () => (query !== null ? rankNativeChatCrewMentions(crewAgents.mentions, query) : NO_VALUES),
+    () => (query !== null ? rankAgentAndOpenChatMentions(crewAgents.mentions, query) : NO_VALUES),
     [crewAgents, query]
   )
   const ranked = useMemo(
