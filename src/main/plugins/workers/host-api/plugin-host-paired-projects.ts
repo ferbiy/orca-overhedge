@@ -15,7 +15,6 @@ import {
   getRepoExecutionHostId
 } from '../../../../shared/execution-host/execution-host'
 import { isRepoHidden } from '../../../../shared/project/catalog/hidden-projects'
-import { AGENT_STATUS_STATES } from '../../../../shared/agent-status/contracts/agent-status-types'
 import { PLUGIN_AGENT_LIST_LIMIT } from '../../../../shared/plugins/workers/plugin-host-api-panel-methods'
 import { suggestCreatureNameForPaths } from '../../../../shared/worktree/naming/worktree-name-suggestion'
 import type { PluginHostMethodContext } from './plugin-host-method-bind'
@@ -26,6 +25,14 @@ import {
   type PluginRuntimeRpc
 } from './plugin-host-runtime-call'
 import { desktopPairedRuntimeHosts, type PairedRuntimeHosts } from './plugin-chat-paired-runtime'
+import {
+  agentLaunchAnswer,
+  repoListAnswer,
+  repoRow,
+  serverAgentListAnswer,
+  worktreeCreateAnswer,
+  worktreeListAnswer
+} from './plugin-host-paired-server-answers'
 
 /** overhedge: `project.list` also lists the projects of each paired Orca server this desktop has
  *  saved, `workspace.create` makes a workspace (and starts its agent) on that server, and
@@ -40,30 +47,6 @@ const LABEL_MAX = 512
 
 type ProjectList = PluginHostResult<'project.list'>
 type Project = ProjectList['projects'][number]
-
-// The parts of a server's answers read here; the rest is dropped.
-const repoRow = z.object({
-  id: z.string(),
-  kind: z.string().optional(),
-  displayName: z.string().optional(),
-  path: z.string(),
-  executionHostId: z.string().nullable().optional(),
-  connectionId: z.string().nullable().optional(),
-  hiddenAt: z.number().optional().catch(undefined)
-})
-const repoListAnswer = z.object({ repos: z.array(repoRow) })
-const worktreeRecord = z.object({
-  id: z.string(),
-  identity: z.object({ key: z.string() }).optional()
-})
-const worktreeListAnswer = z.object({
-  worktrees: z.array(worktreeRecord.extend({ repoId: z.string(), path: z.string() }))
-})
-const worktreeCreateAnswer = z.object({ worktree: worktreeRecord })
-const agentLaunchAnswer = z.object({
-  worktreeId: z.string(),
-  outcome: z.object({ handle: z.string() })
-})
 
 /** One line, plain, at most `max`: a server's name comes from the person. */
 function plainLabel(text: string, max: number): string {
@@ -265,20 +248,6 @@ export async function createWorkspaceOnPairedServer(
     terminalId: launched.outcome.handle
   }
 }
-
-// The parts of a server's `agent.list` row read here (what `orca agent list` reads).
-const serverAgentListAnswer = z.object({
-  agents: z.array(
-    z.object({
-      agent: z.string().nullable().optional(),
-      state: z.enum(AGENT_STATUS_STATES),
-      worktreeId: z.string().optional(),
-      hostId: z.string().optional(),
-      title: z.string().nullable().optional(),
-      updatedAt: z.number().finite()
-    })
-  )
-})
 
 /**
  * `agents.list` for a workspace on a paired server (`hostId` as `project.list` gave it): that

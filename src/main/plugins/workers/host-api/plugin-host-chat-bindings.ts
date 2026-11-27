@@ -1,6 +1,7 @@
 // Overhedge: plugin chat send (`chat:send`); see OVERHEDGE.md "Plugin chat send".
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { lazyZodSchema } from '../../../../shared/schema/lazy-zod-schema'
 import { PLUGIN_HOST_API } from '../../../../shared/plugins/workers/plugin-host-api'
 import { PLUGIN_CHAT_LIST_LIMIT } from '../../../../shared/plugins/workers/plugin-host-api-chat'
 import { createStructuredAgentSessionOperationId } from '../../../../shared/agent-session/lifecycle/operations/structured-agent-session-mutation'
@@ -25,14 +26,18 @@ import { desktopPairedRuntimeHosts, type PairedRuntimeHosts } from './plugin-cha
 const LIST_TIMEOUT_MS = 8_000
 const RUNTIME_PREFIX = 'runtime:'
 
-const historyAnswer = z.object({
-  page: z.object({ fence: z.number().int().positive().optional() }),
-  fence: z.number().int().positive().optional()
-})
-const sendAnswer = z.union([
-  z.object({ ok: z.literal(true), value: z.object({}).passthrough() }),
-  z.object({ ok: z.literal(false), refusal: z.object({ code: z.string() }).passthrough() })
-])
+const historyAnswer = lazyZodSchema(() =>
+  z.object({
+    page: z.object({ fence: z.number().int().positive().optional() }),
+    fence: z.number().int().positive().optional()
+  })
+)
+const sendAnswer = lazyZodSchema(() =>
+  z.union([
+    z.object({ ok: z.literal(true), value: z.object({}).passthrough() }),
+    z.object({ ok: z.literal(false), refusal: z.object({ code: z.string() }).passthrough() })
+  ])
+)
 
 type HostCall = (method: string, params: unknown) => Promise<unknown>
 
