@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Query } from '@anthropic-ai/claude-agent-sdk'
 import {
+  CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS,
   claudeQueryRemoteControl,
   parseClaudeRemoteControlCommand,
   withClaudeRemoteControlCommands
@@ -253,5 +254,17 @@ describe('ClaudeRemoteControlRegistry', () => {
     registry.observeConnection('s', fakeConnection(remoteControl))
     await Promise.resolve()
     expect(remoteControl).not.toHaveBeenCalled()
+  })
+})
+
+describe('remote control argument values (overhedge composer completion)', () => {
+  it('offers only words the command reads as an action', () => {
+    for (const row of CLAUDE_REMOTE_CONTROL_SLASH_COMMANDS) {
+      const words = row.orcaArguments?.positions[0]?.map((choice) => choice.value) ?? []
+      expect(words).toEqual(['on', 'off', 'status'])
+      for (const word of words) {
+        expect(parseClaudeRemoteControlCommand(`/${row.name} ${word}`)?.action).not.toBe('usage')
+      }
+    }
   })
 })

@@ -1,5 +1,9 @@
 // Overhedge: grammar of the `/orca-account` and `/orca-migrate` chat commands.
 import type { AgentSessionSlashCommand } from '../../../shared/agent-session/agent-session-wire'
+import type {
+  OrcaSlashArgumentChoice,
+  WithOrcaSlashArguments
+} from '../../../shared/native-chat/input/composer/orca-command-arguments'
 
 export const ORCA_ACCOUNT_USAGE = [
   'Usage:',
@@ -62,26 +66,62 @@ export const ORCA_ACCOUNT_SLASH_COMMANDS: readonly AgentSessionSlashCommand[] = 
   }
 ]
 
-// Subscribers compare catalogs by identity, so one reported catalog keeps one extended copy.
-const extended = new WeakMap<readonly AgentSessionSlashCommand[], AgentSessionSlashCommand[]>()
+const WITH_WORKERS: OrcaSlashArgumentChoice = {
+  value: '--with-workers',
+  description: 'Also move every worker this chat dispatched'
+}
+
+/** The rows with their argument values (the composer completes them); none without accounts. */
+function accountRows(
+  choices: readonly OrcaSlashArgumentChoice[]
+): (AgentSessionSlashCommand & WithOrcaSlashArguments)[] {
+  if (choices.length === 0) {
+    return [...ORCA_ACCOUNT_SLASH_COMMANDS]
+  }
+  const [account, migrate] = ORCA_ACCOUNT_SLASH_COMMANDS
+  return [
+    { ...account, orcaArguments: { positions: [[...choices]] } },
+    { ...migrate, orcaArguments: { positions: [[...choices], [WITH_WORKERS]], required: true } }
+  ]
+}
+
+// Subscribers compare catalogs by identity, so one reported catalog keeps one extended copy per
+// set of account choices (pins and accounts change rarely; a few copies per catalog at most).
+const extended = new WeakMap<
+  readonly AgentSessionSlashCommand[],
+  Map<string, AgentSessionSlashCommand[]>
+>()
+const MAX_COPIES_PER_CATALOG = 8
 
 /** A Claude chat's known catalog gains the account commands, which Orca answers itself whenever
- *  this host routes Claude accounts. An unknown catalog stays unknown, so clients keep their own. */
+ *  this host routes Claude accounts. An unknown catalog stays unknown, so clients keep their own.
+ *  `choices` (read only when the catalog is extended) are the values `/orca-account ` offers. */
 export function withOrcaAccountCommands(
   provider: string | undefined,
   commands: AgentSessionSlashCommand[] | undefined,
-  routesAccounts: boolean
+  routesAccounts: boolean,
+  choices: () => readonly OrcaSlashArgumentChoice[] = () => []
 ): AgentSessionSlashCommand[] | undefined {
   if (commands === undefined || provider !== 'claude' || !routesAccounts) {
     return commands
   }
-  const known = extended.get(commands)
+  const names = new Set(commands.map((command) => command.name))
+  if (ORCA_ACCOUNT_SLASH_COMMANDS.every((command) => names.has(command.name))) {
+    // Already extended (or the provider has commands of these names): keep it as it is.
+    return commands
+  }
+  const rows = accountRows(choices())
+  const key = JSON.stringify(rows)
+  let copies = extended.get(commands)
+  const known = copies?.get(key)
   if (known) {
     return known
   }
-  const names = new Set(commands.map((command) => command.name))
-  const added = ORCA_ACCOUNT_SLASH_COMMANDS.filter((command) => !names.has(command.name))
-  const result = added.length === 0 ? commands : [...commands, ...added]
-  extended.set(commands, result)
+  if (!copies || copies.size >= MAX_COPIES_PER_CATALOG) {
+    copies = new Map()
+    extended.set(commands, copies)
+  }
+  const result = [...commands, ...rows.filter((command) => !names.has(command.name))]
+  copies.set(key, result)
   return result
 }

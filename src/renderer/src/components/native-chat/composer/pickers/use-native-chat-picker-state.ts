@@ -26,6 +26,11 @@ import {
 } from '../../../../../../shared/native-chat/input/composer/native-chat-composer-autocomplete'
 import { applyPickerSuggestion } from '../../../../../../shared/native-chat/input/composer/native-chat-picker-triggers'
 import {
+  applyOrcaSlashArgument,
+  deriveOrcaSlashArgumentAutocomplete,
+  isOrcaSlashArgumentItem
+} from '../../../../../../shared/native-chat/input/composer/orca-command-arguments'
+import {
   classifyNativeChatSend,
   type NativeChatSendClassification,
   type NativeChatSessionSkill,
@@ -137,6 +142,12 @@ export function useNativeChatPickerState(args: {
   const lastOpenKeyRef = useRef<string | null>(null)
   const derive = useCallback(
     (value: string, at: number, dismissedTriggerKey: string | null) =>
+      // overhedge: argument values of Orca's own commands (`/orca-account <account>`).
+      deriveOrcaSlashArgumentAutocomplete(
+        value.slice(0, at),
+        pickerCommands,
+        dismissedTriggerKey
+      ) ??
       deriveComposerAutocomplete(
         value,
         at,
@@ -222,7 +233,9 @@ export function useNativeChatPickerState(args: {
         return
       }
       const [text, at] = liveDraft()
-      const result = applyPickerSuggestion(text, at, item)
+      const result = isOrcaSlashArgumentItem(item)
+        ? applyOrcaSlashArgument(text, at, item)
+        : applyPickerSuggestion(text, at, item)
       if (item.kind === 'skill' && textareaRef.current?.insertSkill) {
         const from = result.caret - result.insertedToken.length - 1
         textareaRef.current.insertSkill(from, result.replacedEnd, result.insertedToken, item.path)
