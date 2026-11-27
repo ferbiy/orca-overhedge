@@ -36,7 +36,11 @@ is attached to its result (`withLocalWorkerClaudeAccount`, replacing
 `prepareLocalWorkerStartWithClaudeAccount`), still before the Run is bound, so a retried Claude
 worker without `--account` follows its coordinator's pin like a new one. Upstream's relaunch of a
 Claude terminal on an account switch got sturdier (#50362, #50449: it keeps the old terminal when
-it cannot relaunch in the pane); `account migrate --restart` uses that code and gains it.
+it cannot relaunch in the pane); `account migrate --restart` uses that code and gains it, and
+reports the new `saved_layout_differs` refusal like the others (nothing stopped, manual command
+printed). Upstream's new `zod-prefer-lazy-schema` ratchet (#50160) made us wrap our own Main/Shared
+schemas in `lazyZodSchema` too; the paired server answer schemas moved to
+`plugin-host-paired-server-answers.ts` (file length limit). No behavior change from either.
 
 Port 273 -> 278 (2026-11-26, automated run; upstream 274, 277, 278): the squashed
 `base-273..patch-273` diff (task sources, status colours and task board included) was re-applied
