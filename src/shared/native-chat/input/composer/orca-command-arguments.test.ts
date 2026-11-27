@@ -33,7 +33,9 @@ const reported: (AgentSessionSlashCommand & WithOrcaSlashArguments)[] = [
   {
     name: 'rc',
     kind: 'command',
-    orcaArguments: { positions: [[{ value: 'on', hint: '[name]' }, { value: 'off' }, { value: 'status' }]] }
+    orcaArguments: {
+      positions: [[{ value: 'on', hint: '[name]' }, { value: 'off' }, { value: 'status' }]]
+    }
   }
 ]
 const commands = sessionSlashCommandSuggestions('claude', reported)

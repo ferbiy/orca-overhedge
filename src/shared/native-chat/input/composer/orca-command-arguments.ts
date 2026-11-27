@@ -137,8 +137,9 @@ export function deriveOrcaSlashArgumentAutocomplete(
   const lower = query.toLowerCase()
   const shown = choices
     .map((choice, order) => ({ choice, order, rank: rank(choice, lower) }))
-    .filter((entry): entry is { choice: OrcaSlashArgumentChoice; order: number; rank: number } =>
-      entry.rank !== null
+    .filter(
+      (entry): entry is { choice: OrcaSlashArgumentChoice; order: number; rank: number } =>
+        entry.rank !== null
     )
     .sort((a, b) => a.rank - b.rank || a.order - b.order)
   // A fully typed value leaves the menu closed, so Enter sends the command.

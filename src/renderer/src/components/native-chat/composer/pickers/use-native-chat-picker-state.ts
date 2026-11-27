@@ -143,7 +143,11 @@ export function useNativeChatPickerState(args: {
   const derive = useCallback(
     (value: string, at: number, dismissedTriggerKey: string | null) =>
       // overhedge: argument values of Orca's own commands (`/orca-account <account>`).
-      deriveOrcaSlashArgumentAutocomplete(value.slice(0, at), pickerCommands, dismissedTriggerKey) ??
+      deriveOrcaSlashArgumentAutocomplete(
+        value.slice(0, at),
+        pickerCommands,
+        dismissedTriggerKey
+      ) ??
       deriveComposerAutocomplete(
         value,
         at,

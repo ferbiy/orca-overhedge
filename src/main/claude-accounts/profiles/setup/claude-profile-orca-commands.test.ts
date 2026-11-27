@@ -1,5 +1,13 @@
 // Overhedge: `/orca-account` and `/orca-migrate` for terminal Claude, written by account setup.
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -65,7 +73,9 @@ describe('installOrcaClaudeCommands', () => {
   it('declares the hint Claude Code shows and runs the pane-scoped CLI', () => {
     const account = ORCA_CLAUDE_COMMAND_FILES['orca-account.md']
     const migrate = ORCA_CLAUDE_COMMAND_FILES['orca-migrate.md']
-    expect(account).toMatch(/^---\ndescription: "Orca: [^\n]+"\nargument-hint: "\[<account>\|auto\]"\n/u)
+    expect(account).toMatch(
+      /^---\ndescription: "Orca: [^\n]+"\nargument-hint: "\[<account>\|auto\]"\n/u
+    )
     expect(migrate).toContain('argument-hint: "<account>|auto [--with-workers]"')
     for (const text of [account, migrate]) {
       expect(text).toContain('$ARGUMENTS')
