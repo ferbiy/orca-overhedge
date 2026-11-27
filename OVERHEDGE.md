@@ -385,10 +385,13 @@ Terminal Claude (`claude` in an Orca terminal pane):
   folder, so System default and every account see them. A file without the
   `orca-managed-command: overhedge` marker is the user's and is never overwritten; Orca's copy is
   rewritten whenever its text changes. Nothing to install by hand on the server.
-- The Mac's own config folders (`~/.claude-team`, `~/.claude-personal`, used by the shell aliases,
-  not by Orca) are not Orca's; link their `commands` once like their other shared folders:
-  `ln -s ~/.claude/commands ~/.claude-team/commands` (same for `~/.claude-personal`; only where
-  no `commands` folder exists yet).
+- Only hosts with managed Claude accounts run account setup, so only they get the files (the
+  team server does; the Mac, 2026-11-28, has none, and there the commands would only answer that
+  there is nothing to pin). A terminal of a server workspace runs on the server and reads the
+  server's `~/.claude/commands`. The Mac's own config folders (`~/.claude-team`,
+  `~/.claude-personal`, used by shell aliases, not by Orca) would need a one-time
+  `ln -s ~/.claude/commands ~/.claude-team/commands` (same for `~/.claude-personal`) if that Mac
+  ever gets managed accounts. POSIX shells only (`${ORCA_CLI_COMMAND:-orca}`); not Windows.
 - Shell completion for the `orca` CLI: upstream ships none (no `orca completion`), so nothing to
   register.
 - Re-apply after an Orca update: part of the patch. If upstream adds its own argument completion,
